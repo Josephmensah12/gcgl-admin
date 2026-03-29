@@ -80,21 +80,21 @@ exports.overrideDates = asyncHandler(async (req, res) => {
     throw new AppError('Start date must be before end date', 400);
   }
 
-  await shipment.update({
-    admin_start_date_override: startDate || null,
-    admin_end_date_override: endDate || null,
-    start_date: startDate || shipment.start_date,
-    end_date: endDate || shipment.end_date,
-    fixed_cost_notes: notes || null,
-  });
+  const updates = { fixed_cost_notes: notes || null };
+  if (startDate) { updates.start_date = startDate; updates.admin_start_date_override = startDate; }
+  if (endDate) { updates.end_date = endDate; updates.admin_end_date_override = endDate; }
 
-  if (startDate || endDate) {
-    await allocationService.recalculateShipmentAllocations(
-      shipment.id, startDate || shipment.start_date, endDate || shipment.end_date
-    );
+  await db.Shipment.update(updates, { where: { id: shipment.id } });
+
+  const effectiveStart = startDate || (shipment.start_date ? String(shipment.start_date).substring(0, 10) : null);
+  const effectiveEnd = endDate || (shipment.end_date ? String(shipment.end_date).substring(0, 10) : null);
+
+  if (effectiveStart) {
+    await allocationService.recalculateShipmentAllocations(shipment.id, effectiveStart, effectiveEnd);
   }
 
-  res.json({ success: true, data: shipment });
+  const updated = await db.Shipment.findByPk(shipment.id);
+  res.json({ success: true, data: updated });
 });
 
 // Manual allocation
