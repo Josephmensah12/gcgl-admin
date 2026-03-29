@@ -91,7 +91,7 @@ export default function Pickups() {
     return 'bg-red-100 text-red-700';
   };
 
-  if (loading) return <LoadingSpinner text="Loading pickups..." />;
+  if (loading) return <LoadingSpinner text="Loading invoices..." />;
 
   return (
     <div className="space-y-6">
@@ -128,7 +128,7 @@ export default function Pickups() {
               onChange={(e) => { setFilter(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             >
-              <option value="all">All Pickups</option>
+              <option value="all">All Invoices</option>
               <option value="unassigned">Unassigned Only</option>
             </select>
           </div>
@@ -247,7 +247,7 @@ export default function Pickups() {
             </tbody>
           </table>
           {pickups.length === 0 && (
-            <p className="text-center py-12 text-gray-400">No pickups found</p>
+            <p className="text-center py-12 text-gray-400">No invoices found</p>
           )}
         </div>
 

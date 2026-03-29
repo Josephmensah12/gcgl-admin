@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom';
 
 const routeNames = {
   '/': 'Dashboard',
-  '/pickups': 'Agent Pickups',
+  '/pickups': 'Invoices',
   '/shipments': 'Shipments',
   '/shipments/new': 'Create Shipment',
   '/customers': 'Customers',
@@ -22,7 +22,7 @@ export default function TopBar({ onMenuClick, collapsed }) {
     // Check dynamic routes
     if (location.pathname.startsWith('/customers/')) return 'Customer Details';
     if (location.pathname.startsWith('/shipments/')) return 'Shipment Details';
-    if (location.pathname.startsWith('/pickups/')) return 'Pickup Details';
+    if (location.pathname.startsWith('/pickups/')) return 'Invoice Details';
     return 'GCGL Admin';
   };
 

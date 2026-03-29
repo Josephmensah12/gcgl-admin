@@ -12,7 +12,7 @@ const navGroups = [
   {
     label: 'OPERATIONS',
     items: [
-      { name: 'Agent Pickups', path: '/pickups', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+      { name: 'Invoices', path: '/pickups', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
       {
         name: 'Shipments', icon: 'M8 17h8M8 17l-2 2m2-2l-2-2m10 2l2 2m-2-2l2-2M3 9h18M3 9a2 2 0 012-2h14a2 2 0 012 2M3 9v8a2 2 0 002 2h14a2 2 0 002-2V9',
         submenu: [

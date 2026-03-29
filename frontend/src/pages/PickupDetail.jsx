@@ -16,13 +16,13 @@ export default function PickupDetail() {
   }, [id]);
 
   if (loading) return <LoadingSpinner />;
-  if (!pickup) return <p className="text-center py-12 text-gray-500">Pickup not found</p>;
+  if (!pickup) return <p className="text-center py-12 text-gray-500">Invoice not found</p>;
 
   return (
     <div className="space-y-6">
       <Link to="/pickups" className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700 gap-1">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        Back to Pickups
+        Back to Invoices
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
