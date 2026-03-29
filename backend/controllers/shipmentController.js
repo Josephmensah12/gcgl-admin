@@ -157,7 +157,7 @@ exports.delete = asyncHandler(async (req, res) => {
 
 exports.getActiveShipments = asyncHandler(async (req, res) => {
   const shipments = await db.Shipment.findAll({
-    where: { status: { [Op.in]: ['collecting', 'ready'] } },
+    where: { status: { [Op.notIn]: ['delivered'] } },
     order: [['createdAt', 'DESC']],
   });
 
