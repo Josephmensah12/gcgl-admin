@@ -438,6 +438,13 @@ export default function Expenses() {
                         <span className="font-medium text-gray-900 text-sm">{cat.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        <button onClick={async () => {
+                          try { await axios.post(`/api/v1/fixed-costs/categories/${cat.id}/toggle-fixed`); loadCategories(); }
+                          catch (e) { alert('Failed'); }
+                        }}
+                          className={`text-xs font-medium px-2 py-0.5 rounded ${cat.is_fixed_cost ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {cat.is_fixed_cost ? 'Fixed' : 'Variable'}
+                        </button>
                         <button onClick={() => { setEditingCat(cat.id); setEditCatName(cat.name); }}
                           className="text-xs text-primary-600 hover:text-primary-700 font-medium">Rename</button>
                         <button onClick={() => handleDeleteCategory(cat.id)}

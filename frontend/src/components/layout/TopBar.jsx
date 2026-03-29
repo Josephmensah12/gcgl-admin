@@ -9,6 +9,7 @@ const routeNames = {
   '/customers': 'Customers',
   '/payments': 'Payments',
   '/expenses': 'Expenses',
+  '/fixed-costs': 'Fixed Cost Allocation',
   '/settings/company': 'Company Settings',
   '/settings/shipments': 'Shipment Configuration',
   '/settings/catalog': 'Catalog Management',

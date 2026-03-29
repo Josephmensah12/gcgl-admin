@@ -15,6 +15,7 @@ import CreateInvoice from './pages/CreateInvoice';
 import Expenses from './pages/Expenses';
 import TransactionReview from './pages/TransactionReview';
 import BankSettings from './pages/BankSettings';
+import FixedCosts from './pages/FixedCosts';
 import CompanySettings from './pages/admin/CompanySettings';
 import ShipmentSettings from './pages/admin/ShipmentSettings';
 import CatalogManager from './pages/admin/CatalogManager';
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="payments" element={<Payments />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="bank/review" element={<TransactionReview />} />
+        <Route path="fixed-costs" element={<FixedCosts />} />
         <Route path="settings/bank" element={<BankSettings />} />
         <Route path="settings/company" element={<CompanySettings />} />
         <Route path="settings/shipments" element={<ShipmentSettings />} />

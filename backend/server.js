@@ -1,8 +1,10 @@
 require('dotenv').config();
+const cron = require('node-cron');
 const app = require('./app');
 const db = require('./models');
 const seedAdmin = require('./seeders/seedAdmin');
 const seedExpenseCategories = require('./seeders/seedExpenseCategories');
+const fixedCostService = require('./services/fixedCostAllocationService');
 
 const PORT = process.env.PORT || 4100;
 
@@ -14,16 +16,38 @@ async function start() {
     await db.sequelize.sync({ alter: true });
     console.log('Models synced');
 
-    // Fix: allow null on bank_connection_id for CSV imports
-    try {
-      await db.sequelize.query('ALTER TABLE imported_transactions ALTER COLUMN bank_connection_id DROP NOT NULL;');
-    } catch (e) { /* column may already be nullable */ }
+    // Schema fixes
+    const safeAlter = async (sql) => { try { await db.sequelize.query(sql); } catch (e) { /* already applied */ } };
+    await safeAlter('ALTER TABLE imported_transactions ALTER COLUMN bank_connection_id DROP NOT NULL');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN start_date DATE');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN end_date DATE');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN active_days INTEGER DEFAULT 0');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN daily_fixed_rate DECIMAL(10,2) DEFAULT 0');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN accrued_fixed_costs DECIMAL(10,2) DEFAULT 0');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN admin_start_date_override DATE');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN admin_end_date_override DATE');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN manual_fixed_cost_override DECIMAL(10,2)');
+    await safeAlter('ALTER TABLE shipments ADD COLUMN fixed_cost_notes TEXT');
+    await safeAlter('ALTER TABLE expense_categories ADD COLUMN is_fixed_cost BOOLEAN DEFAULT false');
+    await safeAlter('ALTER TABLE imported_transactions ADD COLUMN is_fixed_cost BOOLEAN DEFAULT false');
 
     await seedAdmin();
     await seedExpenseCategories();
 
     app.listen(PORT, () => {
       console.log(`GCGL Admin Portal API running on port ${PORT}`);
+
+      // Daily fixed cost allocation at 1:00 AM CST
+      cron.schedule('0 1 * * *', async () => {
+        console.log('Running daily fixed cost allocation...');
+        try {
+          const result = await fixedCostService.allocateDaily();
+          console.log('Fixed cost allocation complete:', result);
+        } catch (err) {
+          console.error('Fixed cost allocation failed:', err.message);
+        }
+      }, { timezone: 'America/Chicago' });
+      console.log('Fixed cost allocation cron scheduled (daily 1:00 AM CST)');
     });
   } catch (err) {
     console.error('Startup error:', err);
