@@ -172,7 +172,7 @@ export default function Pickups() {
               <option value="">Select shipment...</option>
               {shipments.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.capacityPercent}% full - ${parseFloat(s.totalValue).toLocaleString()})
+                  {s.name} [{s.status}] ({s.capacityPercent}% - ${parseFloat(s.totalValue).toLocaleString()})
                 </option>
               ))}
             </select>

@@ -552,7 +552,7 @@ export default function CreateInvoice() {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm">
                 <option value="">-- Unassigned --</option>
                 {shipments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.capacityPercent}% full)</option>
+                  <option key={s.id} value={s.id}>{s.name} [{s.status}] ({s.capacityPercent}% - ${parseFloat(s.totalValue).toLocaleString()})</option>
                 ))}
               </select>
             </div>
