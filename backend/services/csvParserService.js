@@ -7,20 +7,49 @@ function parseCSV(csvText) {
   const lines = csvText.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
 
-  // Detect delimiter
-  const headerLine = lines[0];
-  const delimiter = headerLine.includes('\t') ? '\t' : ',';
+  // Find the actual data header row (skip summary sections)
+  // Look for a line that contains "Date" and "Description" and "Amount"
+  let headerIndex = 0;
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const line = lines[i].toLowerCase();
+    if ((line.includes('date') && line.includes('description') && line.includes('amount')) ||
+        (line.includes('date') && line.includes('description') && line.includes('running')) ||
+        (line.includes('transaction date') && line.includes('debit'))) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  const headerLine = lines[headerIndex];
+
+  // Detect delimiter: tab, comma, or multi-space
+  let delimiter = ',';
+  if (headerLine.includes('\t')) delimiter = '\t';
 
   // Parse header
-  const headers = parseLine(headerLine, delimiter).map((h) => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'));
+  const headers = parseLine(headerLine, delimiter)
+    .map((h) => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'))
+    .filter((h) => h.length > 0);
+
+  if (headers.length < 2) return [];
 
   const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseLine(lines[i], delimiter);
-    if (values.length < 2) continue; // Skip empty lines
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue; // Skip empty lines
+    if (line.toLowerCase().includes('beginning balance')) continue; // Skip BoA balance rows
+    if (line.toLowerCase().includes('ending balance')) continue;
+
+    const values = parseLine(line, delimiter);
+    if (values.length < 2) continue;
 
     const row = {};
     headers.forEach((h, idx) => { row[h] = (values[idx] || '').trim(); });
+
+    // Skip rows without a valid date in the first column
+    const firstVal = row[headers[0]] || '';
+    if (!firstVal.match(/\d{1,4}[\/\-\.]\d{1,2}/)) continue;
+
     rows.push(row);
   }
 
@@ -62,29 +91,34 @@ function normalizeTransactions(rows, accountLabel) {
   return rows.map((row, idx) => {
     let date, description, amount;
 
+    // Find values by checking all keys for partial matches
+    const findVal = (...keywords) => {
+      for (const key of Object.keys(row)) {
+        for (const kw of keywords) {
+          if (key.includes(kw) && row[key]) return row[key];
+        }
+      }
+      return '';
+    };
+
+    date = findVal('date', 'trans');
+    description = findVal('description', 'memo', 'payee', 'merchant', 'name');
+
     switch (format) {
       case 'boa':
-        // Bank of America: Date, Description, Amount, Running Bal
-        date = row.date || row.date_ || '';
-        description = row.description || row.description_ || '';
-        amount = parseAmount(row.amount || row.amount_ || '0');
+        amount = parseAmount(findVal('amount') || '0');
         break;
 
-      case 'capital_one':
-        // Capital One: Transaction Date, Posted Date, Card No., Description, Category, Debit, Credit
-        date = row.transaction_date || row.posted_date || row.date || '';
-        description = row.description || row.payee || '';
-        const debit = parseAmount(row.debit || '0');
-        const credit = parseAmount(row.credit || '0');
-        amount = debit > 0 ? debit : -credit; // Debits are expenses
+      case 'capital_one': {
+        const debit = parseAmount(findVal('debit') || '0');
+        const credit = parseAmount(findVal('credit') || '0');
+        amount = debit > 0 ? debit : -credit;
         break;
+      }
 
       default:
-        // Generic: try common field names
-        date = row.date || row.transaction_date || row.posted_date || row.trans_date || '';
-        description = row.description || row.memo || row.payee || row.merchant || row.name || '';
-        amount = parseAmount(row.amount || row.debit || row.charge || '0');
-        if (!amount && row.credit) amount = -parseAmount(row.credit);
+        amount = parseAmount(findVal('amount', 'debit', 'charge') || '0');
+        if (!amount) amount = -parseAmount(findVal('credit') || '0');
         break;
     }
 
