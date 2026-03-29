@@ -75,7 +75,7 @@ exports.overrideDates = asyncHandler(async (req, res) => {
   const shipment = await db.Shipment.findByPk(req.params.id);
   if (!shipment) throw new AppError('Shipment not found', 404);
 
-  const { startDate, endDate, notes } = req.body;
+  const { startDate, endDate, notes, skipRecalculation } = req.body;
   if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
     throw new AppError('Start date must be before end date', 400);
   }
@@ -84,13 +84,17 @@ exports.overrideDates = asyncHandler(async (req, res) => {
   if (startDate) { updates.start_date = startDate; updates.admin_start_date_override = startDate; }
   if (endDate) { updates.end_date = endDate; updates.admin_end_date_override = endDate; }
 
-  await db.Shipment.update(updates, { where: { id: shipment.id } });
+  await db.sequelize.query(
+    `UPDATE shipments SET start_date = :start, end_date = :end, admin_start_date_override = :start, admin_end_date_override = :end, fixed_cost_notes = :notes WHERE id = :id`,
+    { replacements: { start: startDate || null, end: endDate || null, notes: notes || null, id: shipment.id } }
+  );
 
-  const effectiveStart = startDate || (shipment.start_date ? String(shipment.start_date).substring(0, 10) : null);
-  const effectiveEnd = endDate || (shipment.end_date ? String(shipment.end_date).substring(0, 10) : null);
-
-  if (effectiveStart) {
-    await allocationService.recalculateShipmentAllocations(shipment.id, effectiveStart, effectiveEnd);
+  if (!skipRecalculation && startDate) {
+    try {
+      await allocationService.recalculateShipmentAllocations(shipment.id, startDate, endDate);
+    } catch (err) {
+      console.error('Recalculation skipped:', err.message);
+    }
   }
 
   const updated = await db.Shipment.findByPk(shipment.id);
