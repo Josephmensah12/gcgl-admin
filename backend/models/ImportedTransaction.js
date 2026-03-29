@@ -23,6 +23,7 @@ module.exports = (sequelize) => {
     notes: { type: DataTypes.TEXT },
     reviewed_by: { type: DataTypes.INTEGER, allowNull: true },
     reviewed_at: { type: DataTypes.DATE, allowNull: true },
+    is_fixed_cost: { type: DataTypes.BOOLEAN, defaultValue: false },
   }, {
     tableName: 'imported_transactions',
     underscored: true,
