@@ -343,7 +343,9 @@ exports.importCSV = asyncHandler(async (req, res) => {
     const exists = await db.ImportedTransaction.findOne({ where: { plaid_transaction_id: dedupKey } });
     if (exists) { skipped++; continue; }
 
-    const suggestion = categorizeTransaction(tx.description, tx.amount);
+    const suggestion = tx.isCredit
+      ? { category: 'Revenue / Deposit', confidence: 'credit', reasoning: 'Positive amount — incoming deposit or payment received' }
+      : categorizeTransaction(tx.description, tx.amount);
 
     const record = await db.ImportedTransaction.create({
       plaid_transaction_id: dedupKey,
@@ -351,7 +353,7 @@ exports.importCSV = asyncHandler(async (req, res) => {
       amount: tx.amount,
       transaction_date: tx.date,
       merchant_name: tx.description.substring(0, 200),
-      description: tx.description,
+      description: `${tx.isCredit ? '[CREDIT] ' : '[DEBIT] '}${tx.description}`,
       plaid_category: `CSV Import - ${tx.accountLabel}`,
       status: 'pending_review',
     });

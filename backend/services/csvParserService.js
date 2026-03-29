@@ -130,6 +130,7 @@ function normalizeTransactions(rows, accountLabel) {
       date: parsedDate,
       description: description.trim(),
       amount: Math.abs(amount),
+      isCredit: amount > 0, // BoA: positive = credit/deposit, negative = debit/expense
       accountLabel: accountLabel || (format === 'capital_one' ? 'Capital One Credit Card' : 'Bank of America'),
       rawRow: row,
     };
