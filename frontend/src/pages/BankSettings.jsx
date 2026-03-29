@@ -7,6 +7,9 @@ export default function BankSettings() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [csvAccount, setCsvAccount] = useState('Bank of America');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -142,6 +145,66 @@ export default function BankSettings() {
             )}
           </div>
         )}
+      </div>
+
+      {/* CSV Import */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="font-semibold text-gray-900 mb-2">Import from CSV</h3>
+        <p className="text-sm text-gray-500 mb-4">Upload a bank or credit card statement export (CSV format) to import transactions for review.</p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Account</label>
+            <select value={csvAccount} onChange={(e) => setCsvAccount(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+              <option value="Bank of America">Bank of America (Checking)</option>
+              <option value="Capital One">Capital One (Credit Card)</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+            <input type="file" accept=".csv,.txt" onChange={async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              setImporting(true);
+              setImportResult(null);
+              try {
+                const text = await file.text();
+                const res = await axios.post('/api/v1/bank/import-csv', { csvData: text, accountLabel: csvAccount });
+                setImportResult(res.data.data);
+              } catch (err) {
+                setImportResult({ error: err.response?.data?.error?.message || 'Import failed' });
+              } finally {
+                setImporting(false);
+                e.target.value = '';
+              }
+            }}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-600 file:font-medium file:text-sm file:cursor-pointer"
+              disabled={importing} />
+          </div>
+
+          {importing && <p className="text-sm text-primary-600 font-medium">Importing transactions...</p>}
+
+          {importResult && !importResult.error && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+              <p className="font-medium">{importResult.message}</p>
+              <p className="text-xs mt-1">Total: {importResult.total} | Imported: {importResult.imported} | Skipped: {importResult.skipped}</p>
+            </div>
+          )}
+
+          {importResult?.error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{importResult.error}</div>
+          )}
+        </div>
+
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs font-medium text-gray-600 mb-1">Supported CSV Formats:</p>
+          <p className="text-xs text-gray-500">Bank of America: Date, Description, Amount, Running Bal</p>
+          <p className="text-xs text-gray-500">Capital One: Transaction Date, Posted Date, Card No., Description, Category, Debit, Credit</p>
+          <p className="text-xs text-gray-500">Generic: Date, Description/Memo, Amount (or Debit/Credit columns)</p>
+        </div>
       </div>
 
       {/* Security info */}

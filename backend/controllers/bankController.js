@@ -4,6 +4,8 @@ const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const plaid = require('../services/plaidService');
 const { categorizeTransaction } = require('../services/categorizationService');
+const { parseCSV, normalizeTransactions } = require('../services/csvParserService');
+const { v4: uuidv4 } = require('uuid');
 
 // ── PLAID CONNECTION ──────────────────────────────────────
 
@@ -316,5 +318,56 @@ exports.getStats = asyncHandler(async (req, res) => {
       totalRejected,
       totalBusinessExpenses: parseFloat(totalAmount) || 0,
     },
+  });
+});
+
+// ── CSV IMPORT ────────────────────────────────────────────
+
+exports.importCSV = asyncHandler(async (req, res) => {
+  const { csvData, accountLabel } = req.body;
+  if (!csvData) throw new AppError('CSV data required', 400);
+
+  const rows = parseCSV(csvData);
+  if (rows.length === 0) throw new AppError('No data found in CSV', 400);
+
+  const transactions = normalizeTransactions(rows, accountLabel);
+  if (transactions.length === 0) throw new AppError('Could not parse any transactions from CSV', 400);
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const tx of transactions) {
+    // Create a unique ID from date + description + amount to prevent duplicates
+    const dedupKey = `csv-${tx.date}-${tx.description.substring(0, 50)}-${tx.amount}`;
+
+    const exists = await db.ImportedTransaction.findOne({ where: { plaid_transaction_id: dedupKey } });
+    if (exists) { skipped++; continue; }
+
+    const suggestion = categorizeTransaction(tx.description, tx.amount);
+
+    const record = await db.ImportedTransaction.create({
+      plaid_transaction_id: dedupKey,
+      bank_connection_id: null,
+      amount: tx.amount,
+      transaction_date: tx.date,
+      merchant_name: tx.description.substring(0, 200),
+      description: tx.description,
+      plaid_category: `CSV Import - ${tx.accountLabel}`,
+      status: 'pending_review',
+    });
+
+    await db.AITrainingData.create({
+      transaction_id: record.id,
+      suggested_category: suggestion.category,
+      suggestion_confidence: suggestion.confidence,
+      suggestion_reasoning: suggestion.reasoning,
+    });
+
+    imported++;
+  }
+
+  res.json({
+    success: true,
+    data: { total: transactions.length, imported, skipped, message: `${imported} transactions imported, ${skipped} duplicates skipped` },
   });
 });
