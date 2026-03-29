@@ -6,12 +6,22 @@ import LoadingSpinner from '../components/LoadingSpinner';
 export default function ShipmentDetail() {
   const { id } = useParams();
   const [shipment, setShipment] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [txAggregates, setTxAggregates] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments'
 
   useEffect(() => {
-    axios.get(`/api/v1/shipments/${id}`)
-      .then((res) => setShipment(res.data.data))
+    Promise.all([
+      axios.get(`/api/v1/shipments/${id}`),
+      axios.get('/api/v1/transactions', { params: { shipmentId: id, limit: 200 } }),
+    ])
+      .then(([shipRes, txRes]) => {
+        setShipment(shipRes.data.data);
+        setTransactions(txRes.data.data.transactions);
+        setTxAggregates(txRes.data.data.aggregates);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
@@ -41,6 +51,14 @@ export default function ShipmentDetail() {
 
   const fmt = (n) => `$${(parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const currentIndex = statusPipeline.indexOf(shipment.status);
+
+  // Compute payment stats from invoices
+  const invoices = shipment.invoices || [];
+  const totalValue = invoices.reduce((s, inv) => s + (parseFloat(inv.finalTotal) || 0), 0);
+  const totalPaid = invoices.reduce((s, inv) => s + (parseFloat(inv.amountPaid) || 0), 0);
+  const totalUnpaid = totalValue - totalPaid;
+  const paidCount = invoices.filter((inv) => inv.paymentStatus === 'paid').length;
+  const unpaidCount = invoices.filter((inv) => inv.paymentStatus !== 'paid').length;
 
   return (
     <div className="space-y-6">
@@ -85,73 +103,177 @@ export default function ShipmentDetail() {
         </div>
       </div>
 
-      {/* Capacity & Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-sm text-gray-500 mb-2">Capacity</p>
-          <div className="flex justify-between text-sm mb-1">
-            <span>{fmt(shipment.totalValue)}</span>
-            <span className="text-gray-500">{fmt(shipment.maxCapacity)}</span>
+          <p className="text-sm text-gray-500 mb-1">Capacity</p>
+          <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
+            <div className={`h-2 rounded-full ${getCapacityColor(shipment.capacityPercent)}`} style={{ width: `${shipment.capacityPercent}%` }} />
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-3">
-            <div className={`h-3 rounded-full ${getCapacityColor(shipment.capacityPercent)}`} style={{ width: `${shipment.capacityPercent}%` }} />
-          </div>
-          <p className="text-sm font-semibold mt-2">{shipment.capacityPercent}%</p>
+          <p className="text-sm font-semibold">{fmt(shipment.totalValue)} / {fmt(shipment.maxCapacity)}</p>
+          <p className="text-xs text-gray-400">{shipment.capacityPercent}%</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500">Total Invoices</p>
-          <p className="text-2xl font-bold text-gray-900">{shipment.invoices?.length || 0}</p>
+          <p className="text-2xl font-bold text-gray-900">{invoices.length}</p>
+          <p className="text-xs text-gray-400">{paidCount} paid, {unpaidCount} unpaid</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-sm text-gray-500">Shipped Date</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {shipment.shippedAt ? new Date(shipment.shippedAt).toLocaleDateString() : 'Not yet'}
-          </p>
+          <p className="text-sm text-gray-500">Collected</p>
+          <p className="text-2xl font-bold text-green-600">{fmt(totalPaid)}</p>
+          <p className="text-xs text-gray-400">{txAggregates?.paymentCount || 0} payments</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <p className="text-sm text-gray-500">Outstanding</p>
+          <p className={`text-2xl font-bold ${totalUnpaid > 0 ? 'text-red-600' : 'text-green-600'}`}>{fmt(totalUnpaid)}</p>
+          <p className="text-xs text-gray-400">{unpaidCount} invoices</p>
         </div>
       </div>
 
-      {/* Invoices in shipment */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Assigned Invoices</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-left text-gray-500">
-                <th className="px-4 py-3 font-medium">Invoice #</th>
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Items</th>
-                <th className="px-4 py-3 font-medium">Total</th>
-                <th className="px-4 py-3 font-medium">Payment</th>
-                <th className="px-4 py-3 font-medium">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {shipment.invoices?.map((inv) => (
-                <tr key={inv.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link to={`/pickups/${inv.id}`} className="font-medium text-primary-600 hover:text-primary-700">
-                      #{inv.invoiceNumber}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{inv.Customer?.fullName || inv.customerName}</td>
-                  <td className="px-4 py-3">{inv.lineItems?.length || 0}</td>
-                  <td className="px-4 py-3 font-medium">{fmt(inv.finalTotal)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                      ${inv.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {inv.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(inv.createdAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(!shipment.invoices || shipment.invoices.length === 0) && (
-            <p className="text-center py-8 text-gray-400">No invoices assigned to this shipment</p>
-          )}
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button onClick={() => setActiveTab('invoices')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
+            ${activeTab === 'invoices' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          Invoices ({invoices.length})
+        </button>
+        <button onClick={() => setActiveTab('payments')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
+            ${activeTab === 'payments' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          Payments ({txAggregates?.transactionCount || 0})
+        </button>
       </div>
+
+      {/* Invoices Tab */}
+      {activeTab === 'invoices' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr className="text-left text-gray-500">
+                  <th className="px-4 py-3 font-medium">Invoice #</th>
+                  <th className="px-4 py-3 font-medium">Customer</th>
+                  <th className="px-4 py-3 font-medium">Items</th>
+                  <th className="px-4 py-3 font-medium">Total</th>
+                  <th className="px-4 py-3 font-medium">Paid</th>
+                  <th className="px-4 py-3 font-medium">Balance</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {invoices.map((inv) => {
+                  const balance = Math.max(0, (parseFloat(inv.finalTotal) || 0) - (parseFloat(inv.amountPaid) || 0));
+                  return (
+                    <tr key={inv.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <Link to={`/pickups/${inv.id}`} className="font-medium text-primary-600 hover:text-primary-700">
+                          #{inv.invoiceNumber}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">{inv.Customer?.fullName || inv.customerName}</td>
+                      <td className="px-4 py-3">{inv.lineItems?.length || 0}</td>
+                      <td className="px-4 py-3 font-medium">{fmt(inv.finalTotal)}</td>
+                      <td className="px-4 py-3 text-green-600 font-medium">{fmt(inv.amountPaid)}</td>
+                      <td className={`px-4 py-3 font-medium ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>{fmt(balance)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium
+                          ${inv.paymentStatus === 'paid' ? 'bg-green-100 text-green-700'
+                            : inv.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-700'
+                            : 'bg-amber-100 text-amber-700'}`}>
+                          {inv.paymentStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {invoices.length === 0 && (
+              <p className="text-center py-8 text-gray-400">No invoices assigned to this shipment</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Payments Tab */}
+      {activeTab === 'payments' && (
+        <div className="space-y-4">
+          {/* Payment method breakdown */}
+          {txAggregates && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <p className="text-sm text-gray-500">Total Payments</p>
+                <p className="text-xl font-bold text-green-600">{fmt(txAggregates.totalPayments)}</p>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <p className="text-sm text-gray-500">Total Refunds</p>
+                <p className="text-xl font-bold text-orange-600">{fmt(txAggregates.totalRefunds)}</p>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <p className="text-sm text-gray-500">Net Collected</p>
+                <p className="text-xl font-bold text-gray-900">{fmt(txAggregates.netCollected)}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Transaction list */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr className="text-left text-gray-500">
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Invoice</th>
+                    <th className="px-4 py-3 font-medium">Customer</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Method</th>
+                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                    <th className="px-4 py-3 font-medium">Comment</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {transactions.map((tx) => {
+                    const isVoided = !!tx.voidedAt;
+                    const isRefund = tx.transactionType === 'REFUND';
+                    return (
+                      <tr key={tx.id} className={`hover:bg-gray-50 ${isVoided ? 'opacity-50' : ''}`}>
+                        <td className="px-4 py-3 text-gray-600">{new Date(tx.paymentDate).toLocaleDateString()}</td>
+                        <td className="px-4 py-3">
+                          <Link to={`/pickups/${tx.invoice?.id}`} className="font-medium text-primary-600">
+                            #{tx.invoice?.invoiceNumber}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{tx.invoice?.customerName}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium
+                            ${isVoided ? 'bg-gray-200 text-gray-500 line-through'
+                              : isRefund ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            {isRefund ? 'Refund' : 'Payment'}{isVoided ? ' (Voided)' : ''}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                            {tx.paymentMethod === 'Other' && tx.paymentMethodOtherText
+                              ? `Other - ${tx.paymentMethodOtherText}` : tx.paymentMethod}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-semibold
+                          ${isVoided ? 'text-gray-400 line-through' : isRefund ? 'text-orange-600' : 'text-green-600'}`}>
+                          {isRefund ? '-' : '+'}${parseFloat(tx.amount).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{tx.comment}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {transactions.length === 0 && (
+                <p className="text-center py-8 text-gray-400">No payments recorded for this shipment</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

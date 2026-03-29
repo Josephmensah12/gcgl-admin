@@ -204,6 +204,7 @@ exports.listAll = asyncHandler(async (req, res) => {
     page = 1, limit = 50, search = '', paymentMethod = '', transactionType = '',
     dateFrom = '', dateTo = '', includeVoided = 'false',
     sortBy = 'payment_date', sortOrder = 'DESC',
+    shipmentId = '',
   } = req.query;
 
   const where = {};
@@ -214,6 +215,7 @@ exports.listAll = asyncHandler(async (req, res) => {
   if (dateTo) where.paymentDate = { ...where.paymentDate, [Op.lte]: new Date(dateTo + 'T23:59:59') };
 
   const invoiceWhere = {};
+  if (shipmentId) invoiceWhere.shipmentId = shipmentId;
   if (search) {
     invoiceWhere[Op.or] = [
       { customerName: { [Op.iLike]: `%${search}%` } },
