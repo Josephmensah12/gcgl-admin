@@ -14,6 +14,11 @@ async function start() {
     await db.sequelize.sync({ alter: true });
     console.log('Models synced');
 
+    // Fix: allow null on bank_connection_id for CSV imports
+    try {
+      await db.sequelize.query('ALTER TABLE imported_transactions ALTER COLUMN bank_connection_id DROP NOT NULL;');
+    } catch (e) { /* column may already be nullable */ }
+
     await seedAdmin();
     await seedExpenseCategories();
 
