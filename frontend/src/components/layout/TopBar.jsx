@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 const routeNames = {
   '/': 'Dashboard',
   '/pickups': 'Invoices',
+  '/pickups/new': 'Create Invoice',
   '/shipments': 'Shipments',
   '/shipments/new': 'Create Shipment',
   '/customers': 'Customers',

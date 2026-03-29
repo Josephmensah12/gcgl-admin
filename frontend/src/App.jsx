@@ -11,6 +11,7 @@ import Shipments from './pages/Shipments';
 import ShipmentDetail from './pages/ShipmentDetail';
 import CreateShipment from './pages/CreateShipment';
 import Payments from './pages/Payments';
+import CreateInvoice from './pages/CreateInvoice';
 import CompanySettings from './pages/admin/CompanySettings';
 import ShipmentSettings from './pages/admin/ShipmentSettings';
 import CatalogManager from './pages/admin/CatalogManager';
@@ -35,6 +36,7 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="pickups" element={<Pickups />} />
+        <Route path="pickups/new" element={<CreateInvoice />} />
         <Route path="pickups/:id" element={<PickupDetail />} />
         <Route path="customers" element={<Customers />} />
         <Route path="customers/:id" element={<CustomerDetail />} />

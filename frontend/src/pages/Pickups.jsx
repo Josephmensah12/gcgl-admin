@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Pickups() {
+  const navigate = useNavigate();
   const [pickups, setPickups] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
@@ -131,6 +132,10 @@ export default function Pickups() {
               <option value="all">All Invoices</option>
               <option value="unassigned">Unassigned Only</option>
             </select>
+            <button onClick={() => navigate('/pickups/new')}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 whitespace-nowrap">
+              + New Invoice
+            </button>
           </div>
 
           {selected.size > 0 && (
