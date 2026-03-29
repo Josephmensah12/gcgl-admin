@@ -38,6 +38,7 @@ app.use(`${API_BASE}/transactions`, require('./routes/transactionRoutes'));
 app.use(`${API_BASE}/invoices/:id/transactions`, require('./routes/invoiceTransactionRoutes'));
 app.use(`${API_BASE}/create-invoice`, require('./routes/invoiceCreateRoutes'));
 app.use(`${API_BASE}/expenses`, require('./routes/expenseRoutes'));
+app.use(`${API_BASE}/bank`, require('./routes/bankRoutes'));
 app.use(`${API_BASE}/settings`, require('./routes/settingsRoutes'));
 app.use(`${API_BASE}/catalog`, require('./routes/catalogRoutes'));
 

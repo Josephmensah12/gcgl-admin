@@ -13,6 +13,8 @@ import CreateShipment from './pages/CreateShipment';
 import Payments from './pages/Payments';
 import CreateInvoice from './pages/CreateInvoice';
 import Expenses from './pages/Expenses';
+import TransactionReview from './pages/TransactionReview';
+import BankSettings from './pages/BankSettings';
 import CompanySettings from './pages/admin/CompanySettings';
 import ShipmentSettings from './pages/admin/ShipmentSettings';
 import CatalogManager from './pages/admin/CatalogManager';
@@ -46,6 +48,8 @@ function AppRoutes() {
         <Route path="shipments/:id" element={<ShipmentDetail />} />
         <Route path="payments" element={<Payments />} />
         <Route path="expenses" element={<Expenses />} />
+        <Route path="bank/review" element={<TransactionReview />} />
+        <Route path="settings/bank" element={<BankSettings />} />
         <Route path="settings/company" element={<CompanySettings />} />
         <Route path="settings/shipments" element={<ShipmentSettings />} />
         <Route path="settings/catalog" element={<CatalogManager />} />

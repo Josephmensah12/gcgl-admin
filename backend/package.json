@@ -10,6 +10,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "helmet": "^7.1.0",
@@ -17,6 +18,7 @@
     "morgan": "^1.10.0",
     "pg": "^8.13.0",
     "pg-hstore": "^2.3.4",
+    "plaid": "^41.4.0",
     "sequelize": "^6.37.3",
     "uuid": "^9.0.1"
   },

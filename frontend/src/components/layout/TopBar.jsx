@@ -13,6 +13,8 @@ const routeNames = {
   '/settings/shipments': 'Shipment Configuration',
   '/settings/catalog': 'Catalog Management',
   '/settings/payments': 'Payment Settings',
+  '/bank/review': 'Bank Transactions',
+  '/settings/bank': 'Bank Accounts',
 };
 
 export default function TopBar({ onMenuClick, collapsed }) {
