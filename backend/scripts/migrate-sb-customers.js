@@ -216,13 +216,23 @@ async function run() {
     return;
   }
 
-  // Step 3: Clear test data
+  // Step 3: Clear test data (cascade through all dependent tables)
   console.log('Step 3: Clearing existing test data...');
-  const [[{ count: oldRecip }]] = await seq.query('SELECT COUNT(*) as count FROM recipients');
-  const [[{ count: oldCust }]] = await seq.query('SELECT COUNT(*) as count FROM customers');
-  await seq.query('DELETE FROM recipients');
-  await seq.query('DELETE FROM customers');
-  console.log(`  Deleted ${oldRecip} recipients, ${oldCust} customers\n`);
+  const counts = {};
+  for (const tbl of ['invoice_payments', 'photos', 'line_items', 'invoices', 'recipients', 'customers', 'shipments']) {
+    const [[row]] = await seq.query(`SELECT COUNT(*) as count FROM "${tbl}"`);
+    counts[tbl] = parseInt(row.count);
+  }
+  // Delete in FK order
+  for (const tbl of ['invoice_payments', 'photos', 'line_items', 'invoices', 'recipients', 'customers', 'shipments']) {
+    if (counts[tbl] > 0) {
+      await seq.query(`DELETE FROM "${tbl}"`);
+      console.log(`  Deleted ${counts[tbl]} from ${tbl}`);
+    }
+  }
+  // Reset invoice number sequence
+  await seq.query(`UPDATE sequences SET value = 10001 WHERE key = 'next_invoice_num'`);
+  console.log(`  Reset invoice sequence to 10001\n`);
 
   // Step 4: Insert customers in batches
   console.log('Step 4: Inserting customers...');

@@ -156,14 +156,17 @@ const FixedCostAllocationService = {
   },
 
   async recalculateShipmentAllocations(shipmentId, startDate, endDate) {
+    if (!startDate) return; // Can't recalculate without a start date
+
     // Remove existing auto allocations
     await db.FixedCostAllocation.destroy({
-      where: { shipment_id: shipmentId, allocation_type: { [Op.in]: ['automatic', 'gap_assigned'] } },
+      where: { shipment_id: shipmentId, allocation_type: { [Op.in]: ['automatic', 'override', 'gap_assigned'] } },
     });
 
     // Re-allocate for each day in range
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : new Date();
+    const start = new Date(startDate + 'T00:00:00');
+    const end = endDate ? new Date(endDate + 'T00:00:00') : new Date();
+    if (isNaN(start.getTime())) return; // Invalid date guard
     let current = new Date(start);
 
     while (current <= end) {
