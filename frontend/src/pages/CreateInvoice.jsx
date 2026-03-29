@@ -367,10 +367,23 @@ export default function CreateInvoice() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {catalog.filter((c) => !catFilter || c.category === catFilter).map((item) => (
                     <button key={item.id} onClick={() => addCatalogItem(item)}
-                      className="text-left p-3 rounded-lg border border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors">
-                      <p className="font-medium text-sm text-gray-900 leading-tight">{item.name}</p>
-                      <p className="text-xs text-gray-500 mt-1">{item.category}</p>
-                      <p className="font-bold text-green-600 mt-1">{fmt(parseFloat(item.price))}</p>
+                      className="text-left rounded-lg border border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors overflow-hidden">
+                      {item.image ? (
+                        <div className="w-full h-24 bg-gray-100">
+                          <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />
+                        </div>
+                      ) : (
+                        <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-300">
+                          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="p-2">
+                        <p className="font-medium text-sm text-gray-900 leading-tight">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.category}</p>
+                        <p className="font-bold text-green-600 mt-0.5">{fmt(parseFloat(item.price))}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
