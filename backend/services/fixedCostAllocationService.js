@@ -156,17 +156,28 @@ const FixedCostAllocationService = {
   },
 
   async recalculateShipmentAllocations(shipmentId, startDate, endDate) {
-    if (!startDate) return; // Can't recalculate without a start date
+    if (!startDate) return;
+
+    // Normalize dates to YYYY-MM-DD strings
+    const toDateStr = (d) => {
+      if (!d) return null;
+      if (typeof d === 'string') return d.substring(0, 10);
+      if (d instanceof Date) return d.toISOString().split('T')[0];
+      return String(d).substring(0, 10);
+    };
+
+    const startStr = toDateStr(startDate);
+    const endStr = toDateStr(endDate);
+    if (!startStr) return;
 
     // Remove existing auto allocations
     await db.FixedCostAllocation.destroy({
       where: { shipment_id: shipmentId, allocation_type: { [Op.in]: ['automatic', 'override', 'gap_assigned'] } },
     });
 
-    // Re-allocate for each day in range
-    const start = new Date(startDate + 'T00:00:00');
-    const end = endDate ? new Date(endDate + 'T00:00:00') : new Date();
-    if (isNaN(start.getTime())) return; // Invalid date guard
+    const start = new Date(startStr + 'T12:00:00');
+    const end = endStr ? new Date(endStr + 'T12:00:00') : new Date();
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
     let current = new Date(start);
 
     while (current <= end) {
