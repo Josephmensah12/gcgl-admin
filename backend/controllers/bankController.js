@@ -323,6 +323,31 @@ exports.getStats = asyncHandler(async (req, res) => {
 
 // ── CSV IMPORT ────────────────────────────────────────────
 
+exports.previewCSV = asyncHandler(async (req, res) => {
+  const { csvData, accountLabel } = req.body;
+  if (!csvData) throw new AppError('CSV data required', 400);
+
+  const rows = parseCSV(csvData);
+  const transactions = normalizeTransactions(rows, accountLabel);
+
+  const credits = transactions.filter((t) => t.isCredit);
+  const debits = transactions.filter((t) => !t.isCredit);
+
+  res.json({
+    success: true,
+    data: {
+      totalRows: rows.length,
+      parsedCount: transactions.length,
+      credits: { count: credits.length, total: credits.reduce((s, t) => s + t.amount, 0) },
+      debits: { count: debits.length, total: debits.reduce((s, t) => s + t.amount, 0) },
+      sample: transactions.slice(0, 10).map((t) => ({
+        date: t.date, description: t.description.substring(0, 60), amount: t.amount, isCredit: t.isCredit,
+      })),
+      headers: rows.length > 0 ? Object.keys(rows[0]) : [],
+    },
+  });
+});
+
 exports.importCSV = asyncHandler(async (req, res) => {
   const { csvData, accountLabel } = req.body;
   if (!csvData) throw new AppError('CSV data required', 400);

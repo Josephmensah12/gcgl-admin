@@ -106,7 +106,15 @@ function normalizeTransactions(rows, accountLabel) {
 
     switch (format) {
       case 'boa':
-        amount = parseAmount(findVal('amount') || '0');
+        // BoA: Amount column has negative for debits, positive for credits
+        // Explicitly avoid matching "running_bal"
+        amount = parseAmount(row.amount || row.amount_ || '0');
+        if (!amount) {
+          // Fallback: find a key that is exactly 'amount' or starts with 'amount'
+          for (const key of Object.keys(row)) {
+            if (key === 'amount' || key === 'amount_') { amount = parseAmount(row[key]); break; }
+          }
+        }
         break;
 
       case 'capital_one': {
@@ -126,11 +134,14 @@ function normalizeTransactions(rows, accountLabel) {
     const parsedDate = parseDate(date);
     if (!parsedDate || !description) return null;
 
+    // For BoA: negative amount = debit/expense, positive = credit/deposit
+    const isCredit = amount > 0;
+
     return {
       date: parsedDate,
       description: description.trim(),
       amount: Math.abs(amount),
-      isCredit: amount > 0, // BoA: positive = credit/deposit, negative = debit/expense
+      isCredit,
       accountLabel: accountLabel || (format === 'capital_one' ? 'Capital One Credit Card' : 'Bank of America'),
       rawRow: row,
     };

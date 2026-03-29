@@ -10,6 +10,8 @@ export default function BankSettings() {
   const [csvAccount, setCsvAccount] = useState('Bank of America');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [csvPreview, setCsvPreview] = useState(null);
+  const [csvText, setCsvText] = useState(null);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -170,12 +172,14 @@ export default function BankSettings() {
               if (!file) return;
               setImporting(true);
               setImportResult(null);
+              setCsvPreview(null);
               try {
                 const text = await file.text();
-                const res = await axios.post('/api/v1/bank/import-csv', { csvData: text, accountLabel: csvAccount });
-                setImportResult(res.data.data);
+                setCsvText(text);
+                const res = await axios.post('/api/v1/bank/preview-csv', { csvData: text, accountLabel: csvAccount });
+                setCsvPreview(res.data.data);
               } catch (err) {
-                setImportResult({ error: err.response?.data?.error?.message || 'Import failed' });
+                setImportResult({ error: err.response?.data?.error?.message || 'Preview failed' });
               } finally {
                 setImporting(false);
                 e.target.value = '';
@@ -185,7 +189,57 @@ export default function BankSettings() {
               disabled={importing} />
           </div>
 
-          {importing && <p className="text-sm text-primary-600 font-medium">Importing transactions...</p>}
+          {importing && <p className="text-sm text-primary-600 font-medium">Processing...</p>}
+
+          {/* Preview */}
+          {csvPreview && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+              <h4 className="font-semibold text-blue-800 text-sm">Preview — {csvPreview.parsedCount} transactions found</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-2 bg-white rounded text-center">
+                  <p className="text-lg font-bold text-red-600">{csvPreview.debits.count}</p>
+                  <p className="text-xs text-gray-500">Debits (${csvPreview.debits.total.toFixed(2)})</p>
+                </div>
+                <div className="p-2 bg-white rounded text-center">
+                  <p className="text-lg font-bold text-green-600">{csvPreview.credits.count}</p>
+                  <p className="text-xs text-gray-500">Credits (${csvPreview.credits.total.toFixed(2)})</p>
+                </div>
+              </div>
+              <div className="max-h-40 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead><tr className="text-left text-gray-500"><th className="py-1">Date</th><th>Description</th><th className="text-right">Amount</th><th>Type</th></tr></thead>
+                  <tbody>
+                    {csvPreview.sample.map((t, i) => (
+                      <tr key={i} className="border-t border-blue-100">
+                        <td className="py-1">{t.date}</td>
+                        <td className="truncate max-w-[200px]">{t.description}</td>
+                        <td className={`text-right font-medium ${t.isCredit ? 'text-green-600' : 'text-red-600'}`}>{t.isCredit ? '+' : '-'}${t.amount.toFixed(2)}</td>
+                        <td><span className={`px-1 rounded text-xs ${t.isCredit ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.isCredit ? 'IN' : 'OUT'}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => { setCsvPreview(null); setCsvText(null); }}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
+                <button onClick={async () => {
+                  setImporting(true);
+                  try {
+                    const res = await axios.post('/api/v1/bank/import-csv', { csvData: csvText, accountLabel: csvAccount });
+                    setImportResult(res.data.data);
+                    setCsvPreview(null);
+                    setCsvText(null);
+                  } catch (err) {
+                    setImportResult({ error: err.response?.data?.error?.message || 'Import failed' });
+                  } finally { setImporting(false); }
+                }} disabled={importing}
+                  className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+                  {importing ? 'Importing...' : `Import ${csvPreview.parsedCount} Transactions`}
+                </button>
+              </div>
+            </div>
+          )}
 
           {importResult && !importResult.error && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
