@@ -8,6 +8,7 @@ const routeNames = {
   '/shipments/new': 'Create Shipment',
   '/customers': 'Customers',
   '/payments': 'Payments',
+  '/expenses': 'Expenses',
   '/settings/company': 'Company Settings',
   '/settings/shipments': 'Shipment Configuration',
   '/settings/catalog': 'Catalog Management',

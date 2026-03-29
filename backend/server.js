@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const db = require('./models');
 const seedAdmin = require('./seeders/seedAdmin');
+const seedExpenseCategories = require('./seeders/seedExpenseCategories');
 
 const PORT = process.env.PORT || 4100;
 
@@ -14,6 +15,7 @@ async function start() {
     console.log('Models synced');
 
     await seedAdmin();
+    await seedExpenseCategories();
 
     app.listen(PORT, () => {
       console.log(`GCGL Admin Portal API running on port ${PORT}`);
