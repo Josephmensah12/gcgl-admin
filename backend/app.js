@@ -34,6 +34,8 @@ app.use(`${API_BASE}/customers`, require('./routes/customerRoutes'));
 app.use(`${API_BASE}/pickups`, require('./routes/pickupRoutes'));
 app.use(`${API_BASE}/shipments`, require('./routes/shipmentRoutes'));
 app.use(`${API_BASE}/payments`, require('./routes/paymentRoutes'));
+app.use(`${API_BASE}/transactions`, require('./routes/transactionRoutes'));
+app.use(`${API_BASE}/invoices/:id/transactions`, require('./routes/invoiceTransactionRoutes'));
 app.use(`${API_BASE}/settings`, require('./routes/settingsRoutes'));
 app.use(`${API_BASE}/catalog`, require('./routes/catalogRoutes'));
 
