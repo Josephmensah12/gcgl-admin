@@ -110,7 +110,7 @@ export default function CreateInvoice() {
       setLineItems((prev) => [...prev, {
         id: crypto.randomUUID(), type: 'fixed', catalogItemId: catItem.id,
         catalogName: catItem.name, quantity: 1, basePrice: parseFloat(catItem.price),
-        finalPrice: parseFloat(catItem.price), description: catItem.description,
+        finalPrice: parseFloat(catItem.price), description: catItem.description, photos: [],
       }]);
     }
   };
@@ -126,9 +126,37 @@ export default function CreateInvoice() {
       id: crypto.randomUUID(), type: 'custom', quantity: qty,
       basePrice: price, finalPrice: price,
       dimensions: { length: l, width: w, height: h },
-      description: customForm.description || `${l}×${w}×${h}"`,
+      description: customForm.description || `${l}×${w}×${h}"`, photos: [],
     }]);
     setCustomForm({ length: '', width: '', height: '', quantity: '1', description: '' });
+  };
+
+  const addPhotoToItem = (itemId, file) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Compress via canvas
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 600;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+        setLineItems((prev) => prev.map((li) =>
+          li.id === itemId ? { ...li, photos: [...(li.photos || []), compressed].slice(0, 3) } : li
+        ));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = (itemId, photoIndex) => {
+    setLineItems((prev) => prev.map((li) =>
+      li.id === itemId ? { ...li, photos: li.photos.filter((_, i) => i !== photoIndex) } : li
+    ));
   };
 
   const updateQty = (id, qty) => {
@@ -164,6 +192,7 @@ export default function CreateInvoice() {
           catalogName: li.catalogName, description: li.description,
           quantity: li.quantity, basePrice: li.basePrice, finalPrice: li.finalPrice,
           dimensions: li.dimensions, discount: null,
+          photos: li.photos || [],
         })),
       });
       navigate(`/pickups/${res.data.data.id}`);
@@ -396,19 +425,41 @@ export default function CreateInvoice() {
               <h3 className="font-semibold text-gray-900 mb-3">Added Items ({lineItems.length})</h3>
               <div className="space-y-2">
                 {lineItems.map((li) => (
-                  <div key={li.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{li.catalogName || li.description || 'Custom Item'}</p>
-                      <p className="text-xs text-gray-500">
-                        Qty: {li.quantity} x {fmt(li.finalPrice)} = {fmt(li.finalPrice * li.quantity)}
-                      </p>
+                  <div key={li.id} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{li.catalogName || li.description || 'Custom Item'}</p>
+                        <p className="text-xs text-gray-500">
+                          Qty: {li.quantity} x {fmt(li.finalPrice)} = {fmt(li.finalPrice * li.quantity)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => updateQty(li.id, li.quantity - 1)} className="w-7 h-7 rounded bg-gray-200 text-sm font-bold">-</button>
+                        <span className="w-8 text-center text-sm font-semibold">{li.quantity}</span>
+                        <button onClick={() => updateQty(li.id, li.quantity + 1)} className="w-7 h-7 rounded bg-gray-200 text-sm font-bold">+</button>
+                      </div>
+                      <button onClick={() => removeItem(li.id)} className="w-7 h-7 rounded-full bg-red-100 text-red-500 text-sm">x</button>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => updateQty(li.id, li.quantity - 1)} className="w-7 h-7 rounded bg-gray-200 text-sm font-bold">-</button>
-                      <span className="w-8 text-center text-sm font-semibold">{li.quantity}</span>
-                      <button onClick={() => updateQty(li.id, li.quantity + 1)} className="w-7 h-7 rounded bg-gray-200 text-sm font-bold">+</button>
+                    {/* Photos */}
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {(li.photos || []).map((photo, pi) => (
+                        <div key={pi} className="relative w-14 h-14">
+                          <img src={photo} alt="" className="w-14 h-14 rounded-md object-cover border border-gray-200" />
+                          <button onClick={() => removePhoto(li.id, pi)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none">x</button>
+                        </div>
+                      ))}
+                      {(li.photos || []).length < 3 && (
+                        <label className="w-14 h-14 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary-400 text-gray-400 hover:text-primary-500">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={(e) => { if (e.target.files[0]) addPhotoToItem(li.id, e.target.files[0]); e.target.value = ''; }} />
+                        </label>
+                      )}
                     </div>
-                    <button onClick={() => removeItem(li.id)} className="w-7 h-7 rounded-full bg-red-100 text-red-500 text-sm">x</button>
                   </div>
                 ))}
               </div>

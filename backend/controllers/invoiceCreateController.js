@@ -91,7 +91,7 @@ exports.createInvoice = asyncHandler(async (req, res) => {
 
     for (let i = 0; i < lineItems.length; i++) {
       const { photos, dimensions, discount, ...itemData } = lineItems[i];
-      await db.LineItem.create({
+      const li = await db.LineItem.create({
         id: itemData.id || uuidv4(),
         invoiceId: inv.id,
         type: itemData.type || 'fixed',
@@ -108,6 +108,13 @@ exports.createInvoice = asyncHandler(async (req, res) => {
         dimensionsH: dimensions?.height || null,
         sortOrder: i,
       }, { transaction: t });
+
+      if (photos && photos.length > 0) {
+        await db.Photo.bulkCreate(
+          photos.map((data, j) => ({ lineItemId: li.id, data, sortOrder: j })),
+          { transaction: t }
+        );
+      }
     }
 
     return inv;
