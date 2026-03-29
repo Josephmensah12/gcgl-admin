@@ -115,7 +115,10 @@ export default function Expenses() {
   const [filters, setFilters] = useState({ search: '', category_id: '', shipment_id: '' });
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | 'new' | expense object
-  const [activeTab, setActiveTab] = useState('list'); // 'list' | 'analytics'
+  const [activeTab, setActiveTab] = useState('list'); // 'list' | 'analytics' | 'categories'
+  const [newCatName, setNewCatName] = useState('');
+  const [editingCat, setEditingCat] = useState(null);
+  const [editCatName, setEditCatName] = useState('');
 
   const loadExpenses = useCallback(async () => {
     try {
@@ -130,13 +133,48 @@ export default function Expenses() {
 
   useEffect(() => { loadExpenses(); }, [loadExpenses]);
 
+  const loadCategories = () => axios.get('/api/v1/expenses/categories').then((res) => setCategories(res.data.data)).catch(() => {});
+
   useEffect(() => {
-    axios.get('/api/v1/expenses/categories').then((res) => setCategories(res.data.data)).catch(() => {});
+    loadCategories();
     axios.get('/api/v1/shipments/active').then((res) => setShipments(res.data.data)).catch(() => {});
     axios.get('/api/v1/expenses/analytics').then((res) => setAnalytics(res.data.data)).catch(() => {});
   }, []);
 
   const handleSaved = () => { setModal(null); loadExpenses(); axios.get('/api/v1/expenses/analytics').then((r) => setAnalytics(r.data.data)).catch(() => {}); };
+
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    try {
+      await axios.post('/api/v1/expenses/categories', { name: newCatName.trim() });
+      setNewCatName('');
+      loadCategories();
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Failed to create category');
+    }
+  };
+
+  const handleUpdateCategory = async (id) => {
+    if (!editCatName.trim()) return;
+    try {
+      await axios.put(`/api/v1/expenses/categories/${id}`, { name: editCatName.trim() });
+      setEditingCat(null);
+      setEditCatName('');
+      loadCategories();
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Failed to update category');
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    if (!confirm('Deactivate this category?')) return;
+    try {
+      await axios.delete(`/api/v1/expenses/categories/${id}`);
+      loadCategories();
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Failed to delete category');
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this expense?')) return;
@@ -183,6 +221,10 @@ export default function Expenses() {
           <button onClick={() => setActiveTab('analytics')}
             className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'analytics' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
             Analytics
+          </button>
+          <button onClick={() => setActiveTab('categories')}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${activeTab === 'categories' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
+            Categories ({categories.length})
           </button>
         </div>
         <button onClick={() => setModal('new')}
@@ -352,6 +394,62 @@ export default function Expenses() {
                 ))}
                 {analytics.topVendors.length === 0 && <p className="text-sm text-gray-400">No vendor data</p>}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Categories Tab */}
+      {activeTab === 'categories' && (
+        <div className="space-y-4">
+          {/* Add new category */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-semibold text-gray-900 mb-3">Add New Category</h3>
+            <div className="flex gap-3">
+              <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="Enter category name..."
+                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCategory(); }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+              <button onClick={handleCreateCategory} disabled={!newCatName.trim()}
+                className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* Category list */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-semibold text-gray-900 mb-4">Expense Categories ({categories.length})</h3>
+            <div className="space-y-2">
+              {categories.map((cat) => (
+                <div key={cat.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100">
+                  {editingCat === cat.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input type="text" value={editCatName} onChange={(e) => setEditCatName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateCategory(cat.id); if (e.key === 'Escape') setEditingCat(null); }}
+                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" autoFocus />
+                      <button onClick={() => handleUpdateCategory(cat.id)} className="text-xs text-green-600 font-medium">Save</button>
+                      <button onClick={() => setEditingCat(null)} className="text-xs text-gray-500">Cancel</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full bg-purple-400" />
+                        <span className="font-medium text-gray-900 text-sm">{cat.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setEditingCat(cat.id); setEditCatName(cat.name); }}
+                          className="text-xs text-primary-600 hover:text-primary-700 font-medium">Rename</button>
+                        <button onClick={() => handleDeleteCategory(cat.id)}
+                          className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              {categories.length === 0 && (
+                <p className="text-center py-6 text-gray-400 text-sm">No categories yet</p>
+              )}
             </div>
           </div>
         </div>
