@@ -155,14 +155,6 @@ export default function BankSettings() {
         </div>
       </div>
 
-      {/* Environment setup note */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
-        <p className="font-medium mb-1">Setup Required</p>
-        <p>Set these environment variables on Railway:</p>
-        <code className="block mt-2 bg-amber-100 p-2 rounded text-xs">
-          PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENVIRONMENT (sandbox/production), ENCRYPTION_KEY
-        </code>
-      </div>
     </div>
   );
 }
