@@ -34,6 +34,12 @@ export default function CreateInvoice() {
   const [selectedShipment, setSelectedShipment] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2000);
+  };
 
   // Load catalog and shipments
   useEffect(() => {
@@ -104,15 +110,19 @@ export default function CreateInvoice() {
   // Item logic
   const addCatalogItem = (catItem) => {
     const existing = lineItems.findIndex((li) => li.catalogItemId === catItem.id);
+    let newTotal;
     if (existing !== -1) {
-      setLineItems((prev) => prev.map((li, i) => i === existing ? { ...li, quantity: li.quantity + 1 } : li));
+      newTotal = lineItems[existing].quantity + 1;
+      setLineItems((prev) => prev.map((li, i) => i === existing ? { ...li, quantity: newTotal } : li));
     } else {
+      newTotal = 1;
       setLineItems((prev) => [...prev, {
         id: crypto.randomUUID(), type: 'fixed', catalogItemId: catItem.id,
         catalogName: catItem.name, quantity: 1, basePrice: parseFloat(catItem.price),
         finalPrice: parseFloat(catItem.price), description: catItem.description, photos: [],
       }]);
     }
+    showToast(`${catItem.name} added (${newTotal} total)`);
   };
 
   const addCustomItem = () => {
@@ -128,6 +138,7 @@ export default function CreateInvoice() {
       dimensions: { length: l, width: w, height: h },
       description: customForm.description || `${l}×${w}×${h}"`, photos: [],
     }]);
+    showToast('Custom item added');
     setCustomForm({ length: '', width: '', height: '', quantity: '1', description: '' });
   };
 
@@ -208,6 +219,11 @@ export default function CreateInvoice() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {toast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-lg animate-fade-in">
+          {toast}
+        </div>
+      )}
       {/* Progress */}
       <div className="flex items-center gap-2">
         {['Customer', 'Recipient', 'Items', 'Review'].map((label, i) => (
