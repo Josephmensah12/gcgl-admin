@@ -4,7 +4,7 @@ module.exports = (sequelize) => {
   const ImportedTransaction = sequelize.define('ImportedTransaction', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     plaid_transaction_id: { type: DataTypes.STRING(100), unique: true, allowNull: false },
-    bank_connection_id: { type: DataTypes.UUID, allowNull: false },
+    bank_connection_id: { type: DataTypes.UUID, allowNull: true },
     amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     transaction_date: { type: DataTypes.DATEONLY, allowNull: false },
     merchant_name: { type: DataTypes.STRING(200) },
