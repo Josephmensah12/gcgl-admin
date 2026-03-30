@@ -224,21 +224,35 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
 });
 
 exports.bulkReview = asyncHandler(async (req, res) => {
-  const { transactionIds, action, category, shipmentId } = req.body;
+  const { transactionIds, action, category, shipmentId, useSuggestions } = req.body;
   if (!transactionIds?.length) throw new AppError('Transaction IDs required', 400);
 
   let processed = 0;
+  let skippedNoCategory = 0;
+
   for (const id of transactionIds) {
-    const tx = await db.ImportedTransaction.findByPk(id);
+    const tx = await db.ImportedTransaction.findByPk(id, {
+      include: [{ model: db.AITrainingData, as: 'trainingData' }],
+    });
     if (!tx || tx.status !== 'pending_review') continue;
 
-    if (action === 'approve' && category) {
+    if (action === 'approve') {
+      // Determine category: explicit > AI suggestion > skip
+      let resolvedCategory = category;
+      if (!resolvedCategory && useSuggestions && tx.trainingData?.suggested_category) {
+        resolvedCategory = tx.trainingData.suggested_category;
+      }
+      if (!resolvedCategory || resolvedCategory === 'Uncategorized') {
+        skippedNoCategory++;
+        continue;
+      }
+
       const resolvedShipment = shipmentId || await findShipmentForDate(tx.transaction_date);
-      const expCat = await db.ExpenseCategory.findOne({ where: { name: category } });
+      const expCat = await db.ExpenseCategory.findOne({ where: { name: resolvedCategory } });
 
       await tx.update({
         status: 'approved',
-        gcgl_category: category,
+        gcgl_category: resolvedCategory,
         shipment_id: resolvedShipment || null,
         is_business_expense: true,
         is_fixed_cost: expCat?.is_fixed_cost || false,
@@ -264,19 +278,19 @@ exports.bulkReview = asyncHandler(async (req, res) => {
     }
 
     // Update training data
-    const training = await db.AITrainingData.findOne({ where: { transaction_id: id } });
-    if (training) {
+    const training = tx.trainingData || await db.AITrainingData.findOne({ where: { transaction_id: id } });
+    if (training && action === 'approve') {
       await training.update({
-        human_category: category || null,
+        human_category: resolvedCategory || null,
         human_shipment_id: shipmentId || null,
-        suggestion_accepted: category === training.suggested_category,
-        correction_type: category !== training.suggested_category ? 'category_changed' : null,
+        suggestion_accepted: resolvedCategory === training.suggested_category,
+        correction_type: resolvedCategory !== training.suggested_category ? 'category_changed' : null,
       });
     }
     processed++;
   }
 
-  res.json({ success: true, data: { processed } });
+  res.json({ success: true, data: { processed, skippedNoCategory } });
 });
 
 // ── STATS ─────────────────────────────────────────────────

@@ -183,13 +183,16 @@ export default function TransactionReview() {
   const handleReviewed = () => { setReviewModal(null); setSelected(new Set()); loadData(); };
 
   const handleBulkApprove = async () => {
-    if (!bulkCategory || selected.size === 0) return;
+    if (selected.size === 0) return;
     try {
       await axios.post('/api/v1/bank/transactions/bulk-review', {
-        transactionIds: [...selected], action: 'approve', category: bulkCategory, shipmentId: bulkShipment || null,
+        transactionIds: [...selected], action: 'approve',
+        category: bulkCategory || null, // null = use each transaction's AI suggestion
+        shipmentId: bulkShipment || null,
+        useSuggestions: !bulkCategory, // flag to use AI suggestions
       });
       setSelected(new Set()); setBulkCategory(''); setBulkShipment(''); loadData();
-    } catch (err) { alert('Bulk review failed'); }
+    } catch (err) { alert(err.response?.data?.error?.message || 'Bulk review failed'); }
   };
 
   const handleBulkReject = async () => {
@@ -319,8 +322,10 @@ export default function TransactionReview() {
                 <option value="">Shipment...</option>
                 {shipments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-              <button onClick={handleBulkApprove} disabled={!bulkCategory}
-                className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium disabled:opacity-50">Approve All</button>
+              <button onClick={handleBulkApprove}
+                className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
+                {bulkCategory ? 'Approve All' : 'Approve All (use suggestions)'}
+              </button>
               <button onClick={handleBulkReject}
                 className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium">Reject All</button>
             </div>
