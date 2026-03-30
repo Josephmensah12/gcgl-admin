@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const asyncHandler = require('../middleware/asyncHandler');
 const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
+const { findShipmentForDate } = require('../services/shipmentMatcher');
 
 // ── EXPENSES CRUD ─────────────────────────────────────────
 
@@ -73,17 +74,28 @@ exports.detail = asyncHandler(async (req, res) => {
 });
 
 exports.create = asyncHandler(async (req, res) => {
-  const { expense_date, category_id, description, vendor_or_payee, amount, shipment_id, notes } = req.body;
+  const { expense_date, category_id, description, vendor_or_payee, amount, shipment_id, notes, is_fixed_cost } = req.body;
 
   if (!expense_date || !category_id || !description || !amount) {
     throw new AppError('Date, category, description, and amount are required', 400, 'VALIDATION_ERROR');
+  }
+
+  // Auto-assign shipment by date if none provided
+  const resolvedShipmentId = shipment_id || await findShipmentForDate(expense_date);
+
+  // Auto-detect fixed cost from category if not explicitly set
+  let fixedCost = is_fixed_cost || false;
+  if (!is_fixed_cost) {
+    const cat = await db.ExpenseCategory.findByPk(category_id);
+    if (cat?.is_fixed_cost) fixedCost = true;
   }
 
   const expense = await db.Expense.create({
     expense_date, category_id, description,
     vendor_or_payee: vendor_or_payee || null,
     amount,
-    shipment_id: shipment_id || null,
+    shipment_id: resolvedShipmentId || null,
+    is_fixed_cost: fixedCost,
     notes: notes || null,
     created_by: req.user?.id || null,
   });

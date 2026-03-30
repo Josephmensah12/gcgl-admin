@@ -93,9 +93,10 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
               <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Shipment</label>
               <select value={shipmentId} onChange={(e) => setShipmentId(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
-                <option value="">-- No specific shipment --</option>
+                <option value="">-- Auto-assign by date --</option>
                 {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} [{s.status}]</option>)}
               </select>
+              <p className="text-xs text-gray-400 mt-1">Leave empty to auto-assign based on transaction date</p>
             </div>
 
             <div>

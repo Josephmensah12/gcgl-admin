@@ -5,6 +5,7 @@ const { AppError } = require('../middleware/errorHandler');
 const plaid = require('../services/plaidService');
 const { categorizeTransaction } = require('../services/categorizationService');
 const { parseCSV, normalizeTransactions } = require('../services/csvParserService');
+const { findShipmentForDate } = require('../services/shipmentMatcher');
 const { v4: uuidv4 } = require('uuid');
 
 // ── PLAID CONNECTION ──────────────────────────────────────
@@ -157,10 +158,13 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
   if (action === 'approve') {
     if (!category) throw new AppError('Category required for approval', 400);
 
+    // Auto-assign shipment by date if none selected
+    const resolvedShipmentId = shipmentId || await findShipmentForDate(tx.transaction_date);
+
     await tx.update({
       status: 'approved',
       gcgl_category: category,
-      shipment_id: shipmentId || null,
+      shipment_id: resolvedShipmentId || null,
       is_business_expense: isBusinessExpense !== false,
       is_fixed_cost: isFixedCost || false,
       notes: notes || null,
@@ -178,7 +182,8 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
           description: `${tx.merchant_name || tx.description}`,
           vendor_or_payee: tx.merchant_name,
           amount: tx.amount,
-          shipment_id: shipmentId || null,
+          shipment_id: resolvedShipmentId || null,
+          is_fixed_cost: isFixedCost || false,
           notes: `Imported from bank: ${tx.plaid_transaction_id}`,
           created_by: req.user?.id || null,
         });
@@ -226,16 +231,19 @@ exports.bulkReview = asyncHandler(async (req, res) => {
     if (!tx || tx.status !== 'pending_review') continue;
 
     if (action === 'approve' && category) {
+      const resolvedShipment = shipmentId || await findShipmentForDate(tx.transaction_date);
+      const expCat = await db.ExpenseCategory.findOne({ where: { name: category } });
+
       await tx.update({
         status: 'approved',
         gcgl_category: category,
-        shipment_id: shipmentId || null,
+        shipment_id: resolvedShipment || null,
         is_business_expense: true,
+        is_fixed_cost: expCat?.is_fixed_cost || false,
         reviewed_by: req.user?.id || null,
         reviewed_at: new Date(),
       });
 
-      const expCat = await db.ExpenseCategory.findOne({ where: { name: category } });
       if (expCat) {
         await db.Expense.create({
           expense_date: tx.transaction_date,
@@ -243,7 +251,8 @@ exports.bulkReview = asyncHandler(async (req, res) => {
           description: tx.merchant_name || tx.description,
           vendor_or_payee: tx.merchant_name,
           amount: tx.amount,
-          shipment_id: shipmentId || null,
+          shipment_id: resolvedShipment || null,
+          is_fixed_cost: expCat.is_fixed_cost || false,
           notes: `Imported from bank: ${tx.plaid_transaction_id}`,
           created_by: req.user?.id || null,
         });

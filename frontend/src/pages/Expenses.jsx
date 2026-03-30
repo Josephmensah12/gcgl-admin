@@ -85,7 +85,7 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Shipment</label>
             <select value={form.shipment_id} onChange={(e) => setForm((f) => ({ ...f, shipment_id: e.target.value }))}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
-              <option value="">-- Not tied to a shipment --</option>
+              <option value="">-- Auto-assign by date --</option>
               {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} [{s.status}]</option>)}
             </select>
           </div>
