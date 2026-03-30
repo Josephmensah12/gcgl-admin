@@ -321,6 +321,25 @@ exports.getStats = asyncHandler(async (req, res) => {
   });
 });
 
+// ── CLEAR TRANSACTIONS ────────────────────────────────────
+
+exports.clearTransactions = asyncHandler(async (req, res) => {
+  const { status } = req.body; // optional: only clear specific status
+
+  const where = {};
+  if (status) where.status = status;
+
+  // Delete associated AI training data first
+  const txIds = (await db.ImportedTransaction.findAll({ where, attributes: ['id'], raw: true })).map((t) => t.id);
+  if (txIds.length > 0) {
+    await db.AITrainingData.destroy({ where: { transaction_id: { [Op.in]: txIds } } });
+  }
+
+  const deleted = await db.ImportedTransaction.destroy({ where });
+
+  res.json({ success: true, data: { deleted } });
+});
+
 // ── CSV IMPORT ────────────────────────────────────────────
 
 exports.previewCSV = asyncHandler(async (req, res) => {

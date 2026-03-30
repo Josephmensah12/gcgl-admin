@@ -253,6 +253,29 @@ export default function TransactionReview() {
             </select>
           </div>
 
+          <div className="flex gap-2">
+            <button onClick={async () => {
+              if (!confirm(`Clear all ${statusFilter === 'pending_review' ? 'pending' : statusFilter} transactions? This cannot be undone.`)) return;
+              try {
+                const res = await axios.post('/api/v1/bank/clear-transactions', { status: statusFilter });
+                alert(`${res.data.data.deleted} transactions cleared`);
+                loadData();
+              } catch (err) { alert('Failed to clear'); }
+            }} className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200">
+              Clear {statusFilter === 'pending_review' ? 'Pending' : statusFilter}
+            </button>
+            <button onClick={async () => {
+              if (!confirm('Clear ALL transactions (all statuses)? This cannot be undone.')) return;
+              try {
+                const res = await axios.post('/api/v1/bank/clear-transactions', {});
+                alert(`${res.data.data.deleted} transactions cleared`);
+                loadData();
+              } catch (err) { alert('Failed to clear'); }
+            }} className="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
+              Clear All
+            </button>
+          </div>
+
           {selected.size > 0 && statusFilter === 'pending_review' && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-600">{selected.size} selected</span>

@@ -13,6 +13,7 @@ router.delete('/connections/:id', requireRole(['Admin']), bc.removeConnection);
 
 // Transaction sync
 router.post('/sync', requireRole(['Admin', 'Manager']), bc.syncTransactions);
+router.post('/clear-transactions', requireRole(['Admin']), bc.clearTransactions);
 router.post('/preview-csv', requireRole(['Admin', 'Manager']), bc.previewCSV);
 router.post('/import-csv', requireRole(['Admin', 'Manager']), bc.importCSV);
 
