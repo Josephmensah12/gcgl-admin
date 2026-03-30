@@ -7,7 +7,6 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
   const [shipmentId, setShipmentId] = useState('');
   const [notes, setNotes] = useState('');
   const [isBusiness, setIsBusiness] = useState(true);
-  const [isFixed, setIsFixed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [startTime] = useState(Date.now());
@@ -25,7 +24,7 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
         shipmentId: shipmentId || null,
         notes,
         isBusinessExpense: action === 'approve' ? isBusiness : false,
-        isFixedCost: action === 'approve' ? isFixed : false,
+        isFixedCost: action === 'approve' ? (categories.find((c) => c.name === category)?.is_fixed_cost || false) : false,
         _reviewStartTime: startTime,
       });
       onReviewed();
@@ -118,19 +117,12 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
               </div>
             </div>
 
-            {isBusiness && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cost Type</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" checked={!isFixed} onChange={() => setIsFixed(false)} /> Variable Cost
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" checked={isFixed} onChange={() => setIsFixed(true)} /> Fixed Cost
-                  </label>
-                </div>
-                <p className="text-xs text-gray-400 mt-1">{isFixed ? 'Allocated to shipments by time period (rent, insurance, utilities)' : 'Direct expense tied to specific activity'}</p>
-              </div>
+            {isBusiness && category && (
+              <p className="text-xs text-gray-500">
+                Cost type: <span className={`font-medium ${categories.find((c) => c.name === category)?.is_fixed_cost ? 'text-purple-700' : 'text-gray-700'}`}>
+                  {categories.find((c) => c.name === category)?.is_fixed_cost ? 'Fixed (set by category)' : 'Variable (set by category)'}
+                </span>
+              </p>
             )}
           </div>
         </div>
