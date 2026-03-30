@@ -14,6 +14,10 @@ export default function PickupDetail() {
   const [modal, setModal] = useState(null); // null | 'PAYMENT' | 'REFUND'
   const [voidingId, setVoidingId] = useState(null);
   const [voidReason, setVoidReason] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [shipments, setShipments] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   const loadPickup = () => axios.get(`/api/v1/pickups/${id}`).then((res) => setPickup(res.data.data));
   const loadTransactions = () => axios.get(`/api/v1/invoices/${id}/transactions`, { params: { includeVoided: 'true' } })
@@ -24,6 +28,37 @@ export default function PickupDetail() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  const startEditing = async () => {
+    setEditForm({
+      customerName: pickup.customerName || '',
+      customerEmail: pickup.customerEmail || '',
+      customerPhone: pickup.customerPhone || '',
+      customerAddress: pickup.customerAddress || '',
+      recipientName: pickup.recipientName || '',
+      recipientPhone: pickup.recipientPhone || '',
+      recipientAddress: pickup.recipientAddress || '',
+      shipmentId: pickup.shipmentId || '',
+    });
+    try {
+      const res = await axios.get('/api/v1/shipments');
+      setShipments(res.data.data.shipments || res.data.data || []);
+    } catch { setShipments([]); }
+    setEditing(true);
+  };
+
+  const cancelEditing = () => { setEditing(false); setEditForm({}); };
+
+  const saveEdits = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.put(`/api/v1/pickups/${id}`, editForm);
+      setPickup(res.data.data);
+      setEditing(false);
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Save failed');
+    } finally { setSaving(false); }
+  };
 
   const handleTransactionSuccess = (updatedInvoice) => {
     setPickup((prev) => ({ ...prev, ...updatedInvoice }));
@@ -76,7 +111,24 @@ export default function PickupDetail() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Invoice #{pickup.invoiceNumber}</h2>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                {!editing ? (
+                  <button onClick={startEditing}
+                    className="px-3 py-1 rounded-lg text-xs font-medium bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
+                    Edit
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={saveEdits} disabled={saving}
+                      className="px-3 py-1 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={cancelEditing}
+                      className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">
+                      Cancel
+                    </button>
+                  </>
+                )}
                 <span className={`px-3 py-1 rounded-full text-xs font-medium
                   ${pickup.paymentStatus === 'paid' ? 'bg-green-100 text-green-700'
                     : pickup.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-700'
@@ -214,24 +266,60 @@ export default function PickupDetail() {
         <div className="space-y-4">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Customer</h3>
-            <p className="font-medium">{pickup.customerName}</p>
-            <p className="text-sm text-gray-500">{pickup.customerEmail}</p>
-            <p className="text-sm text-gray-500">{pickup.customerPhone}</p>
-            <p className="text-sm text-gray-500 mt-1">{pickup.customerAddress}</p>
+            {editing ? (
+              <div className="space-y-2">
+                <input value={editForm.customerName} onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Name" />
+                <input value={editForm.customerEmail} onChange={(e) => setEditForm({ ...editForm, customerEmail: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Email" />
+                <input value={editForm.customerPhone} onChange={(e) => setEditForm({ ...editForm, customerPhone: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Phone" />
+                <input value={editForm.customerAddress} onChange={(e) => setEditForm({ ...editForm, customerAddress: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Address" />
+              </div>
+            ) : (
+              <>
+                <p className="font-medium">{pickup.customerName}</p>
+                <p className="text-sm text-gray-500">{pickup.customerEmail}</p>
+                <p className="text-sm text-gray-500">{pickup.customerPhone}</p>
+                <p className="text-sm text-gray-500 mt-1">{pickup.customerAddress}</p>
+              </>
+            )}
           </div>
 
-          {pickup.recipientName && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="font-semibold text-gray-900 mb-3">Recipient (Ghana)</h3>
-              <p className="font-medium">{pickup.recipientName}</p>
-              <p className="text-sm text-gray-500">{pickup.recipientPhone}</p>
-              <p className="text-sm text-gray-500">{pickup.recipientAddress}</p>
-            </div>
-          )}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-semibold text-gray-900 mb-3">Recipient (Ghana)</h3>
+            {editing ? (
+              <div className="space-y-2">
+                <input value={editForm.recipientName} onChange={(e) => setEditForm({ ...editForm, recipientName: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Name" />
+                <input value={editForm.recipientPhone} onChange={(e) => setEditForm({ ...editForm, recipientPhone: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Phone" />
+                <input value={editForm.recipientAddress} onChange={(e) => setEditForm({ ...editForm, recipientAddress: e.target.value })}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm" placeholder="Address" />
+              </div>
+            ) : pickup.recipientName ? (
+              <>
+                <p className="font-medium">{pickup.recipientName}</p>
+                <p className="text-sm text-gray-500">{pickup.recipientPhone}</p>
+                <p className="text-sm text-gray-500">{pickup.recipientAddress}</p>
+              </>
+            ) : (
+              <p className="text-gray-400">No recipient</p>
+            )}
+          </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Shipment</h3>
-            {pickup.Shipment ? (
+            {editing ? (
+              <select value={editForm.shipmentId} onChange={(e) => setEditForm({ ...editForm, shipmentId: e.target.value })}
+                className="w-full px-3 py-1.5 border rounded-lg text-sm">
+                <option value="">Not assigned</option>
+                {shipments.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
+                ))}
+              </select>
+            ) : pickup.Shipment ? (
               <Link to={`/shipments/${pickup.Shipment.id}`} className="text-primary-600 hover:text-primary-700 font-medium">
                 {pickup.Shipment.name}
               </Link>

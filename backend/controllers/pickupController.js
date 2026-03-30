@@ -99,6 +99,63 @@ exports.getById = asyncHandler(async (req, res) => {
   });
 });
 
+exports.update = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) {
+    throw new AppError('Pickup not found', 404, 'NOT_FOUND');
+  }
+
+  const allowedFields = [
+    'customerName', 'customerEmail', 'customerPhone', 'customerAddress',
+    'recipientName', 'recipientPhone', 'recipientAddress',
+    'shipmentId', 'paymentStatus', 'status',
+  ];
+
+  const updates = {};
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      updates[field] = req.body[field] || null;
+    }
+  }
+
+  const oldShipmentId = invoice.shipmentId;
+  const newShipmentId = updates.shipmentId !== undefined ? updates.shipmentId : oldShipmentId;
+
+  // Validate shipment if changing
+  if (updates.shipmentId !== undefined && updates.shipmentId) {
+    const shipment = await db.Shipment.findByPk(updates.shipmentId);
+    if (!shipment) {
+      throw new AppError('Shipment not found', 404, 'NOT_FOUND');
+    }
+  }
+
+  await invoice.update(updates);
+
+  // Recalculate totals on affected shipments
+  const affectedIds = [...new Set([oldShipmentId, newShipmentId].filter(Boolean))];
+  for (const sid of affectedIds) {
+    const totals = await db.Invoice.findOne({
+      where: { shipmentId: sid, status: 'completed' },
+      attributes: [[db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue']],
+      raw: true,
+    });
+    await db.Shipment.update({ totalValue: parseFloat(totals?.totalValue) || 0 }, { where: { id: sid } });
+  }
+
+  // Reload with associations
+  const updated = await db.Invoice.findByPk(req.params.id, {
+    include: [
+      { model: db.Customer, include: [{ model: db.Recipient, as: 'recipients' }] },
+      { model: db.Shipment },
+      { model: db.LineItem, as: 'lineItems',
+        include: [{ model: db.Photo, as: 'photos', attributes: ['id', 'data', 'sortOrder'] }] },
+    ],
+  });
+
+  const days = Math.floor((Date.now() - new Date(updated.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+  res.json({ success: true, data: { ...updated.toJSON(), warehouseDays: days } });
+});
+
 exports.assignToShipment = asyncHandler(async (req, res) => {
   const { invoiceIds, shipmentId } = req.body;
   if (!invoiceIds?.length || !shipmentId) {
