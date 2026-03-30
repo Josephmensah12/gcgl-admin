@@ -122,7 +122,16 @@ exports.syncTransactions = asyncHandler(async (req, res) => {
 // ── TRANSACTION REVIEW ────────────────────────────────────
 
 exports.listPending = asyncHandler(async (req, res) => {
-  const { status = 'pending_review', page = 1, limit = 50 } = req.query;
+  const { status = 'pending_review', page = 1, limit = 50, sortBy = 'transaction_date', sortOrder = 'ASC' } = req.query;
+
+  // Map frontend field names to model fields
+  const sortFieldMap = {
+    transaction_date: 'transaction_date',
+    amount: 'amount',
+    merchant_name: 'merchant_name',
+    gcgl_category: 'gcgl_category',
+  };
+  const resolvedSort = sortFieldMap[sortBy] || 'transaction_date';
 
   const where = {};
   if (status) where.status = status;
@@ -132,7 +141,7 @@ exports.listPending = asyncHandler(async (req, res) => {
     where,
     limit: parseInt(limit),
     offset,
-    order: [['transaction_date', 'ASC']],
+    order: [[resolvedSort, sortOrder === 'DESC' ? 'DESC' : 'ASC']],
     include: [
       { model: db.BankConnection, as: 'bankConnection', attributes: ['account_nickname', 'bank_name', 'account_type'] },
       { model: db.AITrainingData, as: 'trainingData', attributes: ['suggested_category', 'suggestion_confidence', 'suggestion_reasoning'] },

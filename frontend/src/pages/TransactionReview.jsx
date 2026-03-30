@@ -159,11 +159,36 @@ export default function TransactionReview() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkShipment, setBulkShipment] = useState('');
   const [csvUploading, setCsvUploading] = useState(false);
+  const [sortBy, setSortBy] = useState('transaction_date');
+  const [sortOrder, setSortOrder] = useState('ASC');
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((o) => o === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder(field === 'amount' ? 'DESC' : 'ASC');
+    }
+    setPagination((p) => ({ ...p, page: 1 }));
+  };
+
+  const SortHeader = ({ field, children }) => (
+    <th className="px-4 py-3 font-medium cursor-pointer hover:text-gray-900 select-none" onClick={() => toggleSort(field)}>
+      <div className="flex items-center gap-1">
+        {children}
+        {sortBy === field ? (
+          <span className="text-primary-600">{sortOrder === 'ASC' ? '\u2191' : '\u2193'}</span>
+        ) : (
+          <span className="text-gray-300">\u2195</span>
+        )}
+      </div>
+    </th>
+  );
 
   const loadData = useCallback(async () => {
     try {
       const [txRes, statsRes] = await Promise.all([
-        axios.get('/api/v1/bank/transactions', { params: { status: statusFilter, page: pagination.page, limit: pagination.limit } }),
+        axios.get('/api/v1/bank/transactions', { params: { status: statusFilter, page: pagination.page, limit: pagination.limit, sortBy, sortOrder } }),
         axios.get('/api/v1/bank/stats'),
       ]);
       setTransactions(txRes.data.data.transactions);
@@ -171,7 +196,7 @@ export default function TransactionReview() {
       setStats(statsRes.data.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [statusFilter, pagination.page, pagination.limit]);
+  }, [statusFilter, pagination.page, pagination.limit, sortBy, sortOrder]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -342,12 +367,12 @@ export default function TransactionReview() {
                 {statusFilter === 'pending_review' && (
                   <th className="px-4 py-3"><input type="checkbox" checked={selected.size === transactions.length && transactions.length > 0} onChange={selectAll} /></th>
                 )}
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium text-right">Amount</th>
-                <th className="px-4 py-3 font-medium">Merchant</th>
+                <SortHeader field="transaction_date">Date</SortHeader>
+                <SortHeader field="amount">Amount</SortHeader>
+                <SortHeader field="merchant_name">Merchant</SortHeader>
                 <th className="px-4 py-3 font-medium">Account</th>
-                <th className="px-4 py-3 font-medium">Suggestion</th>
-                {statusFilter !== 'pending_review' && <th className="px-4 py-3 font-medium">Category</th>}
+                <SortHeader field="suggested_category">Suggestion</SortHeader>
+                {statusFilter !== 'pending_review' && <SortHeader field="gcgl_category">Category</SortHeader>}
                 {statusFilter !== 'pending_review' && <th className="px-4 py-3 font-medium">Cost Type</th>}
                 {statusFilter !== 'pending_review' && <th className="px-4 py-3 font-medium">Shipment</th>}
                 <th className="px-4 py-3 font-medium">Actions</th>
