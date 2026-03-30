@@ -148,6 +148,7 @@ export default function TransactionReview() {
   const [selected, setSelected] = useState(new Set());
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkShipment, setBulkShipment] = useState('');
+  const [csvUploading, setCsvUploading] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -243,7 +244,7 @@ export default function TransactionReview() {
       {/* Filters & Bulk Actions */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <div className="flex flex-col sm:flex-row gap-3 justify-between">
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
               <option value="pending_review">Pending Review</option>
@@ -251,6 +252,25 @@ export default function TransactionReview() {
               <option value="rejected">Rejected</option>
               <option value="deferred">Deferred</option>
             </select>
+            <label className={`px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 cursor-pointer whitespace-nowrap ${csvUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+              {csvUploading ? 'Loading...' : 'Load CSV'}
+              <input type="file" accept=".csv,.txt" className="hidden" disabled={csvUploading} onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setCsvUploading(true);
+                try {
+                  const text = await file.text();
+                  const res = await axios.post('/api/v1/bank/import-csv', { csvData: text, accountLabel: 'Bank of America' });
+                  alert(`${res.data.data.imported} transactions loaded, ${res.data.data.skipped} duplicates skipped`);
+                  loadData();
+                } catch (err) {
+                  alert(err.response?.data?.error?.message || 'Import failed');
+                } finally {
+                  setCsvUploading(false);
+                  e.target.value = '';
+                }
+              }} />
+            </label>
           </div>
 
           <div className="flex gap-2">
