@@ -8,19 +8,24 @@ export default function ShipmentDetail() {
   const [shipment, setShipment] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txAggregates, setTxAggregates] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [expenseTotals, setExpenseTotals] = useState({ total: 0, count: 0 });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments'
+  const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments' | 'expenses'
 
   useEffect(() => {
     Promise.all([
       axios.get(`/api/v1/shipments/${id}`),
       axios.get('/api/v1/transactions', { params: { shipmentId: id, limit: 200 } }),
+      axios.get('/api/v1/expenses', { params: { shipment_id: id, limit: 200 } }),
     ])
-      .then(([shipRes, txRes]) => {
+      .then(([shipRes, txRes, expRes]) => {
         setShipment(shipRes.data.data);
         setTransactions(txRes.data.data.transactions);
         setTxAggregates(txRes.data.data.aggregates);
+        setExpenses(expRes.data.data.expenses);
+        setExpenseTotals(expRes.data.data.totals);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -104,7 +109,7 @@ export default function ShipmentDetail() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500 mb-1">Capacity</p>
           <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
@@ -114,19 +119,26 @@ export default function ShipmentDetail() {
           <p className="text-xs text-gray-400">{shipment.capacityPercent}%</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-sm text-gray-500">Total Invoices</p>
-          <p className="text-2xl font-bold text-gray-900">{invoices.length}</p>
-          <p className="text-xs text-gray-400">{paidCount} paid, {unpaidCount} unpaid</p>
+          <p className="text-sm text-gray-500">Revenue</p>
+          <p className="text-2xl font-bold text-gray-900">{fmt(totalValue)}</p>
+          <p className="text-xs text-gray-400">{invoices.length} invoices</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500">Collected</p>
           <p className="text-2xl font-bold text-green-600">{fmt(totalPaid)}</p>
-          <p className="text-xs text-gray-400">{txAggregates?.paymentCount || 0} payments</p>
+          <p className="text-xs text-gray-400">{paidCount} paid, {unpaidCount} unpaid</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-sm text-gray-500">Outstanding</p>
-          <p className={`text-2xl font-bold ${totalUnpaid > 0 ? 'text-red-600' : 'text-green-600'}`}>{fmt(totalUnpaid)}</p>
-          <p className="text-xs text-gray-400">{unpaidCount} invoices</p>
+          <p className="text-sm text-gray-500">Expenses</p>
+          <p className="text-2xl font-bold text-red-600">{fmt(expenseTotals.total)}</p>
+          <p className="text-xs text-gray-400">{expenseTotals.count} entries</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <p className="text-sm text-gray-500">Net Profit</p>
+          <p className={`text-2xl font-bold ${totalValue - expenseTotals.total > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {fmt(totalValue - expenseTotals.total)}
+          </p>
+          <p className="text-xs text-gray-400">{totalValue > 0 ? Math.round(((totalValue - expenseTotals.total) / totalValue) * 100) : 0}% margin</p>
         </div>
       </div>
 
@@ -141,6 +153,11 @@ export default function ShipmentDetail() {
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
             ${activeTab === 'payments' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
           Payments ({txAggregates?.transactionCount || 0})
+        </button>
+        <button onClick={() => setActiveTab('expenses')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors
+            ${activeTab === 'expenses' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          Expenses ({expenseTotals.count})
         </button>
       </div>
 
@@ -271,6 +288,84 @@ export default function ShipmentDetail() {
                 <p className="text-center py-8 text-gray-400">No payments recorded for this shipment</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expenses Tab */}
+      {activeTab === 'expenses' && (
+        <div className="space-y-4">
+          {/* Expense category breakdown */}
+          {expenses.length > 0 && (() => {
+            const byCat = {};
+            expenses.forEach((exp) => {
+              const cat = exp.category?.name || 'Uncategorized';
+              if (!byCat[cat]) byCat[cat] = { total: 0, count: 0, fixed: exp.is_fixed_cost };
+              byCat[cat].total += parseFloat(exp.amount) || 0;
+              byCat[cat].count++;
+            });
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {Object.entries(byCat).sort((a, b) => b[1].total - a[1].total).map(([cat, data]) => (
+                  <div key={cat} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-1 mb-1">
+                      <p className="text-sm text-gray-500 truncate">{cat}</p>
+                      <span className={`px-1 py-0.5 rounded text-[10px] font-medium ${data.fixed ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {data.fixed ? 'F' : 'V'}
+                      </span>
+                    </div>
+                    <p className="text-lg font-bold text-red-600">{fmt(data.total)}</p>
+                    <p className="text-xs text-gray-400">{data.count} entries</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Expense list */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr className="text-left text-gray-500">
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Category</th>
+                    <th className="px-4 py-3 font-medium">Description</th>
+                    <th className="px-4 py-3 font-medium">Vendor</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {expenses.map((exp) => (
+                    <tr key={exp.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-600">{new Date(exp.expense_date).toLocaleDateString()}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">{exp.category?.name}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{exp.description}</td>
+                      <td className="px-4 py-3 text-gray-500">{exp.vendor_or_payee || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${exp.is_fixed_cost ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {exp.is_fixed_cost ? 'Fixed' : 'Variable'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(exp.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {expenses.length === 0 && (
+                <p className="text-center py-8 text-gray-400">No expenses assigned to this shipment</p>
+              )}
+            </div>
+
+            {expenses.length > 0 && (
+              <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-gray-50">
+                <span className="text-sm font-medium text-gray-700">Total Expenses ({expenseTotals.count})</span>
+                <span className="text-lg font-bold text-red-600">{fmt(expenseTotals.total)}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
