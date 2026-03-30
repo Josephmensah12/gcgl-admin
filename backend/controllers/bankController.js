@@ -334,20 +334,33 @@ exports.getStats = asyncHandler(async (req, res) => {
 // ── CLEAR TRANSACTIONS ────────────────────────────────────
 
 exports.clearTransactions = asyncHandler(async (req, res) => {
-  const { status } = req.body; // optional: only clear specific status
+  const { status, clearExpenses } = req.body;
 
   const where = {};
   if (status) where.status = status;
 
-  // Delete associated AI training data first
-  const txIds = (await db.ImportedTransaction.findAll({ where, attributes: ['id'], raw: true })).map((t) => t.id);
+  // Get transaction IDs and their plaid_transaction_ids before deleting
+  const txRows = await db.ImportedTransaction.findAll({ where, attributes: ['id', 'plaid_transaction_id'], raw: true });
+  const txIds = txRows.map((t) => t.id);
+  const plaidIds = txRows.map((t) => t.plaid_transaction_id);
+
+  let expensesDeleted = 0;
+
+  // Delete associated AI training data
   if (txIds.length > 0) {
     await db.AITrainingData.destroy({ where: { transaction_id: { [Op.in]: txIds } } });
   }
 
+  // Optionally delete linked expenses
+  if (clearExpenses && plaidIds.length > 0) {
+    expensesDeleted = await db.Expense.destroy({
+      where: { notes: { [Op.in]: plaidIds.map((pid) => `Imported from bank: ${pid}`) } },
+    });
+  }
+
   const deleted = await db.ImportedTransaction.destroy({ where });
 
-  res.json({ success: true, data: { deleted } });
+  res.json({ success: true, data: { deleted, expensesDeleted } });
 });
 
 // ── CSV IMPORT ────────────────────────────────────────────

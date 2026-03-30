@@ -285,20 +285,22 @@ export default function TransactionReview() {
 
           <div className="flex gap-2">
             <button onClick={async () => {
-              if (!confirm(`Clear all ${statusFilter === 'pending_review' ? 'pending' : statusFilter} transactions? This cannot be undone.`)) return;
+              if (!confirm(`Clear all ${statusFilter === 'pending_review' ? 'pending' : statusFilter} transactions?`)) return;
+              const clearExpenses = confirm('Also clear linked expenses?\n\nOK = clear both transactions and expenses\nCancel = keep expenses, only clear bank transactions');
               try {
-                const res = await axios.post('/api/v1/bank/clear-transactions', { status: statusFilter });
-                alert(`${res.data.data.deleted} transactions cleared`);
+                const res = await axios.post('/api/v1/bank/clear-transactions', { status: statusFilter, clearExpenses });
+                alert(`${res.data.data.deleted} transactions cleared${clearExpenses ? `, ${res.data.data.expensesDeleted} expenses removed` : ''}`);
                 loadData();
               } catch (err) { alert('Failed to clear'); }
             }} className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200">
               Clear {statusFilter === 'pending_review' ? 'Pending' : statusFilter}
             </button>
             <button onClick={async () => {
-              if (!confirm('Clear ALL transactions (all statuses)? This cannot be undone.')) return;
+              if (!confirm('Clear ALL bank transactions (all statuses)?')) return;
+              const clearExpenses = confirm('Also clear linked expenses?\n\nOK = clear both transactions and expenses\nCancel = keep expenses, only clear bank transactions');
               try {
-                const res = await axios.post('/api/v1/bank/clear-transactions', {});
-                alert(`${res.data.data.deleted} transactions cleared`);
+                const res = await axios.post('/api/v1/bank/clear-transactions', { clearExpenses });
+                alert(`${res.data.data.deleted} transactions cleared${clearExpenses ? `, ${res.data.data.expensesDeleted} expenses removed` : ''}`);
                 loadData();
               } catch (err) { alert('Failed to clear'); }
             }} className="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
