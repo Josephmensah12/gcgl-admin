@@ -349,10 +349,10 @@ export default function TransactionReview() {
               </select>
               <button onClick={handleBulkApprove}
                 className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
-                {bulkCategory ? 'Approve All' : 'Approve All (use suggestions)'}
+                {bulkCategory ? `Approve ${selected.size} Selected` : `Approve ${selected.size} (use suggestions)`}
               </button>
               <button onClick={handleBulkReject}
-                className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium">Reject All</button>
+                className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium">Reject {selected.size}</button>
             </div>
           )}
         </div>
