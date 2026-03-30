@@ -127,6 +127,8 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | 'new' | expense object
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'analytics' | 'categories'
+  const [selectedShipmentFilter, setSelectedShipmentFilter] = useState(null); // for line graph -> category filter
+  const [filteredCategoryData, setFilteredCategoryData] = useState(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatFixed, setNewCatFixed] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
@@ -155,6 +157,19 @@ export default function Expenses() {
   }, []);
 
   const handleSaved = () => { setModal(null); loadExpenses(); axios.get('/api/v1/expenses/analytics').then((r) => setAnalytics(r.data.data)).catch(() => {}); };
+
+  const handleShipmentClick = async (shipmentId) => {
+    if (selectedShipmentFilter === shipmentId) {
+      setSelectedShipmentFilter(null);
+      setFilteredCategoryData(null);
+      return;
+    }
+    setSelectedShipmentFilter(shipmentId);
+    try {
+      const res = await axios.get('/api/v1/expenses/analytics', { params: { shipment_id: shipmentId } });
+      setFilteredCategoryData(res.data.data.byCategory);
+    } catch (err) { console.error(err); }
+  };
 
   const handleCreateCategory = async () => {
     if (!newCatName.trim()) return;
@@ -353,34 +368,90 @@ export default function Expenses() {
       )}
 
       {/* Analytics Tab */}
-      {activeTab === 'analytics' && analytics && (
+      {activeTab === 'analytics' && analytics && (() => {
+        const shipmentData = analytics.byShipment.filter((s) => s.shipment?.name);
+        const maxShipmentVal = Math.max(...shipmentData.map((s) => s.total), 1);
+        const categoryData = filteredCategoryData || analytics.byCategory;
+        const categoryTotal = categoryData.reduce((s, c) => s + c.total, 0);
+        const selectedName = selectedShipmentFilter ? shipmentData.find((s) => s.shipment_id === selectedShipmentFilter)?.shipment?.name : null;
+
+        return (
         <div className="space-y-6">
-          {/* Monthly Trend */}
+          {/* Shipment Line Graph */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 mb-4">Monthly Expense Trend</h3>
-            <div className="flex items-end gap-2 h-40">
-              {analytics.monthlyTrend.map((m, i) => {
-                const maxVal = Math.max(...analytics.monthlyTrend.map((d) => d.total), 1);
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-xs text-gray-500 font-medium">
-                      {m.total >= 1000 ? `$${(m.total / 1000).toFixed(1)}k` : `$${m.total.toFixed(0)}`}
-                    </span>
-                    <div className="w-full bg-red-400 rounded-t-md min-h-[4px] transition-all" style={{ height: `${(m.total / maxVal) * 120}px` }} />
-                    <span className="text-xs text-gray-400">{m.month.split(' ')[0]}</span>
-                  </div>
-                );
-              })}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Expenses by Shipment</h3>
+              {selectedShipmentFilter && (
+                <button onClick={() => { setSelectedShipmentFilter(null); setFilteredCategoryData(null); }}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium">Clear filter</button>
+              )}
             </div>
+            <p className="text-xs text-gray-400 mb-3">Click a shipment to filter the category breakdown below</p>
+
+            {shipmentData.length > 0 ? (
+              <div className="relative">
+                {/* Line chart */}
+                <svg viewBox={`0 0 ${Math.max(shipmentData.length * 120, 300)} 180`} className="w-full h-48">
+                  {/* Grid lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+                    <line key={pct} x1="0" y1={150 - pct * 130} x2={shipmentData.length * 120} y2={150 - pct * 130}
+                      stroke="#f1f5f9" strokeWidth="1" />
+                  ))}
+
+                  {/* Line */}
+                  <polyline
+                    fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinejoin="round"
+                    points={shipmentData.map((s, i) => `${i * 120 + 60},${150 - (s.total / maxShipmentVal) * 130}`).join(' ')}
+                  />
+
+                  {/* Area fill */}
+                  <polygon
+                    fill="url(#redGradient)" opacity="0.15"
+                    points={`${60},150 ${shipmentData.map((s, i) => `${i * 120 + 60},${150 - (s.total / maxShipmentVal) * 130}`).join(' ')} ${(shipmentData.length - 1) * 120 + 60},150`}
+                  />
+                  <defs>
+                    <linearGradient id="redGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" />
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Data points */}
+                  {shipmentData.map((s, i) => {
+                    const x = i * 120 + 60;
+                    const y = 150 - (s.total / maxShipmentVal) * 130;
+                    const isSelected = selectedShipmentFilter === s.shipment_id;
+                    return (
+                      <g key={s.shipment_id || i} onClick={() => handleShipmentClick(s.shipment_id)} className="cursor-pointer">
+                        <circle cx={x} cy={y} r={isSelected ? 8 : 5} fill={isSelected ? '#dc2626' : '#ef4444'}
+                          stroke="white" strokeWidth="2" />
+                        <text x={x} y={y - 12} textAnchor="middle" className="text-[10px] fill-gray-600 font-semibold">
+                          {s.total >= 1000 ? `$${(s.total / 1000).toFixed(1)}k` : `$${s.total.toFixed(0)}`}
+                        </text>
+                        <text x={x} y={168} textAnchor="middle" className="text-[9px] fill-gray-400">
+                          {s.shipment?.name?.substring(0, 12)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-8">No shipment expense data</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* By Category */}
+            {/* By Category (filtered by selected shipment) */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">By Category</h3>
+              <h3 className="font-semibold text-gray-900 mb-1">By Category</h3>
+              {selectedName && (
+                <p className="text-xs text-primary-600 font-medium mb-3">Filtered: {selectedName}</p>
+              )}
+              {!selectedName && <p className="text-xs text-gray-400 mb-3">All shipments</p>}
               <div className="space-y-3">
-                {analytics.byCategory.map((c) => {
-                  const pct = analytics.summary.total > 0 ? (c.total / analytics.summary.total * 100) : 0;
+                {categoryData.map((c) => {
+                  const pct = categoryTotal > 0 ? (c.total / categoryTotal * 100) : 0;
                   return (
                     <div key={c.category_id}>
                       <div className="flex justify-between text-sm mb-1">
@@ -388,26 +459,12 @@ export default function Expenses() {
                         <span className="font-semibold">{fmt(c.total)} ({c.count})</span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${pct}%` }} />
+                        <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
                 })}
-                {analytics.byCategory.length === 0 && <p className="text-sm text-gray-400">No data</p>}
-              </div>
-            </div>
-
-            {/* By Shipment */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">By Shipment</h3>
-              <div className="space-y-3">
-                {analytics.byShipment.map((s) => (
-                  <div key={s.shipment_id || 'none'} className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-700">{s.shipment?.name || 'Unassigned'}</span>
-                    <span className="font-semibold text-sm text-red-600">{fmt(s.total)} ({s.count})</span>
-                  </div>
-                ))}
-                {analytics.byShipment.length === 0 && <p className="text-sm text-gray-400">No data</p>}
+                {categoryData.length === 0 && <p className="text-sm text-gray-400">No data</p>}
               </div>
             </div>
 
@@ -426,7 +483,8 @@ export default function Expenses() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Categories Tab */}
       {activeTab === 'categories' && (
