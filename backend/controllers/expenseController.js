@@ -171,10 +171,10 @@ exports.analytics = asyncHandler(async (req, res) => {
     nest: true,
   });
 
-  // Monthly trend (last 6 months)
+  // Monthly trend (last 13 months)
   const monthlyTrend = [];
   const now = new Date();
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 12; i >= 0; i--) {
     const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
     const mWhere = { ...where, expense_date: { [Op.gte]: start.toISOString().split('T')[0], [Op.lte]: end.toISOString().split('T')[0] } };
@@ -186,8 +186,10 @@ exports.analytics = asyncHandler(async (req, res) => {
       ],
       raw: true,
     });
+    const monthYear = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
     monthlyTrend.push({
       month: start.toLocaleString('en-US', { month: 'short', year: 'numeric' }),
+      monthYear,
       total: parseFloat(result.total) || 0,
       count: parseInt(result.count) || 0,
     });
