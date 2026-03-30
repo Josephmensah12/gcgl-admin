@@ -4,6 +4,7 @@ const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const plaid = require('../services/plaidService');
 const { categorizeTransaction } = require('../services/categorizationService');
+const { suggestFromHistory } = require('../services/learnedPatternService');
 const { parseCSV, normalizeTransactions } = require('../services/csvParserService');
 const { findShipmentForDate } = require('../services/shipmentMatcher');
 const { v4: uuidv4 } = require('uuid');
@@ -85,7 +86,8 @@ exports.syncTransactions = asyncHandler(async (req, res) => {
         const exists = await db.ImportedTransaction.findOne({ where: { plaid_transaction_id: tx.transaction_id } });
         if (exists) continue;
 
-        const suggestion = categorizeTransaction(tx.name || tx.merchant_name, tx.amount);
+        const learned = await suggestFromHistory(tx.name || tx.merchant_name, tx.amount);
+        const suggestion = learned || categorizeTransaction(tx.name || tx.merchant_name, tx.amount);
 
         const imported = await db.ImportedTransaction.create({
           plaid_transaction_id: tx.transaction_id,
@@ -424,9 +426,14 @@ exports.importCSV = asyncHandler(async (req, res) => {
     const exists = await db.ImportedTransaction.findOne({ where: { plaid_transaction_id: dedupKey } });
     if (exists) { skipped++; continue; }
 
-    const suggestion = tx.isCredit
-      ? { category: 'Revenue / Deposit', confidence: 'credit', reasoning: 'Positive amount — incoming deposit or payment received' }
-      : categorizeTransaction(tx.description, tx.amount);
+    // Try learned patterns first, then fall back to keyword matching
+    let suggestion;
+    if (tx.isCredit) {
+      suggestion = { category: 'Revenue / Deposit', confidence: 'credit', reasoning: 'Positive amount — incoming deposit or payment received' };
+    } else {
+      const learned = await suggestFromHistory(tx.description, tx.amount);
+      suggestion = learned || categorizeTransaction(tx.description, tx.amount);
+    }
 
     const record = await db.ImportedTransaction.create({
       plaid_transaction_id: dedupKey,
