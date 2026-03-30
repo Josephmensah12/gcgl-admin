@@ -483,18 +483,45 @@ export default function Expenses() {
               </div>
             </div>
 
-            {/* Top Vendors */}
+            {/* By Shipment */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">Top Vendors</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">By Shipment</h3>
               <div className="space-y-2">
-                {analytics.topVendors.map((v, i) => (
-                  <div key={i} className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-700">{v.vendor_or_payee}</span>
-                    <span className="font-semibold text-sm">{fmt(v.total)} ({v.count})</span>
-                  </div>
-                ))}
-                {analytics.topVendors.length === 0 && <p className="text-sm text-gray-400">No vendor data</p>}
+                {analytics.byShipment.map((s) => {
+                  const isActive = s.shipment?.status === 'collecting';
+                  return (
+                    <div key={s.shipment_id || 'none'} className={`flex justify-between items-center py-2 px-2 rounded-lg border-b border-gray-50 ${isActive ? 'bg-green-50' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700">{s.shipment?.name || 'Unassigned'}</span>
+                        {s.shipment?.status && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium
+                            ${s.shipment.status === 'collecting' ? 'bg-green-100 text-green-700'
+                              : s.shipment.status === 'shipped' ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-500'}`}>
+                            {s.shipment.status}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-semibold text-sm text-red-600">{fmt(s.total)}</span>
+                    </div>
+                  );
+                })}
+                {analytics.byShipment.length === 0 && <p className="text-sm text-gray-400">No data</p>}
               </div>
+            </div>
+          </div>
+
+          {/* Top Vendors */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-semibold text-gray-900 mb-4">Top Vendors</h3>
+            <div className="space-y-2">
+              {analytics.topVendors.map((v, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-gray-50">
+                  <span className="text-sm text-gray-700">{v.vendor_or_payee}</span>
+                  <span className="font-semibold text-sm">{fmt(v.total)} ({v.count})</span>
+                </div>
+              ))}
+              {analytics.topVendors.length === 0 && <p className="text-sm text-gray-400">No vendor data</p>}
             </div>
           </div>
         </div>

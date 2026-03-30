@@ -156,20 +156,38 @@ exports.analytics = asyncHandler(async (req, res) => {
     nest: true,
   });
 
-  // By shipment
-  const byShipment = await db.Expense.findAll({
+  // By shipment — include ALL shipments, even those with $0 expenses
+  const allShipments = await db.Shipment.findAll({
+    attributes: ['id', 'name', 'status', 'start_date'],
+    order: [['start_date', 'ASC'], ['createdAt', 'ASC']],
+  });
+
+  const expenseByShipment = await db.Expense.findAll({
     where,
     attributes: [
       'shipment_id',
       [db.sequelize.fn('SUM', db.sequelize.col('amount')), 'total'],
       [db.sequelize.fn('COUNT', db.sequelize.col('Expense.id')), 'count'],
     ],
-    group: ['shipment_id', 'shipment.id', 'shipment.name'],
-    include: [{ model: db.Shipment, as: 'shipment', attributes: ['id', 'name'] }],
-    order: [[db.sequelize.fn('SUM', db.sequelize.col('amount')), 'DESC']],
+    group: ['shipment_id'],
     raw: true,
-    nest: true,
   });
+
+  const expMap = {};
+  expenseByShipment.forEach((e) => { expMap[e.shipment_id] = { total: parseFloat(e.total) || 0, count: parseInt(e.count) }; });
+
+  const byShipment = allShipments.map((s) => ({
+    shipment_id: s.id,
+    total: expMap[s.id]?.total || 0,
+    count: expMap[s.id]?.count || 0,
+    shipment: { id: s.id, name: s.name, status: s.status },
+  }));
+
+  // Add unassigned if any
+  if (expMap[null] || expMap[undefined]) {
+    const unassigned = expMap[null] || expMap[undefined];
+    byShipment.push({ shipment_id: null, total: unassigned.total, count: unassigned.count, shipment: { id: null, name: null } });
+  }
 
   // Monthly trend (last 13 months)
   const monthlyTrend = [];
