@@ -282,19 +282,18 @@ exports.bulkReview = asyncHandler(async (req, res) => {
           created_by: req.user?.id || null,
         });
       }
+      // Update training data
+      const training = tx.trainingData || await db.AITrainingData.findOne({ where: { transaction_id: id } });
+      if (training) {
+        await training.update({
+          human_category: resolvedCategory,
+          human_shipment_id: resolvedShipment || null,
+          suggestion_accepted: resolvedCategory === training.suggested_category,
+          correction_type: resolvedCategory !== training.suggested_category ? 'category_changed' : null,
+        });
+      }
     } else if (action === 'reject') {
       await tx.update({ status: 'rejected', is_business_expense: false, reviewed_by: req.user?.id, reviewed_at: new Date() });
-    }
-
-    // Update training data
-    const training = tx.trainingData || await db.AITrainingData.findOne({ where: { transaction_id: id } });
-    if (training && action === 'approve') {
-      await training.update({
-        human_category: resolvedCategory || null,
-        human_shipment_id: shipmentId || null,
-        suggestion_accepted: resolvedCategory === training.suggested_category,
-        correction_type: resolvedCategory !== training.suggested_category ? 'category_changed' : null,
-      });
     }
     processed++;
   }
