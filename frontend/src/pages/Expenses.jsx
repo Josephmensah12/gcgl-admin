@@ -128,8 +128,10 @@ export default function Expenses() {
   const [modal, setModal] = useState(null); // null | 'new' | expense object
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'analytics' | 'categories'
   const [newCatName, setNewCatName] = useState('');
+  const [newCatFixed, setNewCatFixed] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [editCatName, setEditCatName] = useState('');
+  const [editCatFixed, setEditCatFixed] = useState(false);
 
   const loadExpenses = useCallback(async () => {
     try {
@@ -157,8 +159,12 @@ export default function Expenses() {
   const handleCreateCategory = async () => {
     if (!newCatName.trim()) return;
     try {
-      await axios.post('/api/v1/expenses/categories', { name: newCatName.trim() });
+      const res = await axios.post('/api/v1/expenses/categories', { name: newCatName.trim() });
+      if (newCatFixed) {
+        await axios.post(`/api/v1/fixed-costs/categories/${res.data.data.id}/toggle-fixed`);
+      }
       setNewCatName('');
+      setNewCatFixed(false);
       loadCategories();
     } catch (err) {
       alert(err.response?.data?.error?.message || 'Failed to create category');
@@ -168,9 +174,15 @@ export default function Expenses() {
   const handleUpdateCategory = async (id) => {
     if (!editCatName.trim()) return;
     try {
+      const cat = categories.find((c) => c.id === id);
       await axios.put(`/api/v1/expenses/categories/${id}`, { name: editCatName.trim() });
+      // Toggle fixed if changed
+      if ((cat?.is_fixed_cost || false) !== editCatFixed) {
+        await axios.post(`/api/v1/fixed-costs/categories/${id}/toggle-fixed`);
+      }
       setEditingCat(null);
       setEditCatName('');
+      setEditCatFixed(false);
       loadCategories();
     } catch (err) {
       alert(err.response?.data?.error?.message || 'Failed to update category');
@@ -422,11 +434,21 @@ export default function Expenses() {
           {/* Add new category */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Add New Category</h3>
-            <div className="flex gap-3">
-              <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
-                placeholder="Enter category name..."
-                onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCategory(); }}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="Enter category name..."
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCategory(); }}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                <div className="flex gap-3 mt-2">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="radio" checked={!newCatFixed} onChange={() => setNewCatFixed(false)} /> Variable
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="radio" checked={newCatFixed} onChange={() => setNewCatFixed(true)} /> Fixed
+                  </label>
+                </div>
+              </div>
               <button onClick={handleCreateCategory} disabled={!newCatName.trim()}
                 className="px-5 py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
                 Add
@@ -441,12 +463,22 @@ export default function Expenses() {
               {categories.map((cat) => (
                 <div key={cat.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 hover:bg-gray-100">
                   {editingCat === cat.id ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input type="text" value={editCatName} onChange={(e) => setEditCatName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateCategory(cat.id); if (e.key === 'Escape') setEditingCat(null); }}
-                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" autoFocus />
-                      <button onClick={() => handleUpdateCategory(cat.id)} className="text-xs text-green-600 font-medium">Save</button>
-                      <button onClick={() => setEditingCat(null)} className="text-xs text-gray-500">Cancel</button>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={editCatName} onChange={(e) => setEditCatName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateCategory(cat.id); if (e.key === 'Escape') setEditingCat(null); }}
+                          className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" autoFocus />
+                        <button onClick={() => handleUpdateCategory(cat.id)} className="text-xs text-green-600 font-medium">Save</button>
+                        <button onClick={() => setEditingCat(null)} className="text-xs text-gray-500">Cancel</button>
+                      </div>
+                      <div className="flex gap-3">
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <input type="radio" checked={!editCatFixed} onChange={() => setEditCatFixed(false)} /> Variable
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <input type="radio" checked={editCatFixed} onChange={() => setEditCatFixed(true)} /> Fixed
+                        </label>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -455,15 +487,11 @@ export default function Expenses() {
                         <span className="font-medium text-gray-900 text-sm">{cat.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={async () => {
-                          try { await axios.post(`/api/v1/fixed-costs/categories/${cat.id}/toggle-fixed`); loadCategories(); }
-                          catch (e) { alert('Failed'); }
-                        }}
-                          className={`text-xs font-medium px-2 py-0.5 rounded ${cat.is_fixed_cost ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${cat.is_fixed_cost ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
                           {cat.is_fixed_cost ? 'Fixed' : 'Variable'}
-                        </button>
-                        <button onClick={() => { setEditingCat(cat.id); setEditCatName(cat.name); }}
-                          className="text-xs text-primary-600 hover:text-primary-700 font-medium">Rename</button>
+                        </span>
+                        <button onClick={() => { setEditingCat(cat.id); setEditCatName(cat.name); setEditCatFixed(cat.is_fixed_cost || false); }}
+                          className="text-xs text-primary-600 hover:text-primary-700 font-medium">Edit</button>
                         <button onClick={() => handleDeleteCategory(cat.id)}
                           className="text-xs text-red-500 hover:text-red-700">Delete</button>
                       </div>
