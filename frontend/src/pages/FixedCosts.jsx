@@ -183,7 +183,7 @@ export default function FixedCosts() {
             <span key={c.id} className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">{c.name}</span>
           ))}
           {(!data?.fixedCategories || data.fixedCategories.length === 0) && (
-            <p className="text-sm text-gray-400">No categories marked as fixed cost. Go to Expenses > Categories to mark them.</p>
+            <p className="text-sm text-gray-400">No categories marked as fixed cost. Go to Expenses &gt; Categories to mark them.</p>
           )}
         </div>
       </div>
