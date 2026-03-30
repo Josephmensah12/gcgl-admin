@@ -134,8 +134,14 @@ function normalizeTransactions(rows, accountLabel) {
     const parsedDate = parseDate(date);
     if (!parsedDate || !description) return null;
 
-    // For BoA: negative amount = debit/expense, positive = credit/deposit
-    const isCredit = amount > 0;
+    // Detect credits by description keywords (BoA shows all amounts as negative)
+    const descUpper = (description || '').toUpperCase();
+    const creditKeywords = [
+      'PAYMENT FROM', 'DEPOSIT', 'TRANSFER FROM', 'CREDIT',
+      'DIRECT DEP', 'ACH CREDIT', 'WIRE TRANSFER IN', 'REFUND',
+      'ZELLE PAYMENT FROM', 'VENMO CASHOUT', 'PAYPAL TRANSFER',
+    ];
+    const isCredit = amount > 0 || creditKeywords.some((kw) => descUpper.includes(kw));
 
     return {
       date: parsedDate,
