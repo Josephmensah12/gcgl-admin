@@ -328,7 +328,15 @@ exports.previewCSV = asyncHandler(async (req, res) => {
   if (!csvData) throw new AppError('CSV data required', 400);
 
   const rows = parseCSV(csvData);
-  const transactions = normalizeTransactions(rows, accountLabel);
+  let transactions = normalizeTransactions(rows, accountLabel);
+
+  const allCredits = transactions.filter((t) => t.isCredit);
+  const allDebits = transactions.filter((t) => !t.isCredit);
+
+  // For Bank of America: only show debits (expenses)
+  if (accountLabel === 'Bank of America') {
+    transactions = allDebits;
+  }
 
   const credits = transactions.filter((t) => t.isCredit);
   const debits = transactions.filter((t) => !t.isCredit);
@@ -355,8 +363,14 @@ exports.importCSV = asyncHandler(async (req, res) => {
   const rows = parseCSV(csvData);
   if (rows.length === 0) throw new AppError('No data found in CSV', 400);
 
-  const transactions = normalizeTransactions(rows, accountLabel);
-  if (transactions.length === 0) throw new AppError('Could not parse any transactions from CSV', 400);
+  let transactions = normalizeTransactions(rows, accountLabel);
+
+  // For Bank of America: only import debits (negative amounts = expenses)
+  if (accountLabel === 'Bank of America') {
+    transactions = transactions.filter((tx) => !tx.isCredit);
+  }
+
+  if (transactions.length === 0) throw new AppError('No expense transactions found in CSV', 400);
 
   let imported = 0;
   let skipped = 0;
@@ -378,7 +392,7 @@ exports.importCSV = asyncHandler(async (req, res) => {
       amount: tx.amount,
       transaction_date: tx.date,
       merchant_name: tx.description.substring(0, 200),
-      description: `${tx.isCredit ? '[CREDIT] ' : '[DEBIT] '}${tx.description}`,
+      description: tx.description,
       plaid_category: `CSV Import - ${tx.accountLabel}`,
       status: 'pending_review',
     });

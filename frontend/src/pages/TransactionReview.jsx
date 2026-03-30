@@ -299,16 +299,10 @@ export default function TransactionReview() {
                     <td className="px-4 py-3"><input type="checkbox" checked={selected.has(tx.id)} onChange={() => toggleSelect(tx.id)} /></td>
                   )}
                   <td className="px-4 py-3 text-gray-600">{new Date(tx.transaction_date).toLocaleDateString()}</td>
-                  <td className={`px-4 py-3 text-right font-semibold ${tx.description?.startsWith('[CREDIT]') ? 'text-green-600' : 'text-red-600'}`}>
-                    {tx.description?.startsWith('[CREDIT]') ? '+' : '-'}${parseFloat(tx.amount).toFixed(2)}
-                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-red-600">${parseFloat(tx.amount).toFixed(2)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      {tx.description?.startsWith('[CREDIT]') && <span className="px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700 font-medium">IN</span>}
-                      {tx.description?.startsWith('[DEBIT]') && <span className="px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700 font-medium">OUT</span>}
-                      <p className="font-medium text-gray-800">{tx.merchant_name}</p>
-                    </div>
-                    <p className="text-xs text-gray-400 truncate max-w-xs">{(tx.description || '').replace(/^\[(CREDIT|DEBIT)\]\s*/, '')}</p>
+                    <p className="font-medium text-gray-800">{tx.merchant_name}</p>
+                    <p className="text-xs text-gray-400 truncate max-w-xs">{tx.description}</p>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500">{tx.bankConnection?.account_nickname}</td>
                   <td className="px-4 py-3">
