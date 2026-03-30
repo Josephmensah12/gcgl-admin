@@ -158,19 +158,15 @@ export default function Expenses() {
 
   const handleSaved = () => { setModal(null); loadExpenses(); axios.get('/api/v1/expenses/analytics').then((r) => setAnalytics(r.data.data)).catch(() => {}); };
 
-  const handleMonthClick = async (monthYear) => {
-    if (selectedShipmentFilter === monthYear) {
+  const handleShipmentClick = async (shipmentId) => {
+    if (selectedShipmentFilter === shipmentId) {
       setSelectedShipmentFilter(null);
       setFilteredCategoryData(null);
       return;
     }
-    setSelectedShipmentFilter(monthYear);
-    const [y, m] = monthYear.split('-');
-    const daysInMonth = new Date(y, m, 0).getDate();
+    setSelectedShipmentFilter(shipmentId);
     try {
-      const res = await axios.get('/api/v1/expenses/analytics', {
-        params: { dateFrom: `${monthYear}-01`, dateTo: `${monthYear}-${daysInMonth}` },
-      });
+      const res = await axios.get('/api/v1/expenses/analytics', { params: { shipment_id: shipmentId } });
       setFilteredCategoryData(res.data.data.byCategory);
     } catch (err) { console.error(err); }
   };
@@ -373,49 +369,49 @@ export default function Expenses() {
 
       {/* Analytics Tab */}
       {activeTab === 'analytics' && analytics && (() => {
-        const monthData = analytics.monthlyTrend || [];
-        const maxMonthVal = Math.max(...monthData.map((m) => m.total), 1);
+        const shipmentData = analytics.byShipment || [];
+        const maxVal = Math.max(...shipmentData.map((s) => s.total), 1);
         const categoryData = filteredCategoryData || analytics.byCategory;
         const categoryTotal = categoryData.reduce((s, c) => s + c.total, 0);
-        const selectedLabel = selectedShipmentFilter ? monthData.find((m) => m.monthYear === selectedShipmentFilter)?.month : null;
-        const chartWidth = Math.max(monthData.length * 70, 400);
+        const selectedLabel = selectedShipmentFilter ? shipmentData.find((s) => s.shipment_id === selectedShipmentFilter)?.shipment?.name : null;
+        const chartWidth = Math.max(shipmentData.length * 140, 400);
 
         return (
         <div className="space-y-6">
-          {/* Monthly Line Graph */}
+          {/* Shipment Expense Graph */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Monthly Expense Trend (13 Months)</h3>
+              <h3 className="font-semibold text-gray-900">Expenses by Shipment</h3>
               {selectedShipmentFilter && (
                 <button onClick={() => { setSelectedShipmentFilter(null); setFilteredCategoryData(null); }}
                   className="text-xs text-primary-600 hover:text-primary-700 font-medium">Clear filter</button>
               )}
             </div>
-            <p className="text-xs text-gray-400 mb-3">Click a month to filter the category breakdown below</p>
+            <p className="text-xs text-gray-400 mb-3">Click a shipment to filter the category breakdown below</p>
 
-            {monthData.length > 0 ? (
+            {shipmentData.length > 0 ? (
               <div className="overflow-x-auto">
-                <svg viewBox={`0 0 ${chartWidth} 200`} className="w-full h-52" style={{ minWidth: `${chartWidth}px` }}>
+                <svg viewBox={`0 0 ${chartWidth} 210`} className="w-full h-56" style={{ minWidth: `${chartWidth}px` }}>
                   {/* Grid lines */}
                   {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
                     <g key={pct}>
-                      <line x1="30" y1={160 - pct * 130} x2={chartWidth - 10} y2={160 - pct * 130} stroke="#f1f5f9" strokeWidth="1" />
+                      <line x1="40" y1={160 - pct * 130} x2={chartWidth - 10} y2={160 - pct * 130} stroke="#f1f5f9" strokeWidth="1" />
                       <text x="0" y={164 - pct * 130} className="text-[8px] fill-gray-400">
-                        {maxMonthVal >= 1000 ? `$${(maxMonthVal * pct / 1000).toFixed(0)}k` : `$${(maxMonthVal * pct).toFixed(0)}`}
+                        {maxVal >= 1000 ? `$${(maxVal * pct / 1000).toFixed(0)}k` : `$${(maxVal * pct).toFixed(0)}`}
                       </text>
                     </g>
                   ))}
 
                   {/* Line */}
-                  {monthData.length > 1 && (
+                  {shipmentData.length > 1 && (
                     <>
                       <polyline
                         fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinejoin="round"
-                        points={monthData.map((m, i) => `${i * 70 + 50},${160 - (m.total / maxMonthVal) * 130}`).join(' ')}
+                        points={shipmentData.map((s, i) => `${i * 140 + 70},${160 - (s.total / maxVal) * 130}`).join(' ')}
                       />
                       <polygon
                         fill="url(#redGrad)" opacity="0.12"
-                        points={`50,160 ${monthData.map((m, i) => `${i * 70 + 50},${160 - (m.total / maxMonthVal) * 130}`).join(' ')} ${(monthData.length - 1) * 70 + 50},160`}
+                        points={`70,160 ${shipmentData.map((s, i) => `${i * 140 + 70},${160 - (s.total / maxVal) * 130}`).join(' ')} ${(shipmentData.length - 1) * 140 + 70},160`}
                       />
                     </>
                   )}
@@ -427,24 +423,24 @@ export default function Expenses() {
                   </defs>
 
                   {/* Data points */}
-                  {monthData.map((m, i) => {
-                    const x = i * 70 + 50;
-                    const y = 160 - (m.total / maxMonthVal) * 130;
-                    const isSelected = selectedShipmentFilter === m.monthYear;
+                  {shipmentData.map((s, i) => {
+                    const x = i * 140 + 70;
+                    const y = 160 - (s.total / maxVal) * 130;
+                    const isSelected = selectedShipmentFilter === s.shipment_id;
+                    const isActive = s.shipment?.status === 'collecting';
                     return (
-                      <g key={m.monthYear} onClick={() => handleMonthClick(m.monthYear)} className="cursor-pointer">
-                        <circle cx={x} cy={y} r={isSelected ? 7 : 4} fill={isSelected ? '#dc2626' : m.total > 0 ? '#ef4444' : '#d1d5db'}
+                      <g key={s.shipment_id || i} onClick={() => handleShipmentClick(s.shipment_id)} className="cursor-pointer">
+                        <circle cx={x} cy={y} r={isSelected ? 8 : 5}
+                          fill={isSelected ? '#dc2626' : isActive ? '#22c55e' : s.total > 0 ? '#ef4444' : '#d1d5db'}
                           stroke="white" strokeWidth="2" />
-                        {m.total > 0 && (
-                          <text x={x} y={y - 10} textAnchor="middle" className="text-[9px] fill-gray-600 font-semibold">
-                            {m.total >= 1000 ? `$${(m.total / 1000).toFixed(1)}k` : `$${m.total.toFixed(0)}`}
-                          </text>
-                        )}
-                        <text x={x} y={178} textAnchor="middle" className="text-[9px] fill-gray-400">
-                          {m.month.split(' ')[0]}
+                        <text x={x} y={y - 12} textAnchor="middle" className="text-[9px] fill-gray-600 font-semibold">
+                          {s.total >= 1000 ? `$${(s.total / 1000).toFixed(1)}k` : `$${s.total.toFixed(0)}`}
                         </text>
-                        <text x={x} y={190} textAnchor="middle" className="text-[8px] fill-gray-300">
-                          {m.month.split(' ')[1]?.replace("'", '')}
+                        <text x={x} y={178} textAnchor="middle" className="text-[9px] fill-gray-500 font-medium">
+                          {s.shipment?.name || 'Unassigned'}
+                        </text>
+                        <text x={x} y={192} textAnchor="middle" className={`text-[8px] ${isActive ? 'fill-green-500 font-semibold' : 'fill-gray-300'}`}>
+                          {s.shipment?.status || ''}
                         </text>
                       </g>
                     );
@@ -452,7 +448,7 @@ export default function Expenses() {
                 </svg>
               </div>
             ) : (
-              <p className="text-sm text-gray-400 text-center py-8">No expense data</p>
+              <p className="text-sm text-gray-400 text-center py-8">No shipment expense data</p>
             )}
           </div>
 
@@ -463,7 +459,7 @@ export default function Expenses() {
               {selectedLabel && (
                 <p className="text-xs text-primary-600 font-medium mb-3">Filtered: {selectedLabel}</p>
               )}
-              {!selectedLabel && <p className="text-xs text-gray-400 mb-3">All months</p>}
+              {!selectedLabel && <p className="text-xs text-gray-400 mb-3">All shipments</p>}
               <div className="space-y-3">
                 {categoryData.map((c) => {
                   const pct = categoryTotal > 0 ? (c.total / categoryTotal * 100) : 0;
