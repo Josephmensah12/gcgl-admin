@@ -151,7 +151,7 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
   const tx = await db.ImportedTransaction.findByPk(req.params.id);
   if (!tx) throw new AppError('Transaction not found', 404);
 
-  const { action, category, shipmentId, notes, isBusinessExpense } = req.body;
+  const { action, category, shipmentId, notes, isBusinessExpense, isFixedCost } = req.body;
   const reviewStartTime = req.body._reviewStartTime; // Passed from frontend
 
   if (action === 'approve') {
@@ -162,6 +162,7 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
       gcgl_category: category,
       shipment_id: shipmentId || null,
       is_business_expense: isBusinessExpense !== false,
+      is_fixed_cost: isFixedCost || false,
       notes: notes || null,
       reviewed_by: req.user?.id || null,
       reviewed_at: new Date(),

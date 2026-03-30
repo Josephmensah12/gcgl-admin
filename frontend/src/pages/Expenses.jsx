@@ -12,6 +12,7 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
     amount: expense?.amount || '',
     shipment_id: expense?.shipment_id || '',
     notes: expense?.notes || '',
+    is_fixed_cost: expense?.is_fixed_cost || false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -91,6 +92,19 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="Additional details..." />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Cost Type</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" checked={!form.is_fixed_cost} onChange={() => setForm((f) => ({ ...f, is_fixed_cost: false }))} /> Variable
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" checked={form.is_fixed_cost} onChange={() => setForm((f) => ({ ...f, is_fixed_cost: true }))} /> Fixed
+              </label>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">{form.is_fixed_cost ? 'Allocated to shipments by time (rent, insurance, utilities)' : 'Direct expense for specific activity'}</p>
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -279,6 +293,7 @@ export default function Expenses() {
                     <th className="px-4 py-3 font-medium">Category</th>
                     <th className="px-4 py-3 font-medium">Description</th>
                     <th className="px-4 py-3 font-medium">Vendor</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Shipment</th>
                     <th className="px-4 py-3 font-medium text-right">Amount</th>
                     <th className="px-4 py-3 font-medium">Actions</th>
@@ -293,6 +308,11 @@ export default function Expenses() {
                       </td>
                       <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{exp.description}</td>
                       <td className="px-4 py-3 text-gray-500">{exp.vendor_or_payee || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${exp.is_fixed_cost ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {exp.is_fixed_cost ? 'Fixed' : 'Variable'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-xs text-gray-500">{exp.shipment?.name || '-'}</td>
                       <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(exp.amount)}</td>
                       <td className="px-4 py-3">

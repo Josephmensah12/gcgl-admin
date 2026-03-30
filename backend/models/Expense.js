@@ -10,6 +10,7 @@ module.exports = (sequelize) => {
     amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
     shipment_id: { type: DataTypes.STRING, allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    is_fixed_cost: { type: DataTypes.BOOLEAN, defaultValue: false },
     created_by: { type: DataTypes.INTEGER, allowNull: true },
   }, {
     tableName: 'expenses',

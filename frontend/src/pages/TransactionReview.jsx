@@ -7,6 +7,7 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
   const [shipmentId, setShipmentId] = useState('');
   const [notes, setNotes] = useState('');
   const [isBusiness, setIsBusiness] = useState(true);
+  const [isFixed, setIsFixed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [startTime] = useState(Date.now());
@@ -24,6 +25,7 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
         shipmentId: shipmentId || null,
         notes,
         isBusinessExpense: action === 'approve' ? isBusiness : false,
+        isFixedCost: action === 'approve' ? isFixed : false,
         _reviewStartTime: startTime,
       });
       onReviewed();
@@ -115,6 +117,21 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
                 </label>
               </div>
             </div>
+
+            {isBusiness && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cost Type</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" checked={!isFixed} onChange={() => setIsFixed(false)} /> Variable Cost
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" checked={isFixed} onChange={() => setIsFixed(true)} /> Fixed Cost
+                  </label>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{isFixed ? 'Allocated to shipments by time period (rent, insurance, utilities)' : 'Direct expense tied to specific activity'}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -331,6 +348,7 @@ export default function TransactionReview() {
                 <th className="px-4 py-3 font-medium">Account</th>
                 <th className="px-4 py-3 font-medium">Suggestion</th>
                 {statusFilter !== 'pending_review' && <th className="px-4 py-3 font-medium">Category</th>}
+                {statusFilter !== 'pending_review' && <th className="px-4 py-3 font-medium">Cost Type</th>}
                 {statusFilter !== 'pending_review' && <th className="px-4 py-3 font-medium">Shipment</th>}
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
@@ -356,6 +374,13 @@ export default function TransactionReview() {
                     )}
                   </td>
                   {statusFilter !== 'pending_review' && <td className="px-4 py-3 text-sm">{tx.gcgl_category || '-'}</td>}
+                  {statusFilter !== 'pending_review' && (
+                    <td className="px-4 py-3">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${tx.is_fixed_cost ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {tx.is_fixed_cost ? 'Fixed' : 'Variable'}
+                      </span>
+                    </td>
+                  )}
                   {statusFilter !== 'pending_review' && <td className="px-4 py-3 text-xs">{tx.shipment?.name || '-'}</td>}
                   <td className="px-4 py-3">
                     {tx.status === 'pending_review' ? (
