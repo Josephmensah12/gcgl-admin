@@ -236,6 +236,39 @@ exports.analytics = asyncHandler(async (req, res) => {
   });
 });
 
+// ── BULK AUTO-ASSIGN ──────────────────────────────────────
+
+exports.bulkAutoAssign = asyncHandler(async (req, res) => {
+  const expenses = await db.Expense.findAll({
+    where: { shipment_id: null },
+  });
+
+  let assigned = 0;
+  for (const exp of expenses) {
+    const shipmentId = await findShipmentForDate(exp.expense_date);
+    if (shipmentId) {
+      await exp.update({ shipment_id: shipmentId });
+      assigned++;
+    }
+  }
+
+  // Also update imported transactions without shipment
+  const transactions = await db.ImportedTransaction.findAll({
+    where: { shipment_id: null, status: 'approved', is_business_expense: true },
+  });
+
+  let txAssigned = 0;
+  for (const tx of transactions) {
+    const shipmentId = await findShipmentForDate(tx.transaction_date);
+    if (shipmentId) {
+      await tx.update({ shipment_id: shipmentId });
+      txAssigned++;
+    }
+  }
+
+  res.json({ success: true, data: { expensesAssigned: assigned, transactionsAssigned: txAssigned, total: assigned + txAssigned } });
+});
+
 // ── CATEGORIES ─────────────────────────────────────────────
 
 exports.listCategories = asyncHandler(async (req, res) => {

@@ -11,6 +11,9 @@ router.post('/categories', requireRole(['Admin', 'Manager']), ec.createCategory)
 router.put('/categories/:id', requireRole(['Admin', 'Manager']), ec.updateCategory);
 router.delete('/categories/:id', requireRole(['Admin']), ec.deleteCategory);
 
+// Bulk auto-assign to shipments by date
+router.post('/bulk-auto-assign', requireRole(['Admin']), ec.bulkAutoAssign);
+
 // Analytics
 router.get('/analytics', ec.analytics);
 
