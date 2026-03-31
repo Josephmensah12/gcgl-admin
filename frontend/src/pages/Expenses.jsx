@@ -127,6 +127,8 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | 'new' | expense object
   const [activeTab, setActiveTab] = useState('list'); // 'list' | 'analytics' | 'categories'
+  const [sortBy, setSortBy] = useState('expense_date');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [selectedShipmentFilter, setSelectedShipmentFilter] = useState(null); // for line graph -> category filter
   const [filteredCategoryData, setFilteredCategoryData] = useState(null);
   const [newCatName, setNewCatName] = useState('');
@@ -135,16 +137,39 @@ export default function Expenses() {
   const [editCatName, setEditCatName] = useState('');
   const [editCatFixed, setEditCatFixed] = useState(false);
 
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((o) => o === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setSortBy(field);
+      setSortOrder(field === 'amount' ? 'DESC' : 'ASC');
+    }
+    setPagination((p) => ({ ...p, page: 1 }));
+  };
+
+  const SortHeader = ({ field, children, className = '' }) => (
+    <th className={`px-4 py-3 font-medium cursor-pointer hover:text-gray-900 select-none ${className}`} onClick={() => toggleSort(field)}>
+      <div className={`flex items-center gap-1 ${className.includes('text-right') ? 'justify-end' : ''}`}>
+        {children}
+        {sortBy === field ? (
+          <span className="text-primary-600">{sortOrder === 'ASC' ? '\u2191' : '\u2193'}</span>
+        ) : (
+          <span className="text-gray-300">\u2195</span>
+        )}
+      </div>
+    </th>
+  );
+
   const loadExpenses = useCallback(async () => {
     try {
-      const params = { page: pagination.page, limit: pagination.limit, sortBy: 'expense_date', sortOrder: 'DESC', ...filters };
+      const params = { page: pagination.page, limit: pagination.limit, sortBy, sortOrder, ...filters };
       const res = await axios.get('/api/v1/expenses', { params });
       setExpenses(res.data.data.expenses);
       setTotals(res.data.data.totals);
       setPagination((prev) => ({ ...prev, ...res.data.data.pagination }));
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [pagination.page, pagination.limit, filters]);
+  }, [pagination.page, pagination.limit, filters, sortBy, sortOrder]);
 
   useEffect(() => { loadExpenses(); }, [loadExpenses]);
 
@@ -313,13 +338,13 @@ export default function Expenses() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr className="text-left text-gray-500">
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Category</th>
-                    <th className="px-4 py-3 font-medium">Description</th>
-                    <th className="px-4 py-3 font-medium">Vendor</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
+                    <SortHeader field="expense_date">Date</SortHeader>
+                    <SortHeader field="category_id">Category</SortHeader>
+                    <SortHeader field="description">Description</SortHeader>
+                    <SortHeader field="vendor_or_payee">Vendor</SortHeader>
+                    <SortHeader field="is_fixed_cost">Type</SortHeader>
                     <th className="px-4 py-3 font-medium">Shipment</th>
-                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                    <SortHeader field="amount" className="text-right">Amount</SortHeader>
                     <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
