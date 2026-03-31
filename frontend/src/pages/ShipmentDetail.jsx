@@ -77,7 +77,11 @@ export default function ShipmentDetail() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{shipment.name}</h2>
-            <p className="text-sm text-gray-500">Created {new Date(shipment.createdAt).toLocaleDateString()}</p>
+            <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-500">
+              <span>Start: <strong className="text-gray-700">{shipment.start_date ? new Date(shipment.start_date + 'T12:00:00').toLocaleDateString() : 'Not set'}</strong></span>
+              <span>End: <strong className="text-gray-700">{shipment.end_date ? new Date(shipment.end_date + 'T12:00:00').toLocaleDateString() : 'Active'}</strong></span>
+              {shipment.shippedAt && <span>Shipped: <strong className="text-gray-700">{new Date(shipment.shippedAt).toLocaleDateString()}</strong></span>}
+            </div>
           </div>
           <div className="flex gap-2">
             {currentIndex < statusPipeline.length - 1 && (
