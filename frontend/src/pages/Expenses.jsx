@@ -382,45 +382,50 @@ export default function Expenses() {
           {/* Two graphs side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Monthly Trend */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="font-semibold text-gray-900 mb-4">Monthly Expense Trend</h3>
-              <div className="flex items-end gap-1.5 h-40">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-5">Monthly Expense Trend</h3>
+              <div className="flex items-end gap-2 h-64">
                 {monthData.map((m, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
                     {m.total > 0 && (
-                      <span className="text-[9px] text-gray-500 font-medium">
+                      <span className="text-xs text-gray-600 font-semibold">
                         {m.total >= 1000 ? `$${(m.total / 1000).toFixed(1)}k` : `$${m.total.toFixed(0)}`}
                       </span>
                     )}
-                    <div className="w-full bg-red-400 rounded-t-md min-h-[2px] transition-all"
-                      style={{ height: `${Math.max((m.total / maxMonthVal) * 110, m.total > 0 ? 4 : 2)}px` }} />
-                    <span className="text-[8px] text-gray-400 -rotate-45 origin-top-left whitespace-nowrap">{m.month.split(' ')[0]}</span>
+                    <div className="w-full bg-red-400 rounded-t-md min-h-[3px] transition-all"
+                      style={{ height: `${Math.max((m.total / maxMonthVal) * 200, m.total > 0 ? 6 : 3)}px` }} />
+                    <span className="text-[10px] text-gray-500 font-medium -rotate-45 origin-top-left whitespace-nowrap">{m.month.split(' ')[0]}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Expenses by Shipment - Line Graph */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-gray-900">Expenses by Shipment</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Expenses by Shipment</h3>
                 {selectedShipmentFilter && (
                   <button onClick={() => { setSelectedShipmentFilter(null); setFilteredCategoryData(null); }}
-                    className="text-xs text-primary-600 hover:text-primary-700 font-medium">Clear</button>
+                    className="text-sm text-primary-600 hover:text-primary-700 font-medium">Clear filter</button>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mb-3">Click a point to filter categories</p>
+              <p className="text-sm text-gray-400 mb-4">Click a point to filter categories</p>
               {shipmentData.length > 0 ? (
-                <svg viewBox={`0 0 ${Math.max(shipmentData.length * 100, 300)} 180`} className="w-full h-44">
-                  {[0, 0.5, 1].map((pct) => (
-                    <line key={pct} x1="30" y1={150 - pct * 120} x2={Math.max(shipmentData.length * 100, 300) - 10} y2={150 - pct * 120} stroke="#f1f5f9" strokeWidth="1" />
+                <svg viewBox={`0 0 ${Math.max(shipmentData.length * 120, 350)} 260`} className="w-full h-64">
+                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+                    <g key={pct}>
+                      <line x1="45" y1={210 - pct * 170} x2={Math.max(shipmentData.length * 120, 350) - 10} y2={210 - pct * 170} stroke="#f1f5f9" strokeWidth="1" />
+                      <text x="0" y={214 - pct * 170} className="text-[10px] fill-gray-400">
+                        {maxShipVal >= 1000 ? `$${(maxShipVal * pct / 1000).toFixed(0)}k` : `$${(maxShipVal * pct).toFixed(0)}`}
+                      </text>
+                    </g>
                   ))}
                   {shipmentData.length > 1 && (
                     <>
-                      <polyline fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinejoin="round"
-                        points={shipmentData.map((s, i) => `${i * 100 + 50},${150 - (s.total / maxShipVal) * 120}`).join(' ')} />
-                      <polygon fill="url(#shipGrad)" opacity="0.1"
-                        points={`50,150 ${shipmentData.map((s, i) => `${i * 100 + 50},${150 - (s.total / maxShipVal) * 120}`).join(' ')} ${(shipmentData.length - 1) * 100 + 50},150`} />
+                      <polyline fill="none" stroke="#ef4444" strokeWidth="3" strokeLinejoin="round"
+                        points={shipmentData.map((s, i) => `${i * 120 + 60},${210 - (s.total / maxShipVal) * 170}`).join(' ')} />
+                      <polygon fill="url(#shipGrad)" opacity="0.12"
+                        points={`60,210 ${shipmentData.map((s, i) => `${i * 120 + 60},${210 - (s.total / maxShipVal) * 170}`).join(' ')} ${(shipmentData.length - 1) * 120 + 60},210`} />
                     </>
                   )}
                   <defs>
@@ -429,22 +434,22 @@ export default function Expenses() {
                     </linearGradient>
                   </defs>
                   {shipmentData.map((s, i) => {
-                    const x = i * 100 + 50;
-                    const y = 150 - (s.total / maxShipVal) * 120;
+                    const x = i * 120 + 60;
+                    const y = 210 - (s.total / maxShipVal) * 170;
                     const isSelected = selectedShipmentFilter === s.shipment_id;
                     const isActive = s.shipment?.status === 'collecting';
                     return (
                       <g key={s.shipment_id || i} onClick={() => handleShipmentClick(s.shipment_id)} className="cursor-pointer">
-                        <circle cx={x} cy={y} r={isSelected ? 7 : 4}
+                        <circle cx={x} cy={y} r={isSelected ? 9 : 6}
                           fill={isSelected ? '#dc2626' : isActive ? '#22c55e' : s.total > 0 ? '#ef4444' : '#d1d5db'}
-                          stroke="white" strokeWidth="2" />
-                        <text x={x} y={y - 10} textAnchor="middle" className="text-[9px] fill-gray-600 font-semibold">
+                          stroke="white" strokeWidth="2.5" />
+                        <text x={x} y={y - 14} textAnchor="middle" className="text-[12px] fill-gray-700 font-bold">
                           {s.total >= 1000 ? `$${(s.total / 1000).toFixed(1)}k` : `$${s.total.toFixed(0)}`}
                         </text>
-                        <text x={x} y={166} textAnchor="middle" className="text-[8px] fill-gray-500">
-                          {(s.shipment?.name || 'N/A').substring(0, 12)}
+                        <text x={x} y={230} textAnchor="middle" className="text-[11px] fill-gray-600 font-medium">
+                          {(s.shipment?.name || 'N/A').substring(0, 14)}
                         </text>
-                        <text x={x} y={176} textAnchor="middle" className={`text-[7px] ${isActive ? 'fill-green-500' : 'fill-gray-300'}`}>
+                        <text x={x} y={245} textAnchor="middle" className={`text-[10px] ${isActive ? 'fill-green-600 font-semibold' : 'fill-gray-400'}`}>
                           {s.shipment?.status || ''}
                         </text>
                       </g>
@@ -452,7 +457,7 @@ export default function Expenses() {
                   })}
                 </svg>
               ) : (
-                <p className="text-sm text-gray-400 text-center py-6">No data</p>
+                <p className="text-sm text-gray-400 text-center py-8">No data</p>
               )}
             </div>
           </div>
