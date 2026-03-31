@@ -370,86 +370,70 @@ export default function Expenses() {
       {/* Analytics Tab */}
       {activeTab === 'analytics' && analytics && (() => {
         const shipmentData = analytics.byShipment || [];
-        const maxVal = Math.max(...shipmentData.map((s) => s.total), 1);
+        const maxShipVal = Math.max(...shipmentData.map((s) => s.total), 1);
+        const monthData = analytics.monthlyTrend || [];
+        const maxMonthVal = Math.max(...monthData.map((m) => m.total), 1);
         const categoryData = filteredCategoryData || analytics.byCategory;
         const categoryTotal = categoryData.reduce((s, c) => s + c.total, 0);
         const selectedLabel = selectedShipmentFilter ? shipmentData.find((s) => s.shipment_id === selectedShipmentFilter)?.shipment?.name : null;
-        const chartWidth = Math.max(shipmentData.length * 140, 400);
 
         return (
         <div className="space-y-6">
-          {/* Shipment Expense Graph */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Expenses by Shipment</h3>
-              {selectedShipmentFilter && (
-                <button onClick={() => { setSelectedShipmentFilter(null); setFilteredCategoryData(null); }}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-medium">Clear filter</button>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 mb-3">Click a shipment to filter the category breakdown below</p>
-
-            {shipmentData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <svg viewBox={`0 0 ${chartWidth} 210`} className="w-full h-56" style={{ minWidth: `${chartWidth}px` }}>
-                  {/* Grid lines */}
-                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-                    <g key={pct}>
-                      <line x1="40" y1={160 - pct * 130} x2={chartWidth - 10} y2={160 - pct * 130} stroke="#f1f5f9" strokeWidth="1" />
-                      <text x="0" y={164 - pct * 130} className="text-[8px] fill-gray-400">
-                        {maxVal >= 1000 ? `$${(maxVal * pct / 1000).toFixed(0)}k` : `$${(maxVal * pct).toFixed(0)}`}
-                      </text>
-                    </g>
-                  ))}
-
-                  {/* Line */}
-                  {shipmentData.length > 1 && (
-                    <>
-                      <polyline
-                        fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinejoin="round"
-                        points={shipmentData.map((s, i) => `${i * 140 + 70},${160 - (s.total / maxVal) * 130}`).join(' ')}
-                      />
-                      <polygon
-                        fill="url(#redGrad)" opacity="0.12"
-                        points={`70,160 ${shipmentData.map((s, i) => `${i * 140 + 70},${160 - (s.total / maxVal) * 130}`).join(' ')} ${(shipmentData.length - 1) * 140 + 70},160`}
-                      />
-                    </>
-                  )}
-                  <defs>
-                    <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ef4444" />
-                      <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Data points */}
-                  {shipmentData.map((s, i) => {
-                    const x = i * 140 + 70;
-                    const y = 160 - (s.total / maxVal) * 130;
-                    const isSelected = selectedShipmentFilter === s.shipment_id;
-                    const isActive = s.shipment?.status === 'collecting';
-                    return (
-                      <g key={s.shipment_id || i} onClick={() => handleShipmentClick(s.shipment_id)} className="cursor-pointer">
-                        <circle cx={x} cy={y} r={isSelected ? 8 : 5}
-                          fill={isSelected ? '#dc2626' : isActive ? '#22c55e' : s.total > 0 ? '#ef4444' : '#d1d5db'}
-                          stroke="white" strokeWidth="2" />
-                        <text x={x} y={y - 12} textAnchor="middle" className="text-[9px] fill-gray-600 font-semibold">
-                          {s.total >= 1000 ? `$${(s.total / 1000).toFixed(1)}k` : `$${s.total.toFixed(0)}`}
-                        </text>
-                        <text x={x} y={178} textAnchor="middle" className="text-[9px] fill-gray-500 font-medium">
-                          {s.shipment?.name || 'Unassigned'}
-                        </text>
-                        <text x={x} y={192} textAnchor="middle" className={`text-[8px] ${isActive ? 'fill-green-500 font-semibold' : 'fill-gray-300'}`}>
-                          {s.shipment?.status || ''}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
+          {/* Two graphs side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Monthly Trend */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h3 className="font-semibold text-gray-900 mb-4">Monthly Expense Trend</h3>
+              <div className="flex items-end gap-1.5 h-40">
+                {monthData.map((m, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    {m.total > 0 && (
+                      <span className="text-[9px] text-gray-500 font-medium">
+                        {m.total >= 1000 ? `$${(m.total / 1000).toFixed(1)}k` : `$${m.total.toFixed(0)}`}
+                      </span>
+                    )}
+                    <div className="w-full bg-red-400 rounded-t-md min-h-[2px] transition-all"
+                      style={{ height: `${Math.max((m.total / maxMonthVal) * 110, m.total > 0 ? 4 : 2)}px` }} />
+                    <span className="text-[8px] text-gray-400 -rotate-45 origin-top-left whitespace-nowrap">{m.month.split(' ')[0]}</span>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <p className="text-sm text-gray-400 text-center py-8">No shipment expense data</p>
-            )}
+            </div>
+
+            {/* Expenses by Shipment */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-gray-900">Expenses by Shipment</h3>
+                {selectedShipmentFilter && (
+                  <button onClick={() => { setSelectedShipmentFilter(null); setFilteredCategoryData(null); }}
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium">Clear</button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mb-3">Click to filter categories</p>
+              <div className="space-y-2">
+                {shipmentData.map((s) => {
+                  const pct = maxShipVal > 0 ? (s.total / maxShipVal) * 100 : 0;
+                  const isSelected = selectedShipmentFilter === s.shipment_id;
+                  const isActive = s.shipment?.status === 'collecting';
+                  return (
+                    <div key={s.shipment_id || 'none'} onClick={() => handleShipmentClick(s.shipment_id)}
+                      className={`cursor-pointer p-2 rounded-lg transition-colors ${isSelected ? 'bg-red-50 ring-1 ring-red-300' : 'hover:bg-gray-50'}`}>
+                      <div className="flex justify-between items-center text-sm mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-400'}`} />
+                          <span className="font-medium text-gray-700">{s.shipment?.name || 'Unassigned'}</span>
+                          {isActive && <span className="text-[10px] text-green-600 font-medium">active</span>}
+                        </div>
+                        <span className="font-semibold text-red-600">{fmt(s.total)}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full transition-all ${isActive ? 'bg-green-500' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
