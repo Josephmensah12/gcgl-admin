@@ -400,7 +400,7 @@ export default function Expenses() {
               </div>
             </div>
 
-            {/* Expenses by Shipment */}
+            {/* Expenses by Shipment - Line Graph */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-900">Expenses by Shipment</h3>
@@ -409,30 +409,51 @@ export default function Expenses() {
                     className="text-xs text-primary-600 hover:text-primary-700 font-medium">Clear</button>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mb-3">Click to filter categories</p>
-              <div className="space-y-2">
-                {shipmentData.map((s) => {
-                  const pct = maxShipVal > 0 ? (s.total / maxShipVal) * 100 : 0;
-                  const isSelected = selectedShipmentFilter === s.shipment_id;
-                  const isActive = s.shipment?.status === 'collecting';
-                  return (
-                    <div key={s.shipment_id || 'none'} onClick={() => handleShipmentClick(s.shipment_id)}
-                      className={`cursor-pointer p-2 rounded-lg transition-colors ${isSelected ? 'bg-red-50 ring-1 ring-red-300' : 'hover:bg-gray-50'}`}>
-                      <div className="flex justify-between items-center text-sm mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-400'}`} />
-                          <span className="font-medium text-gray-700">{s.shipment?.name || 'Unassigned'}</span>
-                          {isActive && <span className="text-[10px] text-green-600 font-medium">active</span>}
-                        </div>
-                        <span className="font-semibold text-red-600">{fmt(s.total)}</span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full transition-all ${isActive ? 'bg-green-500' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-xs text-gray-400 mb-3">Click a point to filter categories</p>
+              {shipmentData.length > 0 ? (
+                <svg viewBox={`0 0 ${Math.max(shipmentData.length * 100, 300)} 180`} className="w-full h-44">
+                  {[0, 0.5, 1].map((pct) => (
+                    <line key={pct} x1="30" y1={150 - pct * 120} x2={Math.max(shipmentData.length * 100, 300) - 10} y2={150 - pct * 120} stroke="#f1f5f9" strokeWidth="1" />
+                  ))}
+                  {shipmentData.length > 1 && (
+                    <>
+                      <polyline fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinejoin="round"
+                        points={shipmentData.map((s, i) => `${i * 100 + 50},${150 - (s.total / maxShipVal) * 120}`).join(' ')} />
+                      <polygon fill="url(#shipGrad)" opacity="0.1"
+                        points={`50,150 ${shipmentData.map((s, i) => `${i * 100 + 50},${150 - (s.total / maxShipVal) * 120}`).join(' ')} ${(shipmentData.length - 1) * 100 + 50},150`} />
+                    </>
+                  )}
+                  <defs>
+                    <linearGradient id="shipGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ef4444" /><stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {shipmentData.map((s, i) => {
+                    const x = i * 100 + 50;
+                    const y = 150 - (s.total / maxShipVal) * 120;
+                    const isSelected = selectedShipmentFilter === s.shipment_id;
+                    const isActive = s.shipment?.status === 'collecting';
+                    return (
+                      <g key={s.shipment_id || i} onClick={() => handleShipmentClick(s.shipment_id)} className="cursor-pointer">
+                        <circle cx={x} cy={y} r={isSelected ? 7 : 4}
+                          fill={isSelected ? '#dc2626' : isActive ? '#22c55e' : s.total > 0 ? '#ef4444' : '#d1d5db'}
+                          stroke="white" strokeWidth="2" />
+                        <text x={x} y={y - 10} textAnchor="middle" className="text-[9px] fill-gray-600 font-semibold">
+                          {s.total >= 1000 ? `$${(s.total / 1000).toFixed(1)}k` : `$${s.total.toFixed(0)}`}
+                        </text>
+                        <text x={x} y={166} textAnchor="middle" className="text-[8px] fill-gray-500">
+                          {(s.shipment?.name || 'N/A').substring(0, 12)}
+                        </text>
+                        <text x={x} y={176} textAnchor="middle" className={`text-[7px] ${isActive ? 'fill-green-500' : 'fill-gray-300'}`}>
+                          {s.shipment?.status || ''}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-6">No data</p>
+              )}
             </div>
           </div>
 
