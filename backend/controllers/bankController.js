@@ -200,6 +200,15 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
         });
       }
     }
+  } else if (action === 'uncategorized') {
+    await tx.update({
+      status: 'uncategorized',
+      is_business_expense: true,
+      gcgl_category: null,
+      notes: notes || 'Marked as uncategorized — pending category assignment',
+      reviewed_by: req.user?.id || null,
+      reviewed_at: new Date(),
+    });
   } else if (action === 'reject') {
     await tx.update({
       status: 'rejected',

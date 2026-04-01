@@ -129,18 +129,26 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t flex gap-3">
-          <button onClick={() => handleAction('approve')} disabled={loading || !category}
-            className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-            Approve & Categorize
-          </button>
-          <button onClick={() => handleAction('reject')} disabled={loading}
-            className="px-4 py-2.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200">
-            Personal
-          </button>
-          <button onClick={onClose} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
-            Later
-          </button>
+        <div className="px-6 py-4 border-t space-y-2">
+          <div className="flex gap-3">
+            <button onClick={() => handleAction('approve')} disabled={loading || !category}
+              className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+              Approve & Categorize
+            </button>
+            <button onClick={() => handleAction('reject')} disabled={loading}
+              className="px-4 py-2.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200">
+              Personal
+            </button>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => handleAction('uncategorized')} disabled={loading}
+              className="flex-1 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-sm font-medium hover:bg-amber-100">
+              Mark Uncategorized
+            </button>
+            <button onClick={onClose} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
+              Later
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -288,6 +296,7 @@ export default function TransactionReview() {
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
               <option value="pending_review">Pending Review</option>
               <option value="approved">Approved</option>
+              <option value="uncategorized">Uncategorized</option>
               <option value="rejected">Rejected</option>
               <option value="deferred">Deferred</option>
             </select>
@@ -409,9 +418,9 @@ export default function TransactionReview() {
                   )}
                   {statusFilter !== 'pending_review' && <td className="px-4 py-3 text-xs">{tx.shipment?.name || '-'}</td>}
                   <td className="px-4 py-3">
-                    {tx.status === 'pending_review' ? (
-                      <button onClick={() => setReviewModal(tx)} className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-medium hover:bg-primary-700">
-                        Review
+                    {tx.status === 'pending_review' || tx.status === 'uncategorized' ? (
+                      <button onClick={() => setReviewModal(tx)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${tx.status === 'uncategorized' ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-primary-600 text-white hover:bg-primary-700'}`}>
+                        {tx.status === 'uncategorized' ? 'Categorize' : 'Review'}
                       </button>
                     ) : (
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium

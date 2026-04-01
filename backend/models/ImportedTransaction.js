@@ -13,7 +13,7 @@ module.exports = (sequelize) => {
     status: {
       type: DataTypes.STRING(50),
       defaultValue: 'pending_review',
-      validate: { isIn: [['pending_review', 'approved', 'rejected', 'deferred']] },
+      validate: { isIn: [['pending_review', 'approved', 'rejected', 'deferred', 'uncategorized']] },
     },
     imported_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     // Review fields
