@@ -35,25 +35,59 @@ function MetricCard({ title, value, subtitle, icon, color, trend }) {
   );
 }
 
-function AlertPanel({ alerts }) {
-  if (!alerts.length) return null;
+function AlertNotifications({ alerts }) {
+  const [visible, setVisible] = useState(true);
+  const [dismissed, setDismissed] = useState(new Set());
+
+  useEffect(() => {
+    if (alerts.length === 0) return;
+    const timer = setTimeout(() => setVisible(false), 8000);
+    return () => clearTimeout(timer);
+  }, [alerts]);
+
+  if (!alerts.length || !visible) return null;
+
+  const active = alerts.filter((_, i) => !dismissed.has(i));
+  if (active.length === 0) return null;
 
   const typeStyles = {
-    error: 'bg-red-50 border-red-200 text-red-700',
-    warning: 'bg-amber-50 border-amber-200 text-amber-700',
-    info: 'bg-blue-50 border-blue-200 text-blue-700',
+    error: 'bg-red-600',
+    warning: 'bg-amber-500',
+    info: 'bg-blue-500',
+  };
+
+  const typeIcons = {
+    error: 'M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    warning: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    info: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h3 className="font-semibold text-gray-900 mb-3">Alerts</h3>
-      <div className="space-y-2">
-        {alerts.map((alert, i) => (
-          <div key={i} className={`px-4 py-3 rounded-lg border text-sm ${typeStyles[alert.type] || typeStyles.info}`}>
-            <span className="font-medium">{alert.title}:</span> {alert.message}
+    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm" style={{ animation: 'slideIn 0.3s ease' }}>
+      <style>{`
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateX(50px); } }
+      `}</style>
+      {alerts.map((alert, i) => {
+        if (dismissed.has(i)) return null;
+        return (
+          <div key={i} className={`${typeStyles[alert.type] || typeStyles.info} text-white rounded-lg shadow-lg px-4 py-3 flex items-start gap-3 cursor-pointer`}
+            onClick={() => setDismissed((prev) => new Set([...prev, i]))}>
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d={typeIcons[alert.type] || typeIcons.info} />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">{alert.title}</p>
+              <p className="text-xs opacity-90 mt-0.5">{alert.message}</p>
+            </div>
+            <button className="text-white/70 hover:text-white flex-shrink-0" onClick={(e) => { e.stopPropagation(); setDismissed((prev) => new Set([...prev, i])); }}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -281,8 +315,8 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Alerts */}
-      <AlertPanel alerts={alerts} />
+      {/* Alert Notifications - top right corner */}
+      <AlertNotifications alerts={alerts} />
 
       {/* Charts & Gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
