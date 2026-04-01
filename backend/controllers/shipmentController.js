@@ -5,7 +5,7 @@ const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 
 exports.list = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, status = '', search = '', sortBy = 'created_at', sortOrder = 'DESC' } = req.query;
+  const { page = 1, limit = 20, status = '', search = '', sortBy = 'start_date', sortOrder = 'ASC' } = req.query;
 
   const where = {};
   if (status) {
@@ -157,7 +157,7 @@ exports.delete = asyncHandler(async (req, res) => {
 
 exports.getActiveShipments = asyncHandler(async (req, res) => {
   const shipments = await db.Shipment.findAll({
-    order: [['createdAt', 'DESC']],
+    order: [['start_date', 'ASC'], ['createdAt', 'ASC']],
   });
 
   const settings = await db.Setting.findByPk(1);

@@ -104,7 +104,7 @@ const FixedCostAllocationService = {
           { end_date: { [Op.gte]: date } },
         ],
       },
-      order: [['createdAt', 'ASC']],
+      order: [['start_date', 'ASC'], ['createdAt', 'ASC']],
     });
   },
 

@@ -11,7 +11,7 @@ exports.getDashboard = asyncHandler(async (req, res) => {
 
   const activeShipments = await db.Shipment.findAll({
     where: { status: { [Op.in]: ['collecting', 'ready'] } },
-    order: [['createdAt', 'DESC']],
+    order: [['start_date', 'ASC'], ['createdAt', 'ASC']],
   });
 
   const monthlyData = await db.MonthlyFixedCost.findOne({ where: { month_year: monthYear } });
