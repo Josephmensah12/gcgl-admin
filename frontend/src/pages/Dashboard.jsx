@@ -286,8 +286,8 @@ export default function Dashboard() {
 
       {/* Charts & Gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueChart data={chart} />
         <ContainerGauge shipment={activeShipment} />
+        <RevenueChart data={chart} />
       </div>
 
       {/* Quick Stats */}
