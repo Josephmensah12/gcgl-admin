@@ -90,7 +90,13 @@ exports.create = asyncHandler(async (req, res) => {
     if (cat?.is_fixed_cost) fixedCost = true;
   }
 
+  // Generate expense number
+  const lastExp = await db.Expense.findOne({ where: { expense_number: { [Op.ne]: null } }, order: [['id', 'DESC']] });
+  const lastNum = lastExp?.expense_number ? parseInt(lastExp.expense_number.replace('EXP-', '')) : 0;
+  const expenseNumber = `EXP-${String(lastNum + 1).padStart(5, '0')}`;
+
   const expense = await db.Expense.create({
+    expense_number: expenseNumber,
     expense_date, category_id, description,
     vendor_or_payee: vendor_or_payee || null,
     amount,
@@ -129,6 +135,31 @@ exports.remove = asyncHandler(async (req, res) => {
   if (!expense) throw new AppError('Expense not found', 404, 'NOT_FOUND');
   await expense.destroy();
   res.json({ success: true, message: 'Expense deleted' });
+});
+
+// ── REVERT TO PERSONAL ────────────────────────────────────
+
+exports.revertToPersonal = asyncHandler(async (req, res) => {
+  const expense = await db.Expense.findByPk(req.params.id);
+  if (!expense) throw new AppError('Expense not found', 404, 'NOT_FOUND');
+
+  // If linked to a bank transaction, mark it as rejected
+  if (expense.notes?.startsWith('Imported from bank:')) {
+    const plaidId = expense.notes.replace('Imported from bank: ', '');
+    const tx = await db.ImportedTransaction.findOne({ where: { plaid_transaction_id: plaidId } });
+    if (tx) {
+      await tx.update({
+        status: 'rejected',
+        is_business_expense: false,
+        gcgl_category: null,
+        shipment_id: null,
+        notes: 'Reverted to personal from expense',
+      });
+    }
+  }
+
+  await expense.destroy();
+  res.json({ success: true, message: 'Expense reverted to personal and removed' });
 });
 
 // ── REASSIGN ALL ──────────────────────────────────────────

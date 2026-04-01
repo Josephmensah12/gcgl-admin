@@ -37,11 +37,22 @@ function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) 
     } catch (err) { alert('Delete failed'); }
   };
 
+  const handleRevertPersonal = async () => {
+    if (!confirm('Mark as personal? This will remove the expense and mark the linked bank transaction as rejected.')) return;
+    try {
+      await axios.post(`/api/v1/expenses/${expense.id}/revert-personal`);
+      onSaved();
+    } catch (err) { alert(err.response?.data?.error?.message || 'Failed'); }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold">Edit Expense</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Edit Expense</h2>
+            {expense.expense_number && <span className="text-xs font-mono text-gray-400">{expense.expense_number}</span>}
+          </div>
         </div>
         <form onSubmit={handleSave} className="p-6 space-y-4">
           {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
@@ -89,7 +100,8 @@ function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) 
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={handleDelete} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200">Delete</button>
+            <button type="button" onClick={handleDelete} className="px-3 py-2 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200">Delete</button>
+            <button type="button" onClick={handleRevertPersonal} className="px-3 py-2 bg-amber-100 text-amber-700 rounded-lg text-xs font-medium hover:bg-amber-200">Personal</button>
             <div className="flex-1" />
             <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
             <button type="submit" disabled={loading} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
@@ -680,6 +692,7 @@ export default function ShipmentDetail() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr className="text-left text-gray-500">
+                    <th className="px-4 py-3 font-medium">ID</th>
                     <ExpSortHeader field="expense_date">Date</ExpSortHeader>
                     <ExpSortHeader field="category">Category</ExpSortHeader>
                     <ExpSortHeader field="description">Description</ExpSortHeader>
@@ -706,6 +719,7 @@ export default function ShipmentDetail() {
                     return 0;
                   }).map((exp) => (
                     <tr key={exp.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-xs font-mono text-gray-400">{exp.expense_number || '-'}</td>
                       <td className="px-4 py-3 text-gray-600">{new Date(exp.expense_date).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">{exp.category?.name}</span>

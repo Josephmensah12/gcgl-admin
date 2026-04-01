@@ -34,6 +34,20 @@ async function start() {
     await seedAdmin();
     await seedExpenseCategories();
 
+    // Backfill expense numbers
+    try {
+      const unnumbered = await db.Expense.findAll({ where: { expense_number: null }, order: [['id', 'ASC']] });
+      if (unnumbered.length > 0) {
+        const lastNumbered = await db.Expense.findOne({ where: { expense_number: { [require('sequelize').Op.ne]: null } }, order: [['id', 'DESC']] });
+        let counter = lastNumbered?.expense_number ? parseInt(lastNumbered.expense_number.replace('EXP-', '')) : 0;
+        for (const exp of unnumbered) {
+          counter++;
+          await exp.update({ expense_number: `EXP-${String(counter).padStart(5, '0')}` });
+        }
+        console.log(`Backfilled ${unnumbered.length} expense numbers`);
+      }
+    } catch (e) { console.error('Expense number backfill:', e.message); }
+
     app.listen(PORT, () => {
       console.log(`GCGL Admin Portal API running on port ${PORT}`);
 

@@ -23,6 +23,7 @@ router.get('/', ec.list);
 router.get('/:id', ec.detail);
 router.post('/', ec.create);
 router.put('/:id', ec.update);
+router.post('/:id/revert-personal', requireRole(['Admin', 'Manager']), ec.revertToPersonal);
 router.delete('/:id', requireRole(['Admin', 'Manager']), ec.remove);
 
 module.exports = router;

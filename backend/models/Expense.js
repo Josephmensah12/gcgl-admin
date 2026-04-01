@@ -3,6 +3,7 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const Expense = sequelize.define('Expense', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    expense_number: { type: DataTypes.STRING(20), unique: true, allowNull: true },
     expense_date: { type: DataTypes.DATEONLY, allowNull: false },
     category_id: { type: DataTypes.INTEGER, allowNull: false },
     description: { type: DataTypes.STRING(500), allowNull: false },
