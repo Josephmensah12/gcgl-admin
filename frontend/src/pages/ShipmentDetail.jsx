@@ -561,9 +561,15 @@ export default function ShipmentDetail() {
                                 className={`w-full h-full rounded-t-md transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:brightness-110'}`}
                                 style={{ backgroundColor: isSelected ? '#1e3a5f' : '#4a90d9' }}
                               />
-                              <span className="absolute inset-x-0 top-2 text-center text-[10px] font-bold text-white drop-shadow-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
-                                {label}
-                              </span>
+                              {barHeight >= 15 ? (
+                                <span className="absolute inset-x-0 top-2 text-center text-[10px] font-bold text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
+                                  {label}
+                                </span>
+                              ) : (
+                                <span className="absolute inset-x-0 -top-4 text-center text-[10px] font-bold text-gray-700 whitespace-nowrap">
+                                  {label}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full px-0.5" title={cat}>
