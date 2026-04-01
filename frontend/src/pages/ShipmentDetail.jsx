@@ -436,7 +436,6 @@ export default function ShipmentDetail() {
                   })}
                 </div>
               </div>
-              </div>
             );
           })()}
 
