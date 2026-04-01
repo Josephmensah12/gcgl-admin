@@ -396,93 +396,46 @@ export default function ShipmentDetail() {
             });
             const sorted = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total);
             const grandTotal = sorted.reduce((s, [, d]) => s + d.total, 0);
-            const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#6366f1','#f43f5e','#0ea5e9','#a855f7'];
+            const maxVal = sorted.length > 0 ? sorted[0][1].total : 1;
 
             return (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">Expense Breakdown</h3>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900">Expense Breakdown</h3>
                   {expCatFilter && (
-                    <button onClick={() => setExpCatFilter(null)} className="text-xs text-primary-600 font-medium">Clear filter</button>
+                    <button onClick={() => setExpCatFilter(null)} className="text-sm text-primary-600 font-medium">Clear filter</button>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mb-4">Click a category to filter the table below</p>
+                <p className="text-xs text-gray-400 mb-5">Click a bar to filter the table below</p>
 
-                {/* Tableau-style treemap */}
-                {(() => {
-                  // Layout: squarified treemap algorithm (simplified)
-                  const total = sorted.reduce((s, [, d]) => s + d.total, 0);
-                  if (total <= 0) return null;
-
-                  // Build rows: pack items into rows trying to keep aspect ratios close to 1
-                  const items = sorted.map(([cat, data], i) => ({
-                    cat, ...data, pct: (data.total / total) * 100, color: colors[i % colors.length], idx: i,
-                  }));
-
-                  // Split into 2 rows: big items on top, smaller on bottom
-                  let topRowPct = 0;
-                  let splitIdx = 0;
-                  for (let i = 0; i < items.length; i++) {
-                    if (topRowPct + items[i].pct > 65 && i > 0) { splitIdx = i; break; }
-                    topRowPct += items[i].pct;
-                    splitIdx = i + 1;
-                  }
-                  if (splitIdx === 0) splitIdx = Math.min(3, items.length);
-                  const topRow = items.slice(0, splitIdx);
-                  const bottomRow = items.slice(splitIdx);
-                  const topTotal = topRow.reduce((s, d) => s + d.pct, 0);
-                  const bottomTotal = bottomRow.reduce((s, d) => s + d.pct, 0);
-                  const topHeight = bottomRow.length > 0 ? Math.max(55, Math.min(75, (topTotal / 100) * 100 + 20)) : 100;
-
-                  return (
-                    <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '220px' }}>
-                      {/* Top row */}
-                      <div className="flex" style={{ height: `${topHeight}%` }}>
-                        {topRow.map((item) => {
-                          const widthPct = topTotal > 0 ? (item.pct / topTotal) * 100 : 100 / topRow.length;
-                          const isSelected = expCatFilter === item.cat;
-                          return (
-                            <div key={item.cat} onClick={() => setExpCatFilter(expCatFilter === item.cat ? null : item.cat)}
-                              className={`relative cursor-pointer border-r border-b border-white/20 transition-all ${isSelected ? 'brightness-125 ring-2 ring-inset ring-white' : 'hover:brightness-110'}`}
-                              style={{ width: `${widthPct}%`, backgroundColor: item.color }}>
-                              <div className="absolute inset-0 p-2.5 flex flex-col justify-between">
-                                <div>
-                                  <p className="text-[11px] font-bold text-white leading-snug" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{item.cat}</p>
-                                </div>
-                                <div>
-                                  <p className="text-lg font-black text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{fmt(item.total)}</p>
-                                  <p className="text-[10px] font-medium text-white/80">{item.pct.toFixed(1)}% · {item.count} items</p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {/* Bottom row */}
-                      {bottomRow.length > 0 && (
-                        <div className="flex" style={{ height: `${100 - topHeight}%` }}>
-                          {bottomRow.map((item) => {
-                            const widthPct = bottomTotal > 0 ? (item.pct / bottomTotal) * 100 : 100 / bottomRow.length;
-                            const isSelected = expCatFilter === item.cat;
-                            return (
-                              <div key={item.cat} onClick={() => setExpCatFilter(expCatFilter === item.cat ? null : item.cat)}
-                                className={`relative cursor-pointer border-r border-white/20 transition-all ${isSelected ? 'brightness-125 ring-2 ring-inset ring-white' : 'hover:brightness-110'}`}
-                                style={{ width: `${widthPct}%`, backgroundColor: item.color }}>
-                                <div className="absolute inset-0 p-2 flex flex-col justify-between">
-                                  <p className="text-[10px] font-bold text-white truncate" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{item.cat}</p>
-                                  <div>
-                                    <p className="text-sm font-black text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{fmt(item.total)}</p>
-                                    <p className="text-[9px] text-white/70">{item.pct.toFixed(1)}%</p>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                <div className="flex items-end gap-3" style={{ height: '220px' }}>
+                  {sorted.map(([cat, data], i) => {
+                    const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
+                    const isSelected = expCatFilter === cat;
+                    return (
+                      <div key={cat} className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                        onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)} style={{ cursor: 'pointer' }}>
+                        <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">
+                          {data.total >= 1000 ? `$${(data.total / 1000).toFixed(1)}k` : `$${data.total.toFixed(0)}`}
+                        </span>
+                        <div className="w-full flex justify-center" style={{ height: '170px' }}>
+                          <div
+                            className={`w-full max-w-[48px] rounded-t transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:opacity-80'}`}
+                            style={{
+                              height: `${Math.max(pct, 3)}%`,
+                              backgroundColor: isSelected ? '#1e3a5f' : '#4a90d9',
+                              alignSelf: 'flex-end',
+                            }}
+                          />
                         </div>
-                      )}
-                    </div>
-                  );
-                })()}
+                        <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full px-0.5" title={cat}>
+                          {cat.length > 12 ? cat.substring(0, 10) + '..' : cat}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               </div>
             );
           })()}
