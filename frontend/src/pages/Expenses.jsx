@@ -362,6 +362,9 @@ export default function Expenses() {
                         <select
                           value={exp.shipment_id || ''}
                           onChange={async (e) => {
+                            const newShipment = shipments.find(s => s.id === e.target.value);
+                            const label = newShipment ? newShipment.name : 'Unassigned';
+                            if (!confirm(`Reassign this expense to "${label}"?`)) return;
                             try {
                               await axios.put(`/api/v1/expenses/${exp.id}`, { shipment_id: e.target.value || null });
                               loadExpenses();
