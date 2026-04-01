@@ -251,26 +251,21 @@ export default function Expenses() {
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500">Total Expenses</p>
-          <p className="text-2xl font-bold text-red-600">{fmt(analytics?.summary?.total)}</p>
-          <p className="text-xs text-gray-400">{analytics?.summary?.count || 0} entries</p>
+          <p className="text-2xl font-bold text-red-600">{fmt(totals.total)}</p>
+          <p className="text-xs text-gray-400">{totals.count} entries</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500">Average</p>
-          <p className="text-2xl font-bold text-gray-900">{fmt(analytics?.summary?.avg)}</p>
+          <p className="text-2xl font-bold text-gray-900">{totals.count > 0 ? fmt(totals.total / totals.count) : '$0.00'}</p>
           <p className="text-xs text-gray-400">per expense</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500">Largest</p>
           <p className="text-2xl font-bold text-amber-600">{fmt(analytics?.summary?.max)}</p>
           <p className="text-xs text-gray-400">single expense</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-sm text-gray-500">Filtered Total</p>
-          <p className="text-2xl font-bold text-gray-900">{fmt(totals.total)}</p>
-          <p className="text-xs text-gray-400">{totals.count} shown</p>
         </div>
       </div>
 
