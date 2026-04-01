@@ -398,42 +398,151 @@ export default function ShipmentDetail() {
             const grandTotal = sorted.reduce((s, [, d]) => s + d.total, 0);
             const maxVal = sorted.length > 0 ? sorted[0][1].total : 1;
 
-            return (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">Expense Breakdown</h3>
-                  {expCatFilter && (
-                    <button onClick={() => setExpCatFilter(null)} className="text-sm text-primary-600 font-medium">Clear filter</button>
-                  )}
-                </div>
-                <p className="text-xs text-gray-400 mb-5">Click a bar to filter the table below</p>
+            const donutColors = ['#2563eb','#0891b2','#059669','#d97706','#dc2626','#7c3aed','#db2777','#0d9488'];
 
-                <div className="flex items-end gap-3" style={{ height: '220px' }}>
-                  {sorted.map(([cat, data], i) => {
-                    const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
-                    const isSelected = expCatFilter === cat;
-                    return (
-                      <div key={cat} className="flex-1 flex flex-col items-center gap-1 min-w-0"
-                        onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)} style={{ cursor: 'pointer' }}>
-                        <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">
-                          {data.total >= 1000 ? `$${(data.total / 1000).toFixed(1)}k` : `$${data.total.toFixed(0)}`}
-                        </span>
-                        <div className="w-full flex justify-center" style={{ height: '170px' }}>
-                          <div
-                            className={`w-full max-w-[48px] rounded-t transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:opacity-80'}`}
-                            style={{
-                              height: `${Math.max(pct, 3)}%`,
-                              backgroundColor: isSelected ? '#1e3a5f' : '#4a90d9',
-                              alignSelf: 'flex-end',
-                            }}
-                          />
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Bar Chart */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">Expense Breakdown</h3>
+                    {expCatFilter && (
+                      <button onClick={() => setExpCatFilter(null)} className="text-sm text-primary-600 font-medium">Clear filter</button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mb-5">Click a bar to filter</p>
+
+                  <div className="flex items-end gap-3" style={{ height: '220px' }}>
+                    {sorted.map(([cat, data], i) => {
+                      const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
+                      const isSelected = expCatFilter === cat;
+                      return (
+                        <div key={cat} className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                          onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)} style={{ cursor: 'pointer' }}>
+                          <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">
+                            {data.total >= 1000 ? `$${(data.total / 1000).toFixed(1)}k` : `$${data.total.toFixed(0)}`}
+                          </span>
+                          <div className="w-full flex justify-center" style={{ height: '170px' }}>
+                            <div
+                              className={`w-full max-w-[48px] rounded-t transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:opacity-80'}`}
+                              style={{
+                                height: `${Math.max(pct, 3)}%`,
+                                backgroundColor: isSelected ? '#1e3a5f' : '#4a90d9',
+                                alignSelf: 'flex-end',
+                              }}
+                            />
+                          </div>
+                          <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full px-0.5" title={cat}>
+                            {cat.length > 12 ? cat.substring(0, 10) + '..' : cat}
+                          </span>
                         </div>
-                        <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full px-0.5" title={cat}>
-                          {cat.length > 12 ? cat.substring(0, 10) + '..' : cat}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Donut Chart - Top 5 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Top 5 Expenses</h3>
+                  <p className="text-xs text-gray-400 mb-4">Click a segment to filter</p>
+
+                  <div className="flex items-center gap-6">
+                    {/* SVG Donut */}
+                    <div className="relative" style={{ width: '180px', height: '180px', flexShrink: 0 }}>
+                      <svg viewBox="0 0 200 200" className="w-full h-full">
+                        {(() => {
+                          const top5 = sorted.slice(0, 5);
+                          const top5Total = top5.reduce((s, [, d]) => s + d.total, 0);
+                          const otherTotal = grandTotal - top5Total;
+                          const segments = [...top5.map(([cat, data]) => ({ cat, total: data.total }))];
+                          if (otherTotal > 0) segments.push({ cat: 'Other', total: otherTotal });
+                          const segTotal = segments.reduce((s, d) => s + d.total, 0);
+
+                          let cumAngle = -90;
+                          return segments.map((seg, i) => {
+                            const angle = segTotal > 0 ? (seg.total / segTotal) * 360 : 0;
+                            const startAngle = cumAngle;
+                            cumAngle += angle;
+                            const endAngle = cumAngle;
+
+                            const startRad = (startAngle * Math.PI) / 180;
+                            const endRad = (endAngle * Math.PI) / 180;
+                            const x1 = 100 + 80 * Math.cos(startRad);
+                            const y1 = 100 + 80 * Math.sin(startRad);
+                            const x2 = 100 + 80 * Math.cos(endRad);
+                            const y2 = 100 + 80 * Math.sin(endRad);
+                            const largeArc = angle > 180 ? 1 : 0;
+
+                            const isSelected = expCatFilter === seg.cat;
+                            const color = donutColors[i % donutColors.length];
+
+                            if (angle <= 0) return null;
+                            if (angle >= 359.9) {
+                              return (
+                                <circle key={seg.cat} cx="100" cy="100" r="80" fill="none"
+                                  stroke={color} strokeWidth={isSelected ? 40 : 35}
+                                  opacity={expCatFilter && !isSelected ? 0.3 : 1}
+                                  onClick={() => setExpCatFilter(expCatFilter === seg.cat ? null : seg.cat)}
+                                  className="cursor-pointer transition-all" />
+                              );
+                            }
+
+                            return (
+                              <path key={seg.cat}
+                                d={`M ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2}`}
+                                fill="none" stroke={color} strokeWidth={isSelected ? 40 : 35}
+                                opacity={expCatFilter && !isSelected ? 0.3 : 1}
+                                onClick={() => setExpCatFilter(expCatFilter === seg.cat ? null : seg.cat)}
+                                className="cursor-pointer transition-all hover:opacity-90"
+                                strokeLinecap="butt" />
+                            );
+                          });
+                        })()}
+                        {/* Center text */}
+                        <text x="100" y="95" textAnchor="middle" className="text-[14px] font-bold fill-gray-800">
+                          {fmt(grandTotal)}
+                        </text>
+                        <text x="100" y="112" textAnchor="middle" className="text-[10px] fill-gray-400">
+                          Total
+                        </text>
+                      </svg>
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex-1 space-y-2">
+                      {sorted.slice(0, 5).map(([cat, data], i) => {
+                        const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0;
+                        const isSelected = expCatFilter === cat;
+                        return (
+                          <div key={cat} onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
+                            className={`flex items-center gap-2 cursor-pointer rounded-md px-2 py-1 transition-colors ${isSelected ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>
+                            <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: donutColors[i % donutColors.length] }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-700 truncate">{cat}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-bold text-gray-800">{fmt(data.total)}</p>
+                              <p className="text-[9px] text-gray-400">{pct.toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {sorted.length > 5 && (() => {
+                        const otherTotal = sorted.slice(5).reduce((s, [, d]) => s + d.total, 0);
+                        const otherPct = grandTotal > 0 ? (otherTotal / grandTotal) * 100 : 0;
+                        return (
+                          <div className="flex items-center gap-2 px-2 py-1">
+                            <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: donutColors[5] }} />
+                            <p className="text-xs text-gray-500 flex-1">Other ({sorted.length - 5})</p>
+                            <div className="text-right">
+                              <p className="text-xs font-bold text-gray-600">{fmt(otherTotal)}</p>
+                              <p className="text-[9px] text-gray-400">{otherPct.toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
             );
