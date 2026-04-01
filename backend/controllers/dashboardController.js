@@ -151,6 +151,7 @@ exports.getAlerts = asyncHandler(async (req, res) => {
       type: 'warning',
       title: 'Aging Warehouse Items',
       message: `${agingCount} items have been in the warehouse for over 7 days`,
+      link: '/pickups?filter=unassigned',
     });
   }
 
@@ -169,6 +170,7 @@ exports.getAlerts = asyncHandler(async (req, res) => {
       type: 'info',
       title: 'Shipment Near Capacity',
       message: `${s.name} is at $${parseFloat(s.totalValue).toLocaleString()} / $${threshold.toLocaleString()}`,
+      link: `/shipments/${s.id}`,
     });
   });
 
@@ -186,6 +188,7 @@ exports.getAlerts = asyncHandler(async (req, res) => {
       type: 'error',
       title: 'Overdue Invoices',
       message: `${overdueCount} unpaid invoices are over 30 days old`,
+      link: '/payments?paymentStatus=unpaid',
     });
   }
 

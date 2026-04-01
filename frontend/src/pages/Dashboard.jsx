@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -35,7 +36,7 @@ function MetricCard({ title, value, subtitle, icon, color, trend }) {
   );
 }
 
-function AlertNotifications({ alerts }) {
+function AlertNotifications({ alerts, navigate }) {
   const [visible, setVisible] = useState(true);
   const [dismissed, setDismissed] = useState(new Set());
 
@@ -72,7 +73,7 @@ function AlertNotifications({ alerts }) {
         if (dismissed.has(i)) return null;
         return (
           <div key={i} className={`${typeStyles[alert.type] || typeStyles.info} text-white rounded-lg shadow-lg px-4 py-3 flex items-start gap-3 cursor-pointer`}
-            onClick={() => setDismissed((prev) => new Set([...prev, i]))}>
+            onClick={() => { if (alert.link) navigate(alert.link); setDismissed((prev) => new Set([...prev, i])); }}>
             <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d={typeIcons[alert.type] || typeIcons.info} />
             </svg>
@@ -239,6 +240,7 @@ function ContainerGauge({ shipment }) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState(null);
   const [chart, setChart] = useState([]);
   const [pickups, setPickups] = useState([]);
@@ -316,7 +318,7 @@ export default function Dashboard() {
       </div>
 
       {/* Alert Notifications - top right corner */}
-      <AlertNotifications alerts={alerts} />
+      <AlertNotifications alerts={alerts} navigate={navigate} />
 
       {/* Charts & Gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
