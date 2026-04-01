@@ -13,6 +13,7 @@ export default function ShipmentDetail() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments' | 'expenses'
+  const [tileFilter, setTileFilter] = useState(null); // null | 'collected' | 'pending' | 'expenses'
   const [invSortBy, setInvSortBy] = useState('createdAt');
   const [invSortOrder, setInvSortOrder] = useState('DESC');
 
@@ -54,6 +55,18 @@ export default function ShipmentDetail() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleTileClick = (filter) => {
+    if (tileFilter === filter) {
+      setTileFilter(null);
+      setActiveTab('invoices');
+    } else {
+      setTileFilter(filter);
+      if (filter === 'collected') setActiveTab('payments');
+      else if (filter === 'pending') setActiveTab('invoices');
+      else if (filter === 'expenses') setActiveTab('expenses');
+    }
+  };
 
   const updateStatus = async (newStatus) => {
     setUpdating(true);
@@ -137,7 +150,7 @@ export default function ShipmentDetail() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500 mb-1">Capacity</p>
           <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
@@ -151,12 +164,20 @@ export default function ShipmentDetail() {
           <p className="text-2xl font-bold text-gray-900">{fmt(totalValue)}</p>
           <p className="text-xs text-gray-400">{invoices.length} invoices</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div onClick={() => handleTileClick('collected')}
+          className={`rounded-xl shadow-sm border p-5 cursor-pointer transition-all ${tileFilter === 'collected' ? 'bg-green-50 border-green-300 ring-2 ring-green-200' : 'bg-white border-gray-100 hover:border-green-200'}`}>
           <p className="text-sm text-gray-500">Collected</p>
           <p className="text-2xl font-bold text-green-600">{fmt(totalPaid)}</p>
-          <p className="text-xs text-gray-400">{paidCount} paid, {unpaidCount} unpaid</p>
+          <p className="text-xs text-gray-400">{paidCount} paid</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div onClick={() => handleTileClick('pending')}
+          className={`rounded-xl shadow-sm border p-5 cursor-pointer transition-all ${tileFilter === 'pending' ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-200' : 'bg-white border-gray-100 hover:border-amber-200'}`}>
+          <p className="text-sm text-gray-500">Pending Payments</p>
+          <p className={`text-2xl font-bold ${totalUnpaid > 0 ? 'text-amber-600' : 'text-green-600'}`}>{fmt(totalUnpaid)}</p>
+          <p className="text-xs text-gray-400">{unpaidCount} unpaid</p>
+        </div>
+        <div onClick={() => handleTileClick('expenses')}
+          className={`rounded-xl shadow-sm border p-5 cursor-pointer transition-all ${tileFilter === 'expenses' ? 'bg-red-50 border-red-300 ring-2 ring-red-200' : 'bg-white border-gray-100 hover:border-red-200'}`}>
           <p className="text-sm text-gray-500">Expenses</p>
           <p className="text-2xl font-bold text-red-600">{fmt(expenseTotals.total)}</p>
           <p className="text-xs text-gray-400">{expenseTotals.count} entries</p>
@@ -192,6 +213,12 @@ export default function ShipmentDetail() {
       {/* Invoices Tab */}
       {activeTab === 'invoices' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          {tileFilter === 'pending' && (
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-amber-700 font-medium">Showing unpaid invoices only</p>
+              <button onClick={() => setTileFilter(null)} className="text-xs text-primary-600 hover:text-primary-700 font-medium">Show all</button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -207,7 +234,7 @@ export default function ShipmentDetail() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {[...invoices].sort((a, b) => {
+                {[...(tileFilter === 'pending' ? invoices.filter((inv) => inv.paymentStatus !== 'paid') : invoices)].sort((a, b) => {
                   let aVal, bVal;
                   switch (invSortBy) {
                     case 'createdAt': aVal = new Date(a.createdAt); bVal = new Date(b.createdAt); break;
