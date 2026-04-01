@@ -14,6 +14,7 @@ export default function ShipmentDetail() {
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments' | 'expenses'
   const [tileFilter, setTileFilter] = useState(null); // null | 'collected' | 'pending' | 'expenses'
+  const [expCatFilter, setExpCatFilter] = useState(null); // filter expense table by category
   const [expSortBy, setExpSortBy] = useState('expense_date');
   const [expSortOrder, setExpSortOrder] = useState('ASC');
 
@@ -384,7 +385,7 @@ export default function ShipmentDetail() {
       {/* Expenses Tab */}
       {activeTab === 'expenses' && (
         <div className="space-y-4">
-          {/* Expense category breakdown */}
+          {/* Treemap */}
           {expenses.length > 0 && (() => {
             const byCat = {};
             expenses.forEach((exp) => {
@@ -393,26 +394,63 @@ export default function ShipmentDetail() {
               byCat[cat].total += parseFloat(exp.amount) || 0;
               byCat[cat].count++;
             });
+            const sorted = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total);
+            const grandTotal = sorted.reduce((s, [, d]) => s + d.total, 0);
+            const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#6366f1','#f43f5e','#0ea5e9','#a855f7'];
+
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {Object.entries(byCat).sort((a, b) => b[1].total - a[1].total).map(([cat, data]) => (
-                  <div key={cat} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center gap-1 mb-1">
-                      <p className="text-sm text-gray-500 truncate">{cat}</p>
-                      <span className={`px-1 py-0.5 rounded text-[10px] font-medium ${data.fixed ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {data.fixed ? 'F' : 'V'}
-                      </span>
-                    </div>
-                    <p className="text-lg font-bold text-red-600">{fmt(data.total)}</p>
-                    <p className="text-xs text-gray-400">{data.count} entries</p>
-                  </div>
-                ))}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900">Expense Breakdown</h3>
+                  {expCatFilter && (
+                    <button onClick={() => setExpCatFilter(null)} className="text-xs text-primary-600 font-medium">Clear filter</button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mb-3">Click a category to filter the table below</p>
+                <div className="flex flex-wrap gap-1" style={{ minHeight: '120px' }}>
+                  {sorted.map(([cat, data], i) => {
+                    const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0;
+                    const isSelected = expCatFilter === cat;
+                    const width = Math.max(pct, 8);
+                    return (
+                      <div
+                        key={cat}
+                        onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
+                        className={`relative cursor-pointer rounded-lg overflow-hidden transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:opacity-90'}`}
+                        style={{
+                          backgroundColor: colors[i % colors.length],
+                          flexBasis: `${width}%`,
+                          flexGrow: pct > 15 ? 1 : 0,
+                          minWidth: '80px',
+                          minHeight: '80px',
+                        }}
+                      >
+                        <div className="absolute inset-0 p-2 flex flex-col justify-between text-white">
+                          <div>
+                            <p className="text-xs font-semibold leading-tight truncate">{cat}</p>
+                            <p className="text-[10px] opacity-80">{data.fixed ? 'Fixed' : 'Variable'} · {data.count}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">{fmt(data.total)}</p>
+                            <p className="text-[10px] opacity-80">{pct.toFixed(0)}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })()}
 
           {/* Expense list */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {expCatFilter && (
+              <div className="flex items-center justify-between px-4 py-2 bg-primary-50 border-b border-primary-100">
+                <p className="text-sm text-primary-700 font-medium">Filtered: {expCatFilter}</p>
+                <button onClick={() => setExpCatFilter(null)} className="text-xs text-primary-600 font-medium">Show all</button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -426,7 +464,7 @@ export default function ShipmentDetail() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {[...expenses].sort((a, b) => {
+                  {[...(expCatFilter ? expenses.filter((e) => (e.category?.name || 'Uncategorized') === expCatFilter) : expenses)].sort((a, b) => {
                     let aVal, bVal;
                     switch (expSortBy) {
                       case 'expense_date': aVal = a.expense_date; bVal = b.expense_date; break;
@@ -463,12 +501,16 @@ export default function ShipmentDetail() {
               )}
             </div>
 
-            {expenses.length > 0 && (
+            {expenses.length > 0 && (() => {
+              const filtered = expCatFilter ? expenses.filter((e) => (e.category?.name || 'Uncategorized') === expCatFilter) : expenses;
+              const filteredTotal = filtered.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+              return (
               <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-gray-50">
-                <span className="text-sm font-medium text-gray-700">Total Expenses ({expenseTotals.count})</span>
-                <span className="text-lg font-bold text-red-600">{fmt(expenseTotals.total)}</span>
+                <span className="text-sm font-medium text-gray-700">{expCatFilter ? `${expCatFilter} (${filtered.length})` : `Total Expenses (${expenseTotals.count})`}</span>
+                <span className="text-lg font-bold text-red-600">{fmt(expCatFilter ? filteredTotal : expenseTotals.total)}</span>
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
