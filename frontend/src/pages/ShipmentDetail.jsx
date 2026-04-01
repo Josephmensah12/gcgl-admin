@@ -406,42 +406,83 @@ export default function ShipmentDetail() {
                     <button onClick={() => setExpCatFilter(null)} className="text-xs text-primary-600 font-medium">Clear filter</button>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mb-3">Click a category to filter the table below</p>
-                {/* Row 1: top categories proportional */}
-                <div className="flex gap-1.5 mb-1.5" style={{ height: '110px' }}>
-                  {sorted.slice(0, Math.min(4, sorted.length)).map(([cat, data], i) => {
-                    const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0;
-                    const isSelected = expCatFilter === cat;
-                    return (
-                      <div key={cat} onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
-                        className={`cursor-pointer rounded-lg p-3 transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:brightness-110'}`}
-                        style={{ backgroundColor: colors[i % colors.length], flex: `${Math.max(pct, 10)} 0 0%` }}>
-                        <p className="text-xs font-bold text-white leading-tight truncate">{cat}</p>
-                        <p className="text-[10px] text-white/70">{data.fixed ? 'Fixed' : 'Variable'} · {data.count}</p>
-                        <p className="text-base font-bold text-white mt-1">{fmt(data.total)}</p>
-                        <p className="text-[10px] text-white/70">{pct.toFixed(0)}%</p>
+                <p className="text-xs text-gray-400 mb-4">Click a category to filter the table below</p>
+
+                {/* Tableau-style treemap */}
+                {(() => {
+                  // Layout: squarified treemap algorithm (simplified)
+                  const total = sorted.reduce((s, [, d]) => s + d.total, 0);
+                  if (total <= 0) return null;
+
+                  // Build rows: pack items into rows trying to keep aspect ratios close to 1
+                  const items = sorted.map(([cat, data], i) => ({
+                    cat, ...data, pct: (data.total / total) * 100, color: colors[i % colors.length], idx: i,
+                  }));
+
+                  // Split into 2 rows: big items on top, smaller on bottom
+                  let topRowPct = 0;
+                  let splitIdx = 0;
+                  for (let i = 0; i < items.length; i++) {
+                    if (topRowPct + items[i].pct > 65 && i > 0) { splitIdx = i; break; }
+                    topRowPct += items[i].pct;
+                    splitIdx = i + 1;
+                  }
+                  if (splitIdx === 0) splitIdx = Math.min(3, items.length);
+                  const topRow = items.slice(0, splitIdx);
+                  const bottomRow = items.slice(splitIdx);
+                  const topTotal = topRow.reduce((s, d) => s + d.pct, 0);
+                  const bottomTotal = bottomRow.reduce((s, d) => s + d.pct, 0);
+                  const topHeight = bottomRow.length > 0 ? Math.max(55, Math.min(75, (topTotal / 100) * 100 + 20)) : 100;
+
+                  return (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ height: '220px' }}>
+                      {/* Top row */}
+                      <div className="flex" style={{ height: `${topHeight}%` }}>
+                        {topRow.map((item) => {
+                          const widthPct = topTotal > 0 ? (item.pct / topTotal) * 100 : 100 / topRow.length;
+                          const isSelected = expCatFilter === item.cat;
+                          return (
+                            <div key={item.cat} onClick={() => setExpCatFilter(expCatFilter === item.cat ? null : item.cat)}
+                              className={`relative cursor-pointer border-r border-b border-white/20 transition-all ${isSelected ? 'brightness-125 ring-2 ring-inset ring-white' : 'hover:brightness-110'}`}
+                              style={{ width: `${widthPct}%`, backgroundColor: item.color }}>
+                              <div className="absolute inset-0 p-2.5 flex flex-col justify-between">
+                                <div>
+                                  <p className="text-[11px] font-bold text-white leading-snug" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{item.cat}</p>
+                                </div>
+                                <div>
+                                  <p className="text-lg font-black text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{fmt(item.total)}</p>
+                                  <p className="text-[10px] font-medium text-white/80">{item.pct.toFixed(1)}% · {item.count} items</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-                {/* Row 2: remaining categories */}
-                {sorted.length > 4 && (
-                  <div className="flex gap-1.5" style={{ height: '80px' }}>
-                    {sorted.slice(4).map(([cat, data], i) => {
-                      const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0;
-                      const isSelected = expCatFilter === cat;
-                      return (
-                        <div key={cat} onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
-                          className={`cursor-pointer rounded-lg p-2 transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:brightness-110'}`}
-                          style={{ backgroundColor: colors[(i + 4) % colors.length], flex: `${Math.max(pct, 8)} 0 0%` }}>
-                          <p className="text-[10px] font-bold text-white truncate">{cat}</p>
-                          <p className="text-sm font-bold text-white mt-0.5">{fmt(data.total)}</p>
-                          <p className="text-[9px] text-white/70">{pct.toFixed(0)}%</p>
+                      {/* Bottom row */}
+                      {bottomRow.length > 0 && (
+                        <div className="flex" style={{ height: `${100 - topHeight}%` }}>
+                          {bottomRow.map((item) => {
+                            const widthPct = bottomTotal > 0 ? (item.pct / bottomTotal) * 100 : 100 / bottomRow.length;
+                            const isSelected = expCatFilter === item.cat;
+                            return (
+                              <div key={item.cat} onClick={() => setExpCatFilter(expCatFilter === item.cat ? null : item.cat)}
+                                className={`relative cursor-pointer border-r border-white/20 transition-all ${isSelected ? 'brightness-125 ring-2 ring-inset ring-white' : 'hover:brightness-110'}`}
+                                style={{ width: `${widthPct}%`, backgroundColor: item.color }}>
+                                <div className="absolute inset-0 p-2 flex flex-col justify-between">
+                                  <p className="text-[10px] font-bold text-white truncate" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{item.cat}</p>
+                                  <div>
+                                    <p className="text-sm font-black text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{fmt(item.total)}</p>
+                                    <p className="text-[9px] text-white/70">{item.pct.toFixed(1)}%</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
