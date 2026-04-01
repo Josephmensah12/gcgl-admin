@@ -362,7 +362,21 @@ export default function Expenses() {
                           {exp.is_fixed_cost ? 'Fixed' : 'Variable'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{exp.shipment?.name || '-'}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={exp.shipment_id || ''}
+                          onChange={async (e) => {
+                            try {
+                              await axios.put(`/api/v1/expenses/${exp.id}`, { shipment_id: e.target.value || null });
+                              loadExpenses();
+                            } catch (err) { alert('Failed to reassign'); }
+                          }}
+                          className="px-1.5 py-1 border border-gray-200 rounded text-xs bg-transparent hover:border-primary-400 cursor-pointer max-w-[140px]"
+                        >
+                          <option value="">Unassigned</option>
+                          {shipments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </td>
                       <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(exp.amount)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
