@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { shipmentDateRange } from '../utils/shipmentLabel';
 
 function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
   const isEdit = !!expense;
@@ -86,7 +87,7 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
             <select value={form.shipment_id} onChange={(e) => setForm((f) => ({ ...f, shipment_id: e.target.value }))}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
               <option value="">-- Auto-assign by date --</option>
-              {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} [{s.status}]</option>)}
+              {shipments.map((s) => <option key={s.id} value={s.id} title={shipmentDateRange(s)}>{s.name} ({shipmentDateRange(s)})</option>)}
             </select>
           </div>
 
@@ -322,7 +323,7 @@ export default function Expenses() {
                 onChange={(e) => { setFilters((f) => ({ ...f, shipment_id: e.target.value })); setPagination((p) => ({ ...p, page: 1 })); }}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                 <option value="">All Shipments</option>
-                {shipments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
               </select>
             </div>
           </div>
@@ -369,7 +370,7 @@ export default function Expenses() {
                           className="px-1.5 py-1 border border-gray-200 rounded text-xs bg-transparent hover:border-primary-400 cursor-pointer max-w-[140px]"
                         >
                           <option value="">Unassigned</option>
-                          {shipments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
                         </select>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(exp.amount)}</td>
@@ -532,7 +533,7 @@ export default function Expenses() {
                   return (
                     <div key={s.shipment_id || 'none'} className={`flex justify-between items-center py-2 px-2 rounded-lg border-b border-gray-50 ${isActive ? 'bg-green-50' : ''}`}>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-700">{s.shipment?.name || 'Unassigned'}</span>
+                        <span className="text-sm text-gray-700" title={s.shipment ? shipmentDateRange(s.shipment) : ''}>{s.shipment?.name || 'Unassigned'}</span>
                         {s.shipment?.status && (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium
                             ${s.shipment.status === 'collecting' ? 'bg-green-100 text-green-700'

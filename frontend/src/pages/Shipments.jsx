@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { shipmentDateRange } from '../utils/shipmentLabel';
 
 export default function Shipments() {
   const [shipments, setShipments] = useState([]);
@@ -90,7 +91,7 @@ export default function Shipments() {
         {shipments.map((s) => (
           <Link key={s.id} to={`/shipments/${s.id}`} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">{s.name}</h3>
+              <h3 className="font-semibold text-gray-900" title={shipmentDateRange(s)}>{s.name}</h3>
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(s.status)}`}>
                 {s.status}
               </span>

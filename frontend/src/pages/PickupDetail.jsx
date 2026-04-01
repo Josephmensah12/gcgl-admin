@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TransactionModal from '../components/TransactionModal';
+import { shipmentDateRange } from '../utils/shipmentLabel';
 
 export default function PickupDetail() {
   const { id } = useParams();
@@ -316,11 +317,11 @@ export default function PickupDetail() {
                 className="w-full px-3 py-1.5 border rounded-lg text-sm">
                 <option value="">Not assigned</option>
                 {shipments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
+                  <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>
                 ))}
               </select>
             ) : pickup.Shipment ? (
-              <Link to={`/shipments/${pickup.Shipment.id}`} className="text-primary-600 hover:text-primary-700 font-medium">
+              <Link to={`/shipments/${pickup.Shipment.id}`} className="text-primary-600 hover:text-primary-700 font-medium" title={shipmentDateRange(pickup.Shipment)}>
                 {pickup.Shipment.name}
               </Link>
             ) : (

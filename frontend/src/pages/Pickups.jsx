@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { shipmentDateRange } from '../utils/shipmentLabel';
 
 export default function Pickups() {
   const navigate = useNavigate();
@@ -172,7 +173,7 @@ export default function Pickups() {
               <option value="">Select shipment...</option>
               {shipments.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} [{s.status}] ({s.capacityPercent}% - ${parseFloat(s.totalValue).toLocaleString()})
+                  {s.name} ({shipmentDateRange(s)})
                 </option>
               ))}
             </select>

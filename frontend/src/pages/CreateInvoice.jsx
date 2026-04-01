@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { shipmentDateRange } from '../utils/shipmentLabel';
 
 const CUBIC_RATE = 0.011;
 
@@ -552,7 +553,7 @@ export default function CreateInvoice() {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm">
                 <option value="">-- Unassigned --</option>
                 {shipments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} [{s.status}] ({s.capacityPercent}% - ${parseFloat(s.totalValue).toLocaleString()})</option>
+                  <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>
                 ))}
               </select>
             </div>

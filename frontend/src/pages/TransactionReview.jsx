@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { shipmentDateRange } from '../utils/shipmentLabel';
 
 function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }) {
   const [category, setCategory] = useState(transaction.trainingData?.suggested_category || '');
@@ -94,7 +95,7 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
               <select value={shipmentId} onChange={(e) => setShipmentId(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
                 <option value="">-- Auto-assign by date --</option>
-                {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} [{s.status}]</option>)}
+                {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
               </select>
               <p className="text-xs text-gray-400 mt-1">Leave empty to auto-assign based on transaction date</p>
             </div>
@@ -345,7 +346,7 @@ export default function TransactionReview() {
               </select>
               <select value={bulkShipment} onChange={(e) => setBulkShipment(e.target.value)} className="px-2 py-1.5 border rounded text-xs">
                 <option value="">Shipment...</option>
-                {shipments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
               </select>
               <button onClick={handleBulkApprove}
                 className="px-3 py-1.5 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700">
