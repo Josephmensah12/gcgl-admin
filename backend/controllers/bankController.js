@@ -183,21 +183,30 @@ exports.reviewTransaction = asyncHandler(async (req, res) => {
       reviewed_at: new Date(),
     });
 
-    // Also create a regular Expense record for reporting integration
+    // Also create a regular Expense record (with duplicate check)
     if (isBusinessExpense !== false) {
       const expCat = await db.ExpenseCategory.findOne({ where: { name: category } });
       if (expCat) {
-        await db.Expense.create({
-          expense_date: tx.transaction_date,
-          category_id: expCat.id,
-          description: `${tx.merchant_name || tx.description}`,
-          vendor_or_payee: tx.merchant_name,
-          amount: tx.amount,
-          shipment_id: resolvedShipmentId || null,
-          is_fixed_cost: isFixedCost || false,
-          notes: `Imported from bank: ${tx.plaid_transaction_id}`,
-          created_by: req.user?.id || null,
+        // Check for existing expense with same bank transaction link
+        const existingExp = await db.Expense.findOne({
+          where: { notes: `Imported from bank: ${tx.plaid_transaction_id}` },
         });
+        if (!existingExp) {
+          const lastExp = await db.Expense.findOne({ where: { expense_number: { [Op.ne]: null } }, order: [['id', 'DESC']] });
+          const lastNum = lastExp?.expense_number ? parseInt(lastExp.expense_number.replace('EXP-', '')) : 0;
+          await db.Expense.create({
+            expense_number: `EXP-${String(lastNum + 1).padStart(5, '0')}`,
+            expense_date: tx.transaction_date,
+            category_id: expCat.id,
+            description: `${tx.merchant_name || tx.description}`,
+            vendor_or_payee: tx.merchant_name,
+            amount: tx.amount,
+            shipment_id: resolvedShipmentId || null,
+            is_fixed_cost: isFixedCost || false,
+            notes: `Imported from bank: ${tx.plaid_transaction_id}`,
+            created_by: req.user?.id || null,
+          });
+        }
       }
     }
   } else if (action === 'uncategorized') {
@@ -279,17 +288,23 @@ exports.bulkReview = asyncHandler(async (req, res) => {
       });
 
       if (expCat) {
-        await db.Expense.create({
-          expense_date: tx.transaction_date,
-          category_id: expCat.id,
-          description: tx.merchant_name || tx.description,
-          vendor_or_payee: tx.merchant_name,
-          amount: tx.amount,
-          shipment_id: resolvedShipment || null,
-          is_fixed_cost: expCat.is_fixed_cost || false,
-          notes: `Imported from bank: ${tx.plaid_transaction_id}`,
-          created_by: req.user?.id || null,
-        });
+        const existingExp = await db.Expense.findOne({ where: { notes: `Imported from bank: ${tx.plaid_transaction_id}` } });
+        if (!existingExp) {
+          const lastExp = await db.Expense.findOne({ where: { expense_number: { [Op.ne]: null } }, order: [['id', 'DESC']] });
+          const lastNum = lastExp?.expense_number ? parseInt(lastExp.expense_number.replace('EXP-', '')) : 0;
+          await db.Expense.create({
+            expense_number: `EXP-${String(lastNum + 1).padStart(5, '0')}`,
+            expense_date: tx.transaction_date,
+            category_id: expCat.id,
+            description: tx.merchant_name || tx.description,
+            vendor_or_payee: tx.merchant_name,
+            amount: tx.amount,
+            shipment_id: resolvedShipment || null,
+            is_fixed_cost: expCat.is_fixed_cost || false,
+            notes: `Imported from bank: ${tx.plaid_transaction_id}`,
+            created_by: req.user?.id || null,
+          });
+        }
       }
       // Update training data
       const training = tx.trainingData || await db.AITrainingData.findOne({ where: { transaction_id: id } });

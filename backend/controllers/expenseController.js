@@ -90,6 +90,18 @@ exports.create = asyncHandler(async (req, res) => {
     if (cat?.is_fixed_cost) fixedCost = true;
   }
 
+  // Duplicate check: same date + amount + description
+  const existingDup = await db.Expense.findOne({
+    where: {
+      expense_date,
+      amount,
+      description: { [Op.iLike]: description.substring(0, 50) + '%' },
+    },
+  });
+  if (existingDup) {
+    throw new AppError(`Duplicate expense: ${existingDup.expense_number || existingDup.id} on ${expense_date} for $${amount} already exists`, 409, 'DUPLICATE');
+  }
+
   // Generate expense number
   const lastExp = await db.Expense.findOne({ where: { expense_number: { [Op.ne]: null } }, order: [['id', 'DESC']] });
   const lastNum = lastExp?.expense_number ? parseInt(lastExp.expense_number.replace('EXP-', '')) : 0;
