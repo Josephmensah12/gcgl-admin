@@ -2,6 +2,105 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+
+function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    expense_date: expense.expense_date || '',
+    category_id: expense.category_id || '',
+    description: expense.description || '',
+    vendor_or_payee: expense.vendor_or_payee || '',
+    amount: expense.amount || '',
+    shipment_id: expense.shipment_id || '',
+    notes: expense.notes || '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await axios.put(`/api/v1/expenses/${expense.id}`, form);
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Failed to save');
+    } finally { setLoading(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this expense?')) return;
+    try {
+      await axios.delete(`/api/v1/expenses/${expense.id}`);
+      onSaved();
+    } catch (err) { alert('Delete failed'); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-lg font-semibold">Edit Expense</h2>
+        </div>
+        <form onSubmit={handleSave} className="p-6 space-y-4">
+          {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($)</label>
+              <input type="number" step="0.01" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select value={form.category_id} onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required>
+              <option value="">Select...</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <input type="text" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+            <input type="text" value={form.vendor_or_payee} onChange={(e) => setForm((f) => ({ ...f, vendor_or_payee: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Shipment</label>
+            <select value={form.shipment_id} onChange={(e) => setForm((f) => ({ ...f, shipment_id: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">Unassigned</option>
+              {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={handleDelete} className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200">Delete</button>
+            <div className="flex-1" />
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function ShipmentDetail() {
   const { id } = useParams();
@@ -15,6 +114,9 @@ export default function ShipmentDetail() {
   const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments' | 'expenses'
   const [tileFilter, setTileFilter] = useState(null); // null | 'collected' | 'pending' | 'expenses'
   const [expCatFilter, setExpCatFilter] = useState(null); // filter expense table by category
+  const [editingExp, setEditingExp] = useState(null);
+  const [expCategories, setExpCategories] = useState([]);
+  const [allShipments, setAllShipments] = useState([]);
   const [expSortBy, setExpSortBy] = useState('expense_date');
   const [expSortOrder, setExpSortOrder] = useState('ASC');
 
@@ -56,18 +158,25 @@ export default function ShipmentDetail() {
     </th>
   );
 
+  const loadExpenses = () => axios.get('/api/v1/expenses', { params: { shipment_id: id, limit: 200 } })
+    .then((res) => { setExpenses(res.data.data.expenses); setExpenseTotals(res.data.data.totals); });
+
   useEffect(() => {
     Promise.all([
       axios.get(`/api/v1/shipments/${id}`),
       axios.get('/api/v1/transactions', { params: { shipmentId: id, limit: 200 } }),
       axios.get('/api/v1/expenses', { params: { shipment_id: id, limit: 200 } }),
+      axios.get('/api/v1/expenses/categories'),
+      axios.get('/api/v1/shipments/active'),
     ])
-      .then(([shipRes, txRes, expRes]) => {
+      .then(([shipRes, txRes, expRes, catRes, shipRes2]) => {
         setShipment(shipRes.data.data);
         setTransactions(txRes.data.data.transactions);
         setTxAggregates(txRes.data.data.aggregates);
         setExpenses(expRes.data.data.expenses);
         setExpenseTotals(expRes.data.data.totals);
+        setExpCategories(catRes.data.data);
+        setAllShipments(shipRes2.data.data);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -226,6 +335,17 @@ export default function ShipmentDetail() {
           Expenses ({expenseTotals.count})
         </button>
       </div>
+
+      {/* Edit Expense Modal */}
+      {editingExp && (
+        <EditExpenseModal
+          expense={editingExp}
+          categories={expCategories}
+          shipments={allShipments}
+          onClose={() => setEditingExp(null)}
+          onSaved={() => { setEditingExp(null); loadExpenses(); }}
+        />
+      )}
 
       {/* Invoices Tab */}
       {activeTab === 'invoices' && (
@@ -566,6 +686,7 @@ export default function ShipmentDetail() {
                     <ExpSortHeader field="vendor">Vendor</ExpSortHeader>
                     <ExpSortHeader field="type">Type</ExpSortHeader>
                     <ExpSortHeader field="amount" className="text-right">Amount</ExpSortHeader>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -597,6 +718,9 @@ export default function ShipmentDetail() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(exp.amount)}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => setEditingExp(exp)} className="text-xs text-primary-600 hover:text-primary-700 font-medium">Edit</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
