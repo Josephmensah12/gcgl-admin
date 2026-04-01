@@ -122,11 +122,94 @@ function RevenueChart({ data }) {
   );
 }
 
+function ContainerGauge({ shipment }) {
+  if (!shipment) return null;
+  const current = parseFloat(shipment.totalValue) || 0;
+  const max = shipment.maxCapacity || 30000;
+  const pct = Math.min((current / max) * 100, 100);
+  const angle = (pct / 100) * 180; // 0-180 degrees for half circle
+
+  // Color based on fill level
+  const getColor = (p) => {
+    if (p >= 90) return '#dc2626';
+    if (p >= 70) return '#f59e0b';
+    if (p >= 40) return '#2563eb';
+    return '#94a3b8';
+  };
+  const color = getColor(pct);
+  const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  // SVG arc path
+  const startAngle = -180;
+  const endAngle = startAngle + angle;
+  const startRad = (startAngle * Math.PI) / 180;
+  const endRad = (endAngle * Math.PI) / 180;
+  const r = 80;
+  const cx = 100, cy = 100;
+  const x1 = cx + r * Math.cos(startRad);
+  const y1 = cy + r * Math.sin(startRad);
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy + r * Math.sin(endRad);
+  const largeArc = angle > 180 ? 1 : 0;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold text-gray-900">Container Progress</h3>
+        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">collecting</span>
+      </div>
+      <p className="text-sm text-gray-500 mb-3">{shipment.name}</p>
+
+      <div className="flex justify-center">
+        <svg viewBox="0 0 200 120" className="w-full" style={{ maxWidth: '280px' }}>
+          {/* Background arc */}
+          <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+            fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round" />
+
+          {/* Progress arc */}
+          {pct > 0 && (
+            <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
+              fill="none" stroke={color} strokeWidth="18" strokeLinecap="round" />
+          )}
+
+          {/* Percentage text */}
+          <text x={cx} y={cy - 15} textAnchor="middle" className="text-[28px] font-black" fill={color}>
+            {Math.round(pct)}%
+          </text>
+          <text x={cx} y={cy + 5} textAnchor="middle" className="text-[12px] font-medium" fill="#6b7280">
+            {fmt(current)} / {fmt(max)}
+          </text>
+
+          {/* Min/Max labels */}
+          <text x={cx - r - 5} y={cy + 15} textAnchor="middle" className="text-[9px]" fill="#9ca3af">$0</text>
+          <text x={cx + r + 5} y={cy + 15} textAnchor="middle" className="text-[9px]" fill="#9ca3af">{fmt(max)}</text>
+        </svg>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mt-2 text-center">
+        <div>
+          <p className="text-xs text-gray-400">Invoices</p>
+          <p className="text-sm font-bold text-gray-800">{shipment.stats?.invoiceCount || 0}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">Paid</p>
+          <p className="text-sm font-bold text-green-600">{fmt(shipment.stats?.paidValue || 0)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">Unpaid</p>
+          <p className="text-sm font-bold text-red-600">{fmt(shipment.stats?.unpaidValue || 0)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [metrics, setMetrics] = useState(null);
   const [chart, setChart] = useState([]);
   const [pickups, setPickups] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [activeShipment, setActiveShipment] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -135,16 +218,19 @@ export default function Dashboard() {
 
   const loadDashboard = async () => {
     try {
-      const [metricsRes, chartRes, pickupsRes, alertsRes] = await Promise.all([
+      const [metricsRes, chartRes, pickupsRes, alertsRes, shipmentsRes] = await Promise.all([
         axios.get('/api/v1/dashboard/metrics'),
         axios.get('/api/v1/dashboard/revenue-chart'),
         axios.get('/api/v1/dashboard/recent-pickups'),
         axios.get('/api/v1/dashboard/alerts'),
+        axios.get('/api/v1/shipments?status=collecting&limit=1'),
       ]);
       setMetrics(metricsRes.data.data);
       setChart(chartRes.data.data);
       setPickups(pickupsRes.data.data);
       setAlerts(alertsRes.data.data);
+      const ships = shipmentsRes.data.data.shipments || [];
+      if (ships.length > 0) setActiveShipment(ships[0]);
     } catch (err) {
       console.error('Dashboard error:', err);
     } finally {
@@ -198,30 +284,34 @@ export default function Dashboard() {
       {/* Alerts */}
       <AlertPanel alerts={alerts} />
 
-      {/* Charts & Tables */}
+      {/* Charts & Gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RevenueChart data={chart} />
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Quick Stats</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-2 border-b border-gray-50">
-              <span className="text-sm text-gray-600">Total Customers</span>
-              <span className="font-semibold text-gray-900">{metrics?.totalCustomers || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-gray-50">
-              <span className="text-sm text-gray-600">Invoices This Month</span>
-              <span className="font-semibold text-gray-900">{metrics?.invoicesThisMonth || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-gray-50">
-              <span className="text-sm text-gray-600">Warehouse Value</span>
-              <span className="font-semibold text-gray-900">{fmt(metrics?.warehouseValue)}</span>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-gray-600">Active Shipments</span>
-              <span className="font-semibold text-gray-900">{metrics?.activeShipments || 0}</span>
-            </div>
+        <ContainerGauge shipment={activeShipment} />
+      </div>
+
+      {/* Quick Stats */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <h3 className="font-semibold text-gray-900 mb-4">Quick Stats</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="text-center py-2">
+            <span className="text-sm text-gray-600">Total Customers</span>
+            <p className="font-bold text-lg text-gray-900">{metrics?.totalCustomers || 0}</p>
+          </div>
+          <div className="text-center py-2">
+            <span className="text-sm text-gray-600">Invoices This Month</span>
+            <p className="font-bold text-lg text-gray-900">{metrics?.invoicesThisMonth || 0}</p>
+          </div>
+          <div className="text-center py-2">
+            <span className="text-sm text-gray-600">Warehouse Value</span>
+            <p className="font-bold text-lg text-gray-900">{fmt(metrics?.warehouseValue)}</p>
+          </div>
+          <div className="text-center py-2">
+            <span className="text-sm text-gray-600">Active Shipments</span>
+            <p className="font-bold text-lg text-gray-900">{metrics?.activeShipments || 0}</p>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Recent Invoices */}
