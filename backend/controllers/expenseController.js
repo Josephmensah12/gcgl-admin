@@ -131,6 +131,62 @@ exports.remove = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Expense deleted' });
 });
 
+// ── REASSIGN ALL ──────────────────────────────────────────
+
+exports.reassignAll = asyncHandler(async (req, res) => {
+  // Clear all shipment assignments on expenses
+  await db.Expense.update({ shipment_id: null }, { where: {} });
+
+  // Clear all shipment assignments on imported transactions
+  await db.ImportedTransaction.update({ shipment_id: null }, { where: { status: 'approved' } });
+
+  // Reassign all expenses by date
+  const expenses = await db.Expense.findAll();
+  let expAssigned = 0;
+  for (const exp of expenses) {
+    const sid = await findShipmentForDate(exp.expense_date);
+    if (sid) { await exp.update({ shipment_id: sid }); expAssigned++; }
+  }
+
+  // Reassign all approved transactions by date
+  const transactions = await db.ImportedTransaction.findAll({ where: { status: 'approved', is_business_expense: true } });
+  let txAssigned = 0;
+  for (const tx of transactions) {
+    const sid = await findShipmentForDate(tx.transaction_date);
+    if (sid) { await tx.update({ shipment_id: sid }); txAssigned++; }
+  }
+
+  // Reassign invoices by date
+  const invoices = await db.Invoice.findAll({ where: { status: 'completed' } });
+  let invAssigned = 0;
+  for (const inv of invoices) {
+    const invDate = inv.createdAt ? new Date(inv.createdAt).toISOString().split('T')[0] : null;
+    if (invDate) {
+      const sid = await findShipmentForDate(invDate);
+      if (sid && inv.shipmentId !== sid) {
+        await inv.update({ shipmentId: sid });
+        invAssigned++;
+      }
+    }
+  }
+
+  // Recalculate shipment totals
+  const shipments = await db.Shipment.findAll();
+  for (const sh of shipments) {
+    const totals = await db.Invoice.findOne({
+      where: { shipmentId: sh.id, status: 'completed' },
+      attributes: [[db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue']],
+      raw: true,
+    });
+    await sh.update({ totalValue: parseFloat(totals?.totalValue) || 0 });
+  }
+
+  res.json({
+    success: true,
+    data: { expensesAssigned: expAssigned, transactionsAssigned: txAssigned, invoicesAssigned: invAssigned },
+  });
+});
+
 // ── ANALYTICS ─────────────────────────────────────────────
 
 exports.analytics = asyncHandler(async (req, res) => {

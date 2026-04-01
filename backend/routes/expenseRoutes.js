@@ -13,6 +13,7 @@ router.delete('/categories/:id', requireRole(['Admin']), ec.deleteCategory);
 
 // Bulk auto-assign to shipments by date
 router.post('/bulk-auto-assign', requireRole(['Admin']), ec.bulkAutoAssign);
+router.post('/reassign-all', requireRole(['Admin']), ec.reassignAll);
 
 // Analytics
 router.get('/analytics', ec.analytics);
