@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { shipmentDateRange } from '../utils/shipmentLabel';
+import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 const CUBIC_RATE = 0.011;
 

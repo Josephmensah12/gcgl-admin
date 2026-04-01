@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { shipmentDateRange } from '../utils/shipmentLabel';
+import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }) {
   const [category, setCategory] = useState(transaction.trainingData?.suggested_category || '');

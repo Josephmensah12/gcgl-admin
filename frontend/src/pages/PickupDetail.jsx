@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TransactionModal from '../components/TransactionModal';
-import { shipmentDateRange } from '../utils/shipmentLabel';
+import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 export default function PickupDetail() {
   const { id } = useParams();

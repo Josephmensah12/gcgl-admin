@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { shipmentDateRange } from '../utils/shipmentLabel';
+import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
   const isEdit = !!expense;

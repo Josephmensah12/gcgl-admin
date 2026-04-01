@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { shipmentDateRange } from '../utils/shipmentLabel';
+import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 export default function Shipments() {
   const [shipments, setShipments] = useState([]);
