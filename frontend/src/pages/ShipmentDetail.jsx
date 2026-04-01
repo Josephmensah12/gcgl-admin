@@ -544,38 +544,31 @@ export default function ShipmentDetail() {
                   </div>
                   <p className="text-xs text-gray-400 mb-5">Click a bar to filter</p>
 
-                  <div className="flex items-end gap-2" style={{ height: '260px' }}>
+                  <div className="flex items-end gap-3" style={{ height: '220px' }}>
                     {sorted.map(([cat, data], i) => {
                       const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
                       const isSelected = expCatFilter === cat;
                       const label = data.total >= 10000 ? `$${(data.total / 1000).toFixed(0)}k`
                         : data.total >= 1000 ? `$${(data.total / 1000).toFixed(1)}k`
                         : `$${data.total.toFixed(0)}`;
+                      const barHeight = Math.max(pct, 6);
                       return (
-                        <div key={cat} className="flex-1 flex flex-col items-center min-w-0"
+                        <div key={cat} className="flex-1 flex flex-col items-center gap-1 min-w-0"
                           onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)} style={{ cursor: 'pointer' }}>
-                          {/* Data label */}
-                          <div className="mb-1 px-1 py-0.5 rounded bg-gray-800 text-white text-[11px] font-bold whitespace-nowrap shadow-sm">
-                            {label}
+                          <div className="w-full flex justify-center" style={{ height: '180px' }}>
+                            <div className="relative w-full max-w-[52px]" style={{ height: `${barHeight}%`, alignSelf: 'flex-end' }}>
+                              <div
+                                className={`w-full h-full rounded-t-md transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:brightness-110'}`}
+                                style={{ backgroundColor: isSelected ? '#1e3a5f' : '#4a90d9' }}
+                              />
+                              <span className="absolute inset-x-0 top-2 text-center text-[10px] font-bold text-white drop-shadow-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
+                                {label}
+                              </span>
+                            </div>
                           </div>
-                          {/* Bar */}
-                          <div className="w-full flex justify-center flex-1">
-                            <div
-                              className={`w-full max-w-[52px] rounded-t-md transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:brightness-110'}`}
-                              style={{
-                                height: `${Math.max(pct, 4)}%`,
-                                backgroundColor: isSelected ? '#1e3a5f' : donutColors[i % donutColors.length],
-                                alignSelf: 'flex-end',
-                              }}
-                            />
-                          </div>
-                          {/* Category label */}
-                          <div className="mt-1.5 w-full text-center">
-                            <span className="text-[10px] text-gray-600 font-medium leading-tight block truncate px-0.5" title={cat}>
-                              {cat.length > 14 ? cat.substring(0, 12) + '..' : cat}
-                            </span>
-                            <span className="text-[9px] text-gray-400">{data.count} items</span>
-                          </div>
+                          <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full px-0.5" title={cat}>
+                            {cat.length > 12 ? cat.substring(0, 10) + '..' : cat}
+                          </span>
                         </div>
                       );
                     })}
