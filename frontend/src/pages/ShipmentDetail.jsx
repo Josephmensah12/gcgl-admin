@@ -407,38 +407,41 @@ export default function ShipmentDetail() {
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mb-3">Click a category to filter the table below</p>
-                <div className="flex flex-wrap gap-1" style={{ minHeight: '120px' }}>
-                  {sorted.map(([cat, data], i) => {
+                {/* Row 1: top categories proportional */}
+                <div className="flex gap-1.5 mb-1.5" style={{ height: '110px' }}>
+                  {sorted.slice(0, Math.min(4, sorted.length)).map(([cat, data], i) => {
                     const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0;
                     const isSelected = expCatFilter === cat;
-                    const width = Math.max(pct, 8);
                     return (
-                      <div
-                        key={cat}
-                        onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
-                        className={`relative cursor-pointer rounded-lg overflow-hidden transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:opacity-90'}`}
-                        style={{
-                          backgroundColor: colors[i % colors.length],
-                          flexBasis: `${width}%`,
-                          flexGrow: pct > 15 ? 1 : 0,
-                          minWidth: '80px',
-                          minHeight: '80px',
-                        }}
-                      >
-                        <div className="absolute inset-0 p-2 flex flex-col justify-between text-white">
-                          <div>
-                            <p className="text-xs font-semibold leading-tight truncate">{cat}</p>
-                            <p className="text-[10px] opacity-80">{data.fixed ? 'Fixed' : 'Variable'} · {data.count}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold">{fmt(data.total)}</p>
-                            <p className="text-[10px] opacity-80">{pct.toFixed(0)}%</p>
-                          </div>
-                        </div>
+                      <div key={cat} onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
+                        className={`cursor-pointer rounded-lg p-3 transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:brightness-110'}`}
+                        style={{ backgroundColor: colors[i % colors.length], flex: `${Math.max(pct, 10)} 0 0%` }}>
+                        <p className="text-xs font-bold text-white leading-tight truncate">{cat}</p>
+                        <p className="text-[10px] text-white/70">{data.fixed ? 'Fixed' : 'Variable'} · {data.count}</p>
+                        <p className="text-base font-bold text-white mt-1">{fmt(data.total)}</p>
+                        <p className="text-[10px] text-white/70">{pct.toFixed(0)}%</p>
                       </div>
                     );
                   })}
                 </div>
+                {/* Row 2: remaining categories */}
+                {sorted.length > 4 && (
+                  <div className="flex gap-1.5" style={{ height: '80px' }}>
+                    {sorted.slice(4).map(([cat, data], i) => {
+                      const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0;
+                      const isSelected = expCatFilter === cat;
+                      return (
+                        <div key={cat} onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)}
+                          className={`cursor-pointer rounded-lg p-2 transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-900' : 'hover:brightness-110'}`}
+                          style={{ backgroundColor: colors[(i + 4) % colors.length], flex: `${Math.max(pct, 8)} 0 0%` }}>
+                          <p className="text-[10px] font-bold text-white truncate">{cat}</p>
+                          <p className="text-sm font-bold text-white mt-0.5">{fmt(data.total)}</p>
+                          <p className="text-[9px] text-white/70">{pct.toFixed(0)}%</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })()}
