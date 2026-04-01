@@ -544,29 +544,38 @@ export default function ShipmentDetail() {
                   </div>
                   <p className="text-xs text-gray-400 mb-5">Click a bar to filter</p>
 
-                  <div className="flex items-end gap-3" style={{ height: '220px' }}>
+                  <div className="flex items-end gap-2" style={{ height: '260px' }}>
                     {sorted.map(([cat, data], i) => {
                       const pct = maxVal > 0 ? (data.total / maxVal) * 100 : 0;
                       const isSelected = expCatFilter === cat;
+                      const label = data.total >= 10000 ? `$${(data.total / 1000).toFixed(0)}k`
+                        : data.total >= 1000 ? `$${(data.total / 1000).toFixed(1)}k`
+                        : `$${data.total.toFixed(0)}`;
                       return (
-                        <div key={cat} className="flex-1 flex flex-col items-center gap-1 min-w-0"
+                        <div key={cat} className="flex-1 flex flex-col items-center min-w-0"
                           onClick={() => setExpCatFilter(expCatFilter === cat ? null : cat)} style={{ cursor: 'pointer' }}>
-                          <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">
-                            {data.total >= 1000 ? `$${(data.total / 1000).toFixed(1)}k` : `$${data.total.toFixed(0)}`}
-                          </span>
-                          <div className="w-full flex justify-center" style={{ height: '170px' }}>
+                          {/* Data label */}
+                          <div className="mb-1 px-1 py-0.5 rounded bg-gray-800 text-white text-[11px] font-bold whitespace-nowrap shadow-sm">
+                            {label}
+                          </div>
+                          {/* Bar */}
+                          <div className="w-full flex justify-center flex-1">
                             <div
-                              className={`w-full max-w-[48px] rounded-t transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:opacity-80'}`}
+                              className={`w-full max-w-[52px] rounded-t-md transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-gray-800' : 'hover:brightness-110'}`}
                               style={{
-                                height: `${Math.max(pct, 3)}%`,
-                                backgroundColor: isSelected ? '#1e3a5f' : '#4a90d9',
+                                height: `${Math.max(pct, 4)}%`,
+                                backgroundColor: isSelected ? '#1e3a5f' : donutColors[i % donutColors.length],
                                 alignSelf: 'flex-end',
                               }}
                             />
                           </div>
-                          <span className="text-[9px] text-gray-500 text-center leading-tight truncate w-full px-0.5" title={cat}>
-                            {cat.length > 12 ? cat.substring(0, 10) + '..' : cat}
-                          </span>
+                          {/* Category label */}
+                          <div className="mt-1.5 w-full text-center">
+                            <span className="text-[10px] text-gray-600 font-medium leading-tight block truncate px-0.5" title={cat}>
+                              {cat.length > 14 ? cat.substring(0, 12) + '..' : cat}
+                            </span>
+                            <span className="text-[9px] text-gray-400">{data.count} items</span>
+                          </div>
                         </div>
                       );
                     })}
