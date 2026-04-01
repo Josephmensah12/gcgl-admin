@@ -13,6 +13,30 @@ export default function ShipmentDetail() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments' | 'expenses'
+  const [invSortBy, setInvSortBy] = useState('createdAt');
+  const [invSortOrder, setInvSortOrder] = useState('DESC');
+
+  const toggleInvSort = (field) => {
+    if (invSortBy === field) {
+      setInvSortOrder((o) => o === 'ASC' ? 'DESC' : 'ASC');
+    } else {
+      setInvSortBy(field);
+      setInvSortOrder(field === 'finalTotal' || field === 'amountPaid' ? 'DESC' : 'ASC');
+    }
+  };
+
+  const InvSortHeader = ({ field, children, className = '' }) => (
+    <th className={`px-4 py-3 font-medium cursor-pointer hover:text-gray-900 select-none ${className}`} onClick={() => toggleInvSort(field)}>
+      <div className={`flex items-center gap-1 ${className.includes('text-right') ? 'justify-end' : ''}`}>
+        {children}
+        {invSortBy === field ? (
+          <span className="text-primary-600">{invSortOrder === 'ASC' ? '\u2191' : '\u2193'}</span>
+        ) : (
+          <span className="text-gray-300">\u2195</span>
+        )}
+      </div>
+    </th>
+  );
 
   useEffect(() => {
     Promise.all([
@@ -172,20 +196,38 @@ export default function ShipmentDetail() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr className="text-left text-gray-500">
-                  <th className="px-4 py-3 font-medium">Invoice #</th>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 font-medium">Items</th>
-                  <th className="px-4 py-3 font-medium">Total</th>
-                  <th className="px-4 py-3 font-medium">Paid</th>
-                  <th className="px-4 py-3 font-medium">Balance</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
+                  <InvSortHeader field="createdAt">Date</InvSortHeader>
+                  <InvSortHeader field="invoiceNumber">Invoice #</InvSortHeader>
+                  <InvSortHeader field="customerName">Customer</InvSortHeader>
+                  <InvSortHeader field="items">Items</InvSortHeader>
+                  <InvSortHeader field="finalTotal">Total</InvSortHeader>
+                  <InvSortHeader field="amountPaid">Paid</InvSortHeader>
+                  <InvSortHeader field="balance">Balance</InvSortHeader>
+                  <InvSortHeader field="paymentStatus">Status</InvSortHeader>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {invoices.map((inv) => {
+                {[...invoices].sort((a, b) => {
+                  let aVal, bVal;
+                  switch (invSortBy) {
+                    case 'createdAt': aVal = new Date(a.createdAt); bVal = new Date(b.createdAt); break;
+                    case 'invoiceNumber': aVal = a.invoiceNumber; bVal = b.invoiceNumber; break;
+                    case 'customerName': aVal = (a.Customer?.fullName || a.customerName || '').toLowerCase(); bVal = (b.Customer?.fullName || b.customerName || '').toLowerCase(); break;
+                    case 'items': aVal = a.lineItems?.length || 0; bVal = b.lineItems?.length || 0; break;
+                    case 'finalTotal': aVal = parseFloat(a.finalTotal) || 0; bVal = parseFloat(b.finalTotal) || 0; break;
+                    case 'amountPaid': aVal = parseFloat(a.amountPaid) || 0; bVal = parseFloat(b.amountPaid) || 0; break;
+                    case 'balance': aVal = (parseFloat(a.finalTotal)||0) - (parseFloat(a.amountPaid)||0); bVal = (parseFloat(b.finalTotal)||0) - (parseFloat(b.amountPaid)||0); break;
+                    case 'paymentStatus': aVal = a.paymentStatus || ''; bVal = b.paymentStatus || ''; break;
+                    default: aVal = 0; bVal = 0;
+                  }
+                  if (aVal < bVal) return invSortOrder === 'ASC' ? -1 : 1;
+                  if (aVal > bVal) return invSortOrder === 'ASC' ? 1 : -1;
+                  return 0;
+                }).map((inv) => {
                   const balance = Math.max(0, (parseFloat(inv.finalTotal) || 0) - (parseFloat(inv.amountPaid) || 0));
                   return (
                     <tr key={inv.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-500 text-xs">{new Date(inv.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
                         <Link to={`/pickups/${inv.id}`} className="font-medium text-primary-600 hover:text-primary-700">
                           #{inv.invoiceNumber}
