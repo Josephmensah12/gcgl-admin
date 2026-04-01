@@ -14,6 +14,22 @@ export default function ShipmentDetail() {
   const [updating, setUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState('invoices'); // 'invoices' | 'payments' | 'expenses'
   const [tileFilter, setTileFilter] = useState(null); // null | 'collected' | 'pending' | 'expenses'
+  const [expSortBy, setExpSortBy] = useState('expense_date');
+  const [expSortOrder, setExpSortOrder] = useState('ASC');
+
+  const toggleExpSort = (field) => {
+    if (expSortBy === field) { setExpSortOrder((o) => o === 'ASC' ? 'DESC' : 'ASC'); }
+    else { setExpSortBy(field); setExpSortOrder(field === 'amount' ? 'DESC' : 'ASC'); }
+  };
+
+  const ExpSortHeader = ({ field, children, className = '' }) => (
+    <th className={`px-4 py-3 font-medium cursor-pointer hover:text-gray-900 select-none ${className}`} onClick={() => toggleExpSort(field)}>
+      <div className={`flex items-center gap-1 ${className.includes('text-right') ? 'justify-end' : ''}`}>
+        {children}
+        {expSortBy === field ? <span className="text-primary-600">{expSortOrder === 'ASC' ? '\u2191' : '\u2193'}</span> : <span className="text-gray-300">\u2195</span>}
+      </div>
+    </th>
+  );
   const [invSortBy, setInvSortBy] = useState('createdAt');
   const [invSortOrder, setInvSortOrder] = useState('DESC');
 
@@ -401,16 +417,30 @@ export default function ShipmentDetail() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr className="text-left text-gray-500">
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Category</th>
-                    <th className="px-4 py-3 font-medium">Description</th>
-                    <th className="px-4 py-3 font-medium">Vendor</th>
-                    <th className="px-4 py-3 font-medium">Type</th>
-                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                    <ExpSortHeader field="expense_date">Date</ExpSortHeader>
+                    <ExpSortHeader field="category">Category</ExpSortHeader>
+                    <ExpSortHeader field="description">Description</ExpSortHeader>
+                    <ExpSortHeader field="vendor">Vendor</ExpSortHeader>
+                    <ExpSortHeader field="type">Type</ExpSortHeader>
+                    <ExpSortHeader field="amount" className="text-right">Amount</ExpSortHeader>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {expenses.map((exp) => (
+                  {[...expenses].sort((a, b) => {
+                    let aVal, bVal;
+                    switch (expSortBy) {
+                      case 'expense_date': aVal = a.expense_date; bVal = b.expense_date; break;
+                      case 'category': aVal = (a.category?.name || '').toLowerCase(); bVal = (b.category?.name || '').toLowerCase(); break;
+                      case 'description': aVal = (a.description || '').toLowerCase(); bVal = (b.description || '').toLowerCase(); break;
+                      case 'vendor': aVal = (a.vendor_or_payee || '').toLowerCase(); bVal = (b.vendor_or_payee || '').toLowerCase(); break;
+                      case 'type': aVal = a.is_fixed_cost ? 1 : 0; bVal = b.is_fixed_cost ? 1 : 0; break;
+                      case 'amount': aVal = parseFloat(a.amount) || 0; bVal = parseFloat(b.amount) || 0; break;
+                      default: aVal = 0; bVal = 0;
+                    }
+                    if (aVal < bVal) return expSortOrder === 'ASC' ? -1 : 1;
+                    if (aVal > bVal) return expSortOrder === 'ASC' ? 1 : -1;
+                    return 0;
+                  }).map((exp) => (
                     <tr key={exp.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-600">{new Date(exp.expense_date).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
