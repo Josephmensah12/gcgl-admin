@@ -326,29 +326,6 @@ export default function Dashboard() {
         <RevenueChart data={chart} />
       </div>
 
-      {/* Quick Stats */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Quick Stats</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="text-center py-2">
-            <span className="text-sm text-gray-600">Total Customers</span>
-            <p className="font-bold text-lg text-gray-900">{metrics?.totalCustomers || 0}</p>
-          </div>
-          <div className="text-center py-2">
-            <span className="text-sm text-gray-600">Invoices This Month</span>
-            <p className="font-bold text-lg text-gray-900">{metrics?.invoicesThisMonth || 0}</p>
-          </div>
-          <div className="text-center py-2">
-            <span className="text-sm text-gray-600">Warehouse Value</span>
-            <p className="font-bold text-lg text-gray-900">{fmt(metrics?.warehouseValue)}</p>
-          </div>
-          <div className="text-center py-2">
-            <span className="text-sm text-gray-600">Active Shipments</span>
-            <p className="font-bold text-lg text-gray-900">{metrics?.activeShipments || 0}</p>
-          </div>
-        </div>
-      </div>
-
       {/* Recent Invoices */}
       <RecentPickupsTable pickups={pickups} />
     </div>
