@@ -259,9 +259,9 @@ export default function Expenses() {
           <p className="text-xs text-gray-400">{totals.count} entries</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-sm text-gray-500">Average</p>
-          <p className="text-2xl font-bold text-gray-900">{totals.count > 0 ? fmt(totals.total / totals.count) : '$0.00'}</p>
-          <p className="text-xs text-gray-400">per expense</p>
+          <p className="text-sm text-gray-500">Fixed Expenses</p>
+          <p className="text-2xl font-bold text-purple-600">{fmt(expenses.filter((e) => e.is_fixed_cost).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0))}</p>
+          <p className="text-xs text-gray-400">{expenses.filter((e) => e.is_fixed_cost).length} fixed entries</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <p className="text-sm text-gray-500">Largest</p>
