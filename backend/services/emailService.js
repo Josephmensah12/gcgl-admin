@@ -36,9 +36,34 @@ function isConfigured() {
 }
 
 /**
+ * Apply `{placeholder}` substitutions to a message template.
+ * Supported placeholders: customer_name, invoice_number, invoice_date,
+ * total, paid, balance, company_name.
+ */
+function applyMessagePlaceholders(template, ctx) {
+  if (!template) return '';
+  return template.replace(/\{(\w+)\}/g, (match, key) => {
+    if (Object.prototype.hasOwnProperty.call(ctx, key)) return ctx[key];
+    return match; // leave unknown placeholders alone
+  });
+}
+
+/**
+ * Escape HTML entities for safe inlining of user-authored strings.
+ */
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Render an invoice as an HTML email body (inline styles so most clients render it).
  */
-function renderInvoiceEmail(invoice, company) {
+function renderInvoiceEmail(invoice, company, extraMessage) {
   const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const subtotal = parseFloat(invoice.subtotal) || 0;
   const discount = parseFloat(invoice.totalDiscount) || 0;
@@ -50,6 +75,40 @@ function renderInvoiceEmail(invoice, company) {
   const companyPhone = company?.phone || '';
   const companyLogo = company?.logo || null;
   const termsAndConditions = company?.termsAndConditions || '';
+
+  // Build the greeting/message block:
+  // 1. extraMessage (per-send override from the Email modal) wins
+  // 2. else company.emailInvoiceMessage (template from settings) with placeholders
+  // 3. else the hardcoded default greeting
+  const placeholderCtx = {
+    customer_name: invoice.customerName || 'there',
+    invoice_number: invoice.invoiceNumber,
+    invoice_date: new Date(invoice.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+    total: fmt(total),
+    paid: fmt(paid),
+    balance: fmt(balance),
+    company_name: companyName,
+  };
+
+  let messageBlockHtml;
+  if (extraMessage) {
+    messageBlockHtml = `
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:#4B5163;white-space:pre-wrap;">${escapeHtml(extraMessage)}</p>
+    `;
+  } else if (company?.emailInvoiceMessage) {
+    const rendered = applyMessagePlaceholders(company.emailInvoiceMessage, placeholderCtx);
+    messageBlockHtml = `
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:#4B5163;white-space:pre-wrap;">${escapeHtml(rendered)}</p>
+    `;
+  } else {
+    messageBlockHtml = `
+      <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#1A1D2B;">Hi ${escapeHtml(invoice.customerName || '')},</p>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:#4B5163;">
+        Thank you for choosing ${escapeHtml(companyName)}. Please find your invoice details below.
+        ${balance > 0.01 ? ` The outstanding balance is <strong>$${fmt(balance)}</strong>.` : ' This invoice has been paid in full — thank you!'}
+      </p>
+    `;
+  }
 
   const brandBlock = companyLogo
     ? `<img src="${companyLogo}" alt="Logo" style="max-height:52px;max-width:180px;vertical-align:middle;" />`
@@ -109,14 +168,10 @@ function renderInvoiceEmail(invoice, company) {
             </td>
           </tr>
 
-          <!-- Greeting -->
+          <!-- Greeting / custom message -->
           <tr>
             <td style="padding:24px 32px 8px;">
-              <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#1A1D2B;">Hi ${invoice.customerName},</p>
-              <p style="margin:0;font-size:13.5px;line-height:1.6;color:#4B5163;">
-                Thank you for choosing ${companyName}. Please find your invoice details below.
-                ${balance > 0.01 ? ` The outstanding balance is <strong>$${fmt(balance)}</strong>.` : ' This invoice has been paid in full — thank you!'}
-              </p>
+              ${messageBlockHtml}
             </td>
           </tr>
 
@@ -226,8 +281,28 @@ async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage })
 
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const fromName = process.env.SMTP_FROM_NAME || 'Gold Coast Global Logistics';
-  const html = renderInvoiceEmail(invoice, company);
+  const html = renderInvoiceEmail(invoice, company, extraMessage);
   const subject = `Invoice #${invoice.invoiceNumber} from ${company?.name || 'Gold Coast Global Logistics'}`;
+
+  // Plain-text fallback: mirror the same message priority used in the HTML
+  const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const total = parseFloat(invoice.finalTotal) || 0;
+  const paid = parseFloat(invoice.amountPaid) || 0;
+  const balance = Math.max(0, total - paid);
+  const placeholderCtx = {
+    customer_name: invoice.customerName || 'there',
+    invoice_number: invoice.invoiceNumber,
+    invoice_date: new Date(invoice.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+    total: fmt(total),
+    paid: fmt(paid),
+    balance: fmt(balance),
+    company_name: company?.name || 'Gold Coast Global Logistics',
+  };
+  const textBody = extraMessage
+    ? extraMessage
+    : company?.emailInvoiceMessage
+    ? applyMessagePlaceholders(company.emailInvoiceMessage, placeholderCtx)
+    : `Please see invoice #${invoice.invoiceNumber}.`;
 
   const info = await transporter.sendMail({
     from: `"${fromName}" <${fromAddress}>`,
@@ -236,9 +311,7 @@ async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage })
     bcc,
     subject,
     html,
-    text: extraMessage
-      ? `${extraMessage}\n\nSee the attached invoice or view it in HTML.`
-      : `Please see invoice #${invoice.invoiceNumber}.`,
+    text: textBody,
   });
 
   return { messageId: info.messageId };

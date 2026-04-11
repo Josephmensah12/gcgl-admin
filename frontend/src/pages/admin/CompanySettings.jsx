@@ -184,6 +184,52 @@ export default function CompanySettings() {
           </p>
         </div>
 
+        {/* Email invoice message template */}
+        <div className="gc-card p-6">
+          <h2 className="text-lg font-bold text-[#1A1D2B] mb-2">Invoice Email Message</h2>
+          <p className="text-[13px] text-[#6B7194] mb-4">
+            Default message body used when sending an invoice to a customer. The per-invoice
+            "Message" field in the Email modal overrides this when filled.
+          </p>
+          <textarea
+            value={form.emailInvoiceMessage || ''}
+            onChange={(e) => setForm((f) => ({ ...f, emailInvoiceMessage: e.target.value }))}
+            rows={7}
+            placeholder={`Example:
+Hi {customer_name},
+
+Thank you for choosing {company_name}. Please find your invoice #{invoice_number} attached.
+Your outstanding balance is \${balance}.
+
+Let us know if you have any questions.`}
+            className="w-full px-3 py-2.5 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all leading-relaxed"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <p className="text-[11px] text-[#6B7194] font-semibold w-full">Placeholders:</p>
+            {[
+              '{customer_name}',
+              '{invoice_number}',
+              '{invoice_date}',
+              '{total}',
+              '{paid}',
+              '{balance}',
+              '{company_name}',
+            ].map((p) => (
+              <code
+                key={p}
+                className="px-2 py-0.5 rounded bg-[#F4F6FA] text-[11px] text-[#6366F1] font-mono cursor-pointer hover:bg-[#E9EBF2]"
+                onClick={() => setForm((f) => ({ ...f, emailInvoiceMessage: (f.emailInvoiceMessage || '') + p }))}
+                title="Click to append"
+              >
+                {p}
+              </code>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] text-[#9CA3C0]">
+            {(form.emailInvoiceMessage || '').length} characters
+          </p>
+        </div>
+
         {/* Save */}
         <button
           onClick={handleSave}
