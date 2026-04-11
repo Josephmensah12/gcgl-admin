@@ -73,10 +73,27 @@ exports.list = asyncHandler(async (req, res) => {
     };
   });
 
+  // Aggregate revenue across the full filtered set (not just current page)
+  const totalsRow = await db.Invoice.findOne({
+    where,
+    attributes: [
+      [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalRevenue'],
+      [db.sequelize.fn('SUM', db.sequelize.col('amount_paid')), 'totalPaid'],
+    ],
+    raw: true,
+  });
+  const totalRevenue = parseFloat(totalsRow?.totalRevenue) || 0;
+  const totalPaid = parseFloat(totalsRow?.totalPaid) || 0;
+
   res.json({
     success: true,
     data: {
       pickups,
+      totals: {
+        totalRevenue,
+        totalPaid,
+        totalUnpaid: Math.max(0, totalRevenue - totalPaid),
+      },
       pagination: {
         total: count,
         page: parseInt(page),

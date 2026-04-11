@@ -83,6 +83,7 @@ export default function Pickups() {
   const [showAssign, setShowAssign] = useState(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
+  const [totals, setTotals] = useState({ totalRevenue: 0, totalPaid: 0, totalUnpaid: 0 });
 
   // Date filter state
   const [datePreset, setDatePreset] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'year'
@@ -101,6 +102,7 @@ export default function Pickups() {
       const res = await axios.get('/api/v1/pickups', { params });
       setPickups(res.data.data.pickups);
       setPagination((prev) => ({ ...prev, ...res.data.data.pagination }));
+      if (res.data.data.totals) setTotals(res.data.data.totals);
     } catch (err) {
       console.error(err);
     } finally {
@@ -220,10 +222,25 @@ export default function Pickups() {
         }
       />
 
-      {/* Warehouse aging strip */}
+      {/* Summary strip: Revenue + warehouse aging (0-3 days card replaced with revenue) */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-[14px] mb-[18px]">
-          {summary.aging.map((a) => (
+          {/* Revenue card (replaces 0-3 days) */}
+          <div
+            className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] px-4 py-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300"
+          >
+            <div
+              className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]"
+              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+            />
+            <p className="text-[20px] font-extrabold text-[#10B981] tracking-[-0.5px] tabular-nums">
+              ${(totals.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px] mt-1">Revenue</p>
+          </div>
+
+          {/* Remaining aging buckets (skip the first = 0-3 days) */}
+          {summary.aging.slice(1).map((a) => (
             <div
               key={a.label}
               className="bg-white rounded-[16px] border border-black/[0.04] px-4 py-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300"
