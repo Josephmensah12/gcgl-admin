@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const asyncHandler = require('../middleware/asyncHandler');
 const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
+const { sendInvoiceEmail, isConfigured: isEmailConfigured } = require('../services/emailService');
 
 exports.list = asyncHandler(async (req, res) => {
   const {
@@ -295,4 +296,47 @@ exports.getWarehouseSummary = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, data: { aging, byPayment } });
+});
+
+exports.emailStatus = asyncHandler(async (req, res) => {
+  res.json({ success: true, data: { configured: isEmailConfigured() } });
+});
+
+exports.emailInvoice = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id, {
+    include: [
+      { model: db.Shipment, attributes: ['id', 'name'] },
+      { model: db.LineItem, as: 'lineItems' },
+    ],
+  });
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+
+  const override = req.body?.to;
+  const to = override || invoice.customerEmail;
+  if (!to || to === 'noemail@gcgl.com' || !to.includes('@')) {
+    throw new AppError('Customer has no email address on file. Provide a "to" field in the request body to override.', 400, 'INVALID_EMAIL');
+  }
+
+  const settings = await db.Setting.findByPk(1);
+  const company = {
+    ...(settings?.data?.companyInfo || {}),
+    footerText: settings?.data?.branding?.footerText,
+  };
+
+  try {
+    const result = await sendInvoiceEmail({
+      to,
+      cc: req.body?.cc,
+      bcc: req.body?.bcc,
+      extraMessage: req.body?.message,
+      invoice: invoice.toJSON(),
+      company,
+    });
+    res.json({ success: true, data: { to, messageId: result.messageId } });
+  } catch (e) {
+    if (e.code === 'SMTP_NOT_CONFIGURED') {
+      throw new AppError(e.message, 503, 'SMTP_NOT_CONFIGURED');
+    }
+    throw new AppError(e.message || 'Failed to send email', 500, 'EMAIL_SEND_FAILED');
+  }
 });

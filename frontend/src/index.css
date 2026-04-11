@@ -381,6 +381,71 @@ textarea:focus-visible {
   break-after: page;
 }
 
+/* Invoice sheet extras (builds on .packing-sheet) */
+.inv-company-line {
+  font-size: 9pt;
+  color: #6B7194;
+  margin: 1px 0 0;
+}
+.inv-status-chip {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 10px;
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border: 1px solid;
+  border-radius: 12px;
+}
+.inv-table th {
+  background: #1A1D2B !important;
+  color: #FFFFFF !important;
+}
+.inv-totals {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.inv-totals-inner {
+  width: 55%;
+  border: 1px solid #E5E7EB;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.inv-totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  font-size: 10.5pt;
+  color: #1A1D2B;
+  border-bottom: 1px solid #F4F6FA;
+}
+.inv-totals-row:last-child { border-bottom: 0; }
+.inv-totals-row-total {
+  background: #F4F6FA;
+  font-weight: 800;
+  font-size: 13pt;
+}
+.inv-totals-row-balance {
+  background: #1A1D2B;
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 13pt;
+}
+.inv-totals-row-balance span:first-child { color: #9CA3C0; }
+.inv-footer-note {
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: #F4F6FA;
+  border-left: 3px solid #F59E0B;
+  border-radius: 4px;
+  font-size: 9.5pt;
+  color: #4B5163;
+  font-style: italic;
+}
+
 @media print {
   @page {
     size: A4;

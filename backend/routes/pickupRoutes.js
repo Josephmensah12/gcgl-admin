@@ -11,5 +11,7 @@ router.get('/:id', pickupController.getById);
 router.put('/:id', pickupController.update);
 router.post('/assign', pickupController.assignToShipment);
 router.post('/unassign', pickupController.unassignFromShipment);
+router.post('/:id/email', pickupController.emailInvoice);
+router.get('/email/status', pickupController.emailStatus);
 
 module.exports = router;

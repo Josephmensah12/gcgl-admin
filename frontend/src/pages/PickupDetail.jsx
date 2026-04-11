@@ -22,6 +22,41 @@ export default function PickupDetail() {
   const [editForm, setEditForm] = useState({});
   const [shipments, setShipments] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [emailModal, setEmailModal] = useState(null); // null | { to, cc, message, sending, error, success }
+  const [emailConfigured, setEmailConfigured] = useState(null); // null = unknown, bool = known
+
+  const openEmailModal = () => {
+    setEmailModal({
+      to: pickup.customerEmail && pickup.customerEmail !== 'noemail@gcgl.com' ? pickup.customerEmail : '',
+      cc: '',
+      message: '',
+      sending: false,
+      error: null,
+      success: null,
+    });
+    if (emailConfigured === null) {
+      axios.get('/api/v1/pickups/email/status')
+        .then((res) => setEmailConfigured(!!res.data.data?.configured))
+        .catch(() => setEmailConfigured(false));
+    }
+  };
+
+  const sendEmail = async () => {
+    if (!emailModal?.to) return;
+    setEmailModal((prev) => ({ ...prev, sending: true, error: null, success: null }));
+    try {
+      const res = await axios.post(`/api/v1/pickups/${id}/email`, {
+        to: emailModal.to,
+        cc: emailModal.cc || undefined,
+        message: emailModal.message || undefined,
+      });
+      setEmailModal((prev) => ({ ...prev, sending: false, success: `Sent to ${res.data.data.to}` }));
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to send';
+      const code = err.response?.data?.error?.code;
+      setEmailModal((prev) => ({ ...prev, sending: false, error: code === 'SMTP_NOT_CONFIGURED' ? `${msg}` : msg }));
+    }
+  };
 
   const loadPickup = () => axios.get(`/api/v1/pickups/${id}`).then((res) => setPickup(res.data.data));
   const loadTransactions = () => axios.get(`/api/v1/invoices/${id}/transactions`, { params: { includeVoided: 'true' } })
@@ -118,6 +153,88 @@ export default function PickupDetail() {
         />
       )}
 
+      {emailModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => !emailModal.sending && setEmailModal(null)}
+        >
+          <div
+            className="bg-white rounded-[16px] p-6 w-full max-w-md mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.12)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-[18px] font-bold text-[#1A1D2B] tracking-[-0.3px] mb-1">Email Invoice</h3>
+            <p className="text-[13px] text-[#6B7194] mb-4">
+              Send invoice #{pickup.invoiceNumber} ({pickup.customerName}) as a formatted HTML email.
+            </p>
+
+            {emailConfigured === false && (
+              <div className="mb-4 px-3 py-2.5 rounded-[10px] bg-[rgba(245,158,11,0.08)] border border-[rgba(245,158,11,0.25)] text-[12px] text-[#92400E]">
+                SMTP is not configured. Add <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> to Railway environment variables for the <code>gcgl-admin-backend</code> service.
+              </div>
+            )}
+
+            <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">To</label>
+            <input
+              type="email"
+              value={emailModal.to}
+              onChange={(e) => setEmailModal((p) => ({ ...p, to: e.target.value }))}
+              placeholder="customer@example.com"
+              className="gc-input mb-3"
+            />
+
+            <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Cc (optional)</label>
+            <input
+              type="text"
+              value={emailModal.cc}
+              onChange={(e) => setEmailModal((p) => ({ ...p, cc: e.target.value }))}
+              placeholder="someone@example.com, another@example.com"
+              className="gc-input mb-3"
+            />
+
+            <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Message (optional)</label>
+            <textarea
+              value={emailModal.message}
+              onChange={(e) => setEmailModal((p) => ({ ...p, message: e.target.value }))}
+              placeholder="Hi, here's your invoice…"
+              rows={3}
+              className="w-full px-3 py-2 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all mb-4"
+            />
+
+            {emailModal.error && (
+              <div className="mb-3 px-3 py-2.5 rounded-[10px] bg-[rgba(239,68,68,0.07)] border border-[rgba(239,68,68,0.2)] text-[#B91C1C] text-[12px]">
+                {emailModal.error}
+              </div>
+            )}
+            {emailModal.success && (
+              <div className="mb-3 px-3 py-2.5 rounded-[10px] bg-[rgba(16,185,129,0.08)] border border-[rgba(16,185,129,0.25)] text-[#047857] text-[12px]">
+                ✓ {emailModal.success}
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setEmailModal(null)}
+                disabled={emailModal.sending}
+                className="h-10 px-4 rounded-[10px] text-[#6B7194] hover:bg-[#F4F6FA] text-[13px] font-medium transition-colors"
+              >
+                Close
+              </button>
+              {!emailModal.success && (
+                <button
+                  type="button"
+                  onClick={sendEmail}
+                  disabled={emailModal.sending || !emailModal.to}
+                  className="h-10 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {emailModal.sending ? 'Sending…' : 'Send Email'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invoice Info */}
         <div className="lg:col-span-2 space-y-6">
@@ -128,12 +245,29 @@ export default function PickupDetail() {
                 {!editing ? (
                   <>
                     <Link
-                      to={`/pickups/${pickup.id}/packing-list`}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F4F6FA] text-[#1A1D2B] hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1"
+                      to={`/pickups/${pickup.id}/print`}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#6366F1] text-white hover:bg-[#4F46E5] transition-colors inline-flex items-center gap-1"
+                      title="Open printable invoice"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                       </svg>
+                      Print / PDF
+                    </Link>
+                    <button
+                      onClick={openEmailModal}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F4F6FA] text-[#1A1D2B] hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1"
+                      title="Email invoice to customer"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Email
+                    </button>
+                    <Link
+                      to={`/pickups/${pickup.id}/packing-list`}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F4F6FA] text-[#1A1D2B] hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1"
+                    >
                       Packing List
                     </Link>
                     <button onClick={startEditing}
