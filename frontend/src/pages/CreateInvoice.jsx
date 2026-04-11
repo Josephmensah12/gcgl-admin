@@ -6,7 +6,7 @@ import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
-const CUBIC_RATE = 0.011;
+const CUBIC_RATE = 0.0105;
 
 export default function CreateInvoice() {
   const { onMenuClick } = useLayout();
