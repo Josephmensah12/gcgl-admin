@@ -26,7 +26,11 @@ export function InvoiceSheet({ invoice, company }) {
       {/* Header */}
       <div className="ps-header">
         <div className="ps-brand">
-          <div className="ps-brand-icon">GC</div>
+          {company?.logo ? (
+            <img src={company.logo} alt="Logo" className="ps-brand-logo" />
+          ) : (
+            <div className="ps-brand-icon">GC</div>
+          )}
           <div>
             <p className="ps-brand-name">{company?.name || 'Gold Coast Global Logistics'}</p>
             <p className="ps-brand-sub">Invoice</p>
@@ -145,6 +149,13 @@ export function InvoiceSheet({ invoice, company }) {
         <p className="inv-footer-note">{company.footerText}</p>
       )}
 
+      {company?.termsAndConditions && (
+        <div className="inv-terms">
+          <p className="inv-terms-title">Terms &amp; Conditions</p>
+          <p className="inv-terms-body">{company.termsAndConditions}</p>
+        </div>
+      )}
+
       <div className="ps-footer">
         <span>{company?.name || 'Gold Coast Global Logistics'} · Thank you for your business</span>
       </div>
@@ -174,6 +185,7 @@ export default function InvoicePrint() {
           ...(s.companyInfo || {}),
           footerText: s.branding?.footerText,
         });
+        // companyInfo now includes logo + termsAndConditions if set in Company Settings
       })
       .catch(console.error)
       .finally(() => setLoading(false));

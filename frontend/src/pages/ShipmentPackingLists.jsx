@@ -9,11 +9,18 @@ import { PackingListSheet } from './PackingList';
 export default function ShipmentPackingLists() {
   const { id } = useParams();
   const [shipment, setShipment] = useState(null);
+  const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`/api/v1/shipments/${id}`)
-      .then((res) => setShipment(res.data.data))
+    Promise.all([
+      axios.get(`/api/v1/shipments/${id}`),
+      axios.get('/api/v1/settings').catch(() => ({ data: { data: {} } })),
+    ])
+      .then(([shRes, setRes]) => {
+        setShipment(shRes.data.data);
+        setCompany((setRes.data.data || {}).companyInfo || null);
+      })
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
   }, [id]);
@@ -50,7 +57,7 @@ export default function ShipmentPackingLists() {
             key={inv.id}
             className={idx < sorted.length - 1 ? 'packing-page-break' : ''}
           >
-            <PackingListSheet invoice={inv} shipmentName={shipment.name} />
+            <PackingListSheet invoice={inv} shipmentName={shipment.name} company={company} />
           </div>
         ))
       )}

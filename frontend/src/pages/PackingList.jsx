@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 /*  Printable packing list (price-stripped)                    */
 /* ─────────────────────────────────────────────────────────── */
 
-export function PackingListSheet({ invoice, shipmentName }) {
+export function PackingListSheet({ invoice, shipmentName, company }) {
   const totalItems = (invoice.lineItems || []).reduce((sum, li) => sum + (parseInt(li.quantity) || 1), 0);
 
   return (
@@ -15,9 +15,13 @@ export function PackingListSheet({ invoice, shipmentName }) {
       {/* Header */}
       <div className="ps-header">
         <div className="ps-brand">
-          <div className="ps-brand-icon">GC</div>
+          {company?.logo ? (
+            <img src={company.logo} alt="Logo" className="ps-brand-logo" />
+          ) : (
+            <div className="ps-brand-icon">GC</div>
+          )}
           <div>
-            <p className="ps-brand-name">Gold Coast Global Logistics</p>
+            <p className="ps-brand-name">{company?.name || 'Gold Coast Global Logistics'}</p>
             <p className="ps-brand-sub">Packing List</p>
           </div>
         </div>
@@ -135,11 +139,18 @@ export function PackingListSheet({ invoice, shipmentName }) {
 export default function PackingList() {
   const { id } = useParams();
   const [invoice, setInvoice] = useState(null);
+  const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`/api/v1/pickups/${id}`)
-      .then((res) => setInvoice(res.data.data))
+    Promise.all([
+      axios.get(`/api/v1/pickups/${id}`),
+      axios.get('/api/v1/settings').catch(() => ({ data: { data: {} } })),
+    ])
+      .then(([invRes, setRes]) => {
+        setInvoice(invRes.data.data);
+        setCompany((setRes.data.data || {}).companyInfo || null);
+      })
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
   }, [id]);
@@ -160,7 +171,7 @@ export default function PackingList() {
         <Link to={`/pickups/${id}`} className="packing-toolbar-back">← Back to invoice</Link>
         <button onClick={() => window.print()} className="packing-toolbar-print">Print</button>
       </div>
-      <PackingListSheet invoice={invoice} shipmentName={invoice.Shipment?.name} />
+      <PackingListSheet invoice={invoice} shipmentName={invoice.Shipment?.name} company={company} />
     </div>
   );
 }

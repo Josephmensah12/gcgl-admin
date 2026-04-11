@@ -48,6 +48,12 @@ function renderInvoiceEmail(invoice, company) {
   const companyName = company?.name || 'Gold Coast Global Logistics';
   const companyEmail = company?.email || '';
   const companyPhone = company?.phone || '';
+  const companyLogo = company?.logo || null;
+  const termsAndConditions = company?.termsAndConditions || '';
+
+  const brandBlock = companyLogo
+    ? `<img src="${companyLogo}" alt="Logo" style="max-height:52px;max-width:180px;vertical-align:middle;" />`
+    : `<div style="display:inline-block;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#FFFFFF;font-size:16px;font-weight:800;line-height:48px;text-align:center;vertical-align:middle;">GC</div>`;
 
   const lineItemsHtml = (invoice.lineItems || []).map((li, idx) => {
     const dims = (li.dimensionsL && li.dimensionsW && li.dimensionsH)
@@ -87,7 +93,7 @@ function renderInvoiceEmail(invoice, company) {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <div style="display:inline-block;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#FFFFFF;font-size:16px;font-weight:800;line-height:48px;text-align:center;vertical-align:middle;">GC</div>
+                    ${brandBlock}
                     <span style="display:inline-block;margin-left:12px;vertical-align:middle;">
                       <span style="display:block;font-size:16px;font-weight:800;color:#1A1D2B;">${companyName}</span>
                       <span style="display:block;font-size:10px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;">Invoice</span>
@@ -181,6 +187,18 @@ function renderInvoiceEmail(invoice, company) {
               </table>
             </td>
           </tr>
+
+          ${termsAndConditions ? `
+          <!-- Terms & Conditions -->
+          <tr>
+            <td style="padding:8px 32px 20px;">
+              <div style="padding:14px 16px;border-left:3px solid #F59E0B;background:#FFFBEB;border-radius:4px;">
+                <p style="margin:0 0 6px;font-size:10px;font-weight:700;color:#B45309;text-transform:uppercase;letter-spacing:1px;">Terms &amp; Conditions</p>
+                <p style="margin:0;font-size:10.5px;line-height:1.55;color:#4B5163;white-space:pre-wrap;">${termsAndConditions.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+              </div>
+            </td>
+          </tr>
+          ` : ''}
 
           <!-- Footer -->
           <tr>
