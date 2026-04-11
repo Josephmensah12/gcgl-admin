@@ -127,21 +127,25 @@ function ContainerProgress({ shipment }) {
   const totalInvoices = stats.invoiceCount || 0;
   const paidValue = parseFloat(stats.paidValue) || 0;
   const unpaidValue = parseFloat(stats.unpaidValue) || 0;
+  const remainingValue = Math.max(0, max - current);
 
   const startDate = shipment.start_date ? new Date(shipment.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
   return (
-    <div className="bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Container Progress</h3>
-        <span className="px-2.5 py-1 rounded-md bg-[rgba(245,158,11,0.08)] text-[#F59E0B] text-[11px] font-semibold uppercase tracking-wide">
+    <div className="bg-white rounded-[16px] p-7 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-[18px] font-bold text-[#1A1D2B] tracking-[-0.3px]">Container Progress</h3>
+          <p className="text-[12.5px] text-[#6B7194] mt-0.5">{shipment.name}</p>
+        </div>
+        <span className="px-3 py-1.5 rounded-md bg-[rgba(245,158,11,0.08)] text-[#F59E0B] text-[11px] font-semibold uppercase tracking-wider">
           {shipment.status || 'collecting'}
         </span>
       </div>
 
-      <div className="flex items-center gap-5">
-        {/* Ring */}
-        <div className="relative w-[160px] h-[160px] shrink-0">
+      <div className="flex items-center gap-8 flex-wrap lg:flex-nowrap">
+        {/* Ring — bigger on full-width row */}
+        <div className="relative w-[220px] h-[220px] shrink-0">
           <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
             <defs>
               <linearGradient id="ring-gradient" x1="0" y1="0" x2="1" y2="1">
@@ -165,21 +169,48 @@ function ContainerProgress({ shipment }) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <div className="leading-none">
-              <span className="text-[32px] font-extrabold text-[#1A1D2B] tracking-[-1px]">{pct}</span>
-              <span className="text-[18px] font-semibold text-[#9CA3C0] ml-0.5">%</span>
+              <span className="text-[44px] font-extrabold text-[#1A1D2B] tracking-[-1.5px]">{pct}</span>
+              <span className="text-[22px] font-semibold text-[#9CA3C0] ml-0.5">%</span>
             </div>
-            <p className="text-[11px] text-[#6B7194] mt-1">${fmtCurrency(current)}</p>
+            <p className="text-[12px] text-[#6B7194] mt-2">${fmtCurrency(current)}</p>
+            <p className="text-[10.5px] text-[#9CA3C0]">of ${fmtCurrency(max)}</p>
           </div>
         </div>
 
-        {/* Stat rows */}
-        <div className="flex-1 space-y-2 min-w-0">
-          <StatRow label="Total Invoices" value={totalInvoices} />
-          <StatRow label="Paid" value={`$${fmtCurrency(paidValue)}`} valueColor="#10B981" />
-          <StatRow label="Unpaid" value={`$${fmtCurrency(unpaidValue)}`} valueColor="#EF4444" />
-          <StatRow label="Container Date" value={startDate} valueColor="#F59E0B" valueSize="13px" />
+        {/* Stats — 2x2 grid that breathes on wide layouts */}
+        <div className="flex-1 grid grid-cols-2 gap-3 min-w-[260px]">
+          <BigStat label="Total Invoices" value={totalInvoices} color="#1A1D2B" />
+          <BigStat label="Container Date" value={startDate} color="#F59E0B" sizeOverride="16px" />
+          <BigStat label="Paid" value={`$${fmtCurrency(paidValue)}`} color="#10B981" />
+          <BigStat label="Unpaid" value={`$${fmtCurrency(unpaidValue)}`} color="#EF4444" />
+        </div>
+
+        {/* Capacity breakdown column */}
+        <div className="w-full lg:w-[220px] shrink-0 grid grid-cols-2 lg:grid-cols-1 gap-3">
+          <div className="px-4 py-4 rounded-[10px] bg-gradient-to-br from-[rgba(99,102,241,0.08)] to-[rgba(59,130,246,0.04)] border border-[rgba(99,102,241,0.12)]">
+            <p className="text-[10.5px] font-semibold text-[#6366F1] uppercase tracking-[0.8px]">Filled</p>
+            <p className="text-[20px] font-extrabold text-[#1A1D2B] tracking-[-0.5px] mt-1 tabular-nums">${fmtCurrency(current)}</p>
+          </div>
+          <div className="px-4 py-4 rounded-[10px] bg-[#F4F6FA]">
+            <p className="text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Remaining</p>
+            <p className="text-[20px] font-extrabold text-[#6B7194] tracking-[-0.5px] mt-1 tabular-nums">${fmtCurrency(remainingValue)}</p>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BigStat({ label, value, color = '#1A1D2B', sizeOverride }) {
+  return (
+    <div className="px-4 py-3.5 rounded-[10px] bg-[#F4F6FA]">
+      <p className="text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">{label}</p>
+      <p
+        className="font-extrabold tracking-[-0.4px] mt-1 tabular-nums"
+        style={{ color, fontSize: sizeOverride || '20px' }}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -437,9 +468,13 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
+      {/* Container Progress — full width */}
+      <div className="mb-[18px]">
         <ContainerProgress shipment={activeShipment} />
+      </div>
+
+      {/* Revenue Trend — full width */}
+      <div className="mb-[18px]">
         <RevenueTrend data={chart} />
       </div>
 
