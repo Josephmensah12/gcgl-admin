@@ -126,10 +126,21 @@ export default function PickupDetail() {
               <h2 className="text-xl font-bold text-gray-900">Invoice #{pickup.invoiceNumber}</h2>
               <div className="flex items-center gap-2">
                 {!editing ? (
-                  <button onClick={startEditing}
-                    className="px-3 py-1 rounded-lg text-xs font-medium bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
-                    Edit
-                  </button>
+                  <>
+                    <Link
+                      to={`/pickups/${pickup.id}/packing-list`}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#F4F6FA] text-[#1A1D2B] hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      Packing List
+                    </Link>
+                    <button onClick={startEditing}
+                      className="px-3 py-1 rounded-lg text-xs font-medium bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
+                      Edit
+                    </button>
+                  </>
                 ) : (
                   <>
                     <button onClick={saveEdits} disabled={saving}

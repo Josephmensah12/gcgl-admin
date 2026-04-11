@@ -119,6 +119,303 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Packing list (screen + print) ────────────────────────── */
+.packing-viewport {
+  background: #E9EBF2;
+  min-height: 100vh;
+  padding: 28px 20px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.packing-toolbar {
+  width: 100%;
+  max-width: 210mm;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 12px 20px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.packing-toolbar-back {
+  color: #6366F1;
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+}
+.packing-toolbar-back:hover { color: #4F46E5; }
+.packing-toolbar-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.packing-toolbar-title { font-weight: 700; color: #1A1D2B; font-size: 14px; }
+.packing-toolbar-count { color: #9CA3C0; font-size: 11px; }
+.packing-toolbar-print {
+  background: #6366F1;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(99,102,241,0.25);
+}
+.packing-toolbar-print:hover { background: #4F46E5; }
+
+/* A single A4 sheet */
+.packing-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 18mm 16mm;
+  background: #FFFFFF;
+  color: #1A1D2B;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-sizing: border-box;
+  font-size: 11.5pt;
+  line-height: 1.45;
+  margin: 0 auto 24px;
+  break-inside: avoid;
+}
+
+.ps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #1A1D2B;
+}
+.ps-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ps-brand-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: white;
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(245,158,11,0.3);
+}
+.ps-brand-name {
+  font-size: 15pt;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #1A1D2B;
+  margin: 0;
+}
+.ps-brand-sub {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #6366F1;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 2px 0 0;
+}
+
+.ps-meta {
+  display: flex;
+  gap: 28px;
+  text-align: right;
+}
+.ps-meta-label {
+  font-size: 8pt;
+  font-weight: 600;
+  color: #9CA3C0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0;
+}
+.ps-meta-value {
+  font-size: 18pt;
+  font-weight: 800;
+  color: #1A1D2B;
+  letter-spacing: -0.5px;
+  margin: 2px 0 0;
+}
+.ps-meta-value-sm {
+  font-size: 11pt;
+  font-weight: 600;
+  color: #1A1D2B;
+  margin: 2px 0 0;
+}
+
+.ps-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 20px 0 14px;
+}
+.ps-party {
+  padding: 14px 16px;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+}
+.ps-party-label {
+  font-size: 8pt;
+  font-weight: 700;
+  color: #6366F1;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin: 0 0 6px;
+}
+.ps-party-name {
+  font-size: 12pt;
+  font-weight: 700;
+  color: #1A1D2B;
+  margin: 0 0 4px;
+}
+.ps-party-line {
+  font-size: 10pt;
+  color: #4B5163;
+  margin: 1px 0;
+}
+
+.ps-shipment-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(99,102,241,0.08);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.ps-shipment-label {
+  font-size: 8pt;
+  font-weight: 700;
+  color: #6366F1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.ps-shipment-name {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #1A1D2B;
+}
+
+.ps-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.ps-table th {
+  background: #F4F6FA;
+  color: #6B7194;
+  font-size: 8.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #E5E7EB;
+}
+.ps-table td {
+  padding: 10px 12px;
+  border: 1px solid #E5E7EB;
+  font-size: 10.5pt;
+  color: #1A1D2B;
+  vertical-align: top;
+}
+.ps-table tfoot td {
+  background: #F4F6FA;
+}
+.ps-pad-row td { height: 28px; }
+.ps-check-cell {
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.ps-ack {
+  margin-top: 24px;
+  padding: 12px 14px;
+  background: #F4F6FA;
+  border-left: 3px solid #6366F1;
+  border-radius: 4px;
+  font-size: 10pt;
+  color: #4B5163;
+  font-style: italic;
+}
+
+.ps-signatures {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 40px;
+  margin-top: 36px;
+}
+.ps-sig-line {
+  border-bottom: 1px solid #1A1D2B;
+  height: 32px;
+}
+.ps-sig-label {
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #6B7194;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 6px 0 0;
+}
+
+.ps-footer {
+  margin-top: 28px;
+  padding-top: 12px;
+  border-top: 1px solid #E5E7EB;
+  text-align: center;
+  font-size: 8.5pt;
+  color: #9CA3C0;
+}
+
+/* Force A4 page break between packing lists in bulk print */
+.packing-page-break {
+  page-break-after: always;
+  break-after: page;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body {
+    background: #FFFFFF !important;
+  }
+  /* Hide app chrome in print mode */
+  body.print-mode aside,
+  body.print-mode .no-print {
+    display: none !important;
+  }
+  body.print-mode > div > div {
+    margin-left: 0 !important;
+  }
+  body.print-mode main {
+    padding: 0 !important;
+  }
+  .packing-viewport {
+    background: #FFFFFF !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+  .packing-toolbar {
+    display: none !important;
+  }
+  .packing-sheet {
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+}
+
 /* ── Component-level utility classes ──────────────────────── */
 @layer components {
   /* Card surface — default padding expected from container, not applied here */

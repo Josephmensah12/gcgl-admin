@@ -264,11 +264,20 @@ export default function ShipmentDetail() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Link
+              to={`/shipments/${shipment.id}/packing-lists`}
+              className="px-4 py-2 rounded-[10px] bg-[#F4F6FA] text-[#1A1D2B] text-[13px] font-semibold hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Packing Lists
+            </Link>
             {currentIndex < statusPipeline.length - 1 && (
               <button
                 onClick={() => updateStatus(statusPipeline[currentIndex + 1])}
                 disabled={updating}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50"
+                className="px-4 py-2 bg-[#6366F1] text-white rounded-[10px] text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
               >
                 Move to {statusPipeline[currentIndex + 1]}
               </button>

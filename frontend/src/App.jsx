@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Pickups from './pages/Pickups';
 import PickupDetail from './pages/PickupDetail';
+import PackingList from './pages/PackingList';
+import ShipmentPackingLists from './pages/ShipmentPackingLists';
 import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import Shipments from './pages/Shipments';
@@ -42,6 +44,8 @@ function AppRoutes() {
         <Route path="pickups" element={<Pickups />} />
         <Route path="pickups/new" element={<CreateInvoice />} />
         <Route path="pickups/:id" element={<PickupDetail />} />
+        <Route path="pickups/:id/packing-list" element={<PackingList />} />
+        <Route path="shipments/:id/packing-lists" element={<ShipmentPackingLists />} />
         <Route path="customers" element={<Customers />} />
         <Route path="customers/:id" element={<CustomerDetail />} />
         <Route path="shipments" element={<Shipments />} />
