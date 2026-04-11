@@ -124,7 +124,7 @@ exports.getRevenueChart = asyncHandler(async (req, res) => {
 exports.getRecentPickups = asyncHandler(async (req, res) => {
   const pickups = await db.Invoice.findAll({
     where: { status: 'completed' },
-    order: [['createdAt', 'DESC']],
+    order: [['invoiceNumber', 'DESC']],
     limit: 10,
     include: [
       { model: db.Customer, attributes: ['fullName', 'phone'] },

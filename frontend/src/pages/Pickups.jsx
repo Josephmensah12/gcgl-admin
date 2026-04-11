@@ -10,6 +10,8 @@ export default function Pickups() {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // all, unassigned, assigned
+  const [sortBy, setSortBy] = useState('invoice_number');
+  const [sortOrder, setSortOrder] = useState('DESC');
   const [selected, setSelected] = useState(new Set());
   const [shipments, setShipments] = useState([]);
   const [assignShipmentId, setAssignShipmentId] = useState('');
@@ -19,7 +21,7 @@ export default function Pickups() {
 
   const loadPickups = useCallback(async () => {
     try {
-      const params = { page: pagination.page, limit: pagination.limit, search };
+      const params = { page: pagination.page, limit: pagination.limit, search, sortBy, sortOrder };
       if (filter === 'unassigned') params.unassigned = 'true';
       const res = await axios.get('/api/v1/pickups', { params });
       setPickups(res.data.data.pickups);
@@ -29,7 +31,33 @@ export default function Pickups() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, search, filter]);
+  }, [pagination.page, pagination.limit, search, filter, sortBy, sortOrder]);
+
+  const toggleSort = (col) => {
+    if (sortBy === col) {
+      setSortOrder((o) => (o === 'ASC' ? 'DESC' : 'ASC'));
+    } else {
+      setSortBy(col);
+      setSortOrder('DESC');
+    }
+    setPagination((p) => ({ ...p, page: 1 }));
+  };
+
+  const SortHeader = ({ col, label, className = '' }) => {
+    const active = sortBy === col;
+    const arrow = active ? (sortOrder === 'ASC' ? '\u2191' : '\u2193') : '\u2195';
+    return (
+      <th
+        className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-gray-700 ${className}`}
+        onClick={() => toggleSort(col)}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          <span className={`text-xs ${active ? 'text-primary-600' : 'text-gray-300'}`}>{arrow}</span>
+        </span>
+      </th>
+    );
+  };
 
   useEffect(() => { loadPickups(); }, [loadPickups]);
 
@@ -198,14 +226,14 @@ export default function Pickups() {
                 <th className="px-4 py-3">
                   <input type="checkbox" checked={selected.size === pickups.length && pickups.length > 0} onChange={selectAll} className="rounded" />
                 </th>
-                <th className="px-4 py-3 font-medium">Invoice #</th>
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Recipient</th>
+                <SortHeader col="invoice_number" label="Invoice #" />
+                <SortHeader col="customer_name" label="Customer" />
+                <SortHeader col="recipient_name" label="Recipient" />
                 <th className="px-4 py-3 font-medium">Items</th>
-                <th className="px-4 py-3 font-medium">Total</th>
-                <th className="px-4 py-3 font-medium">Payment</th>
+                <SortHeader col="final_total" label="Total" />
+                <SortHeader col="payment_status" label="Payment" />
                 <th className="px-4 py-3 font-medium">Shipment</th>
-                <th className="px-4 py-3 font-medium">Age</th>
+                <SortHeader col="created_at" label="Age" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
