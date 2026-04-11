@@ -2,8 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
+
+function initialsOf(name) {
+  return (name || '').split(' ').filter(Boolean).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
 
 export default function CustomerDetail() {
+  const { onMenuClick } = useLayout();
   const { id } = useParams();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,117 +40,150 @@ export default function CustomerDetail() {
   const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   if (loading) return <LoadingSpinner />;
-  if (!customer) return <p className="text-center py-12 text-gray-500">Customer not found</p>;
+  if (!customer) return <p className="text-center py-12 text-[#9CA3C0]">Customer not found</p>;
 
   return (
-    <div className="space-y-6">
-      <Link to="/customers" className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700 gap-1">
+    <>
+      <PageHeader title={customer.fullName} subtitle="Customer details & shipping history" onMenuClick={onMenuClick} hideSearch />
+
+      <Link to="/customers" className="inline-flex items-center text-[13px] text-[#6366F1] hover:text-[#4F46E5] gap-1 mb-4 font-medium">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         Back to Customers
       </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-[18px]">
         {/* Customer Info */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="gc-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Customer Info</h2>
-            <button onClick={() => setEditing(!editing)} className="text-sm text-primary-600 hover:text-primary-700">
+            <h2 className="gc-card-title">Customer Info</h2>
+            <button
+              onClick={() => setEditing(!editing)}
+              className="text-[12.5px] font-semibold text-[#6366F1] hover:text-[#4F46E5]"
+            >
               {editing ? 'Cancel' : 'Edit'}
             </button>
+          </div>
+
+          <div className="flex items-center gap-3 mb-5">
+            <div
+              className="w-[52px] h-[52px] rounded-[12px] flex items-center justify-center text-white text-[16px] font-bold"
+              style={{ background: 'linear-gradient(135deg, #6366F1, #3B82F6)' }}
+            >
+              {initialsOf(customer.fullName)}
+            </div>
+            <div>
+              <p className="text-[15px] font-bold text-[#1A1D2B]">{customer.fullName}</p>
+              <p className="text-[11px] text-[#9CA3C0] uppercase tracking-wide mt-0.5">Customer</p>
+            </div>
           </div>
 
           {editing ? (
             <div className="space-y-3">
               {['fullName', 'email', 'phone', 'address'].map((field) => (
                 <div key={field}>
-                  <label className="block text-xs font-medium text-gray-500 mb-1 capitalize">{field.replace(/([A-Z])/g, ' $1')}</label>
+                  <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">{field.replace(/([A-Z])/g, ' $1').trim()}</label>
                   <input
                     type="text"
                     value={form[field] || ''}
                     onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="gc-input"
                   />
                 </div>
               ))}
-              <button onClick={handleSave} className="w-full bg-primary-600 text-white py-2 rounded-lg text-sm hover:bg-primary-700">
+              <button
+                onClick={handleSave}
+                className="w-full h-10 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5]"
+              >
                 Save Changes
               </button>
             </div>
           ) : (
             <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-500">Name</p>
-                <p className="font-medium">{customer.fullName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Email</p>
-                <p>{customer.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Phone</p>
-                <p>{customer.phone}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Address</p>
-                <p>{customer.address}</p>
-              </div>
+              {[['Email', customer.email], ['Phone', customer.phone], ['Address', customer.address]].map(([k, v]) => (
+                <div key={k} className="px-4 py-3 rounded-[10px] bg-[#F4F6FA]">
+                  <p className="text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide">{k}</p>
+                  <p className="text-[13px] text-[#1A1D2B] mt-0.5 break-all">{v || '—'}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Stats */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 mb-3">Shipping Stats</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between"><span className="text-sm text-gray-500">Total Shipments</span><span className="font-semibold">{customer.stats.totalInvoices}</span></div>
-              <div className="flex justify-between"><span className="text-sm text-gray-500">Total Value</span><span className="font-semibold">{fmt(customer.stats.totalValue)}</span></div>
-              <div className="flex justify-between"><span className="text-sm text-gray-500">Paid</span><span className="font-semibold text-green-600">{fmt(customer.stats.paidValue)}</span></div>
-              <div className="flex justify-between"><span className="text-sm text-gray-500">Unpaid</span><span className="font-semibold text-red-600">{fmt(customer.stats.unpaidValue)}</span></div>
+        {/* Stats + Recipients */}
+        <div className="space-y-[18px]">
+          <div className="gc-card p-6">
+            <h3 className="gc-card-title mb-4">Shipping Stats</h3>
+            <div className="space-y-2.5">
+              {[
+                ['Total Shipments', customer.stats.totalInvoices, '#1A1D2B'],
+                ['Total Value', fmt(customer.stats.totalValue), '#1A1D2B'],
+                ['Paid', fmt(customer.stats.paidValue), '#10B981'],
+                ['Unpaid', fmt(customer.stats.unpaidValue), '#EF4444'],
+              ].map(([label, val, color]) => (
+                <div key={label} className="flex justify-between items-center px-4 py-3 rounded-[10px] bg-[#F4F6FA]">
+                  <span className="text-[12px] font-medium text-[#6B7194]">{label}</span>
+                  <span className="text-[14px] font-bold tabular-nums" style={{ color }}>{val}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Recipients */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 mb-3">Ghana Recipients ({customer.recipients?.length || 0})</h3>
+          <div className="gc-card p-6">
+            <h3 className="gc-card-title mb-4">Ghana Recipients ({customer.recipients?.length || 0})</h3>
             <div className="space-y-2">
               {customer.recipients?.map((r) => (
-                <div key={r.id} className="p-2 rounded-lg bg-gray-50">
-                  <p className="font-medium text-sm">{r.firstName} {r.lastName}</p>
-                  <p className="text-xs text-gray-500">{r.phone} &middot; {r.city}, {r.country}</p>
+                <div key={r.id} className="px-4 py-3 rounded-[10px] bg-[#F4F6FA]">
+                  <p className="font-semibold text-[13px] text-[#1A1D2B]">{r.firstName} {r.lastName}</p>
+                  <p className="text-[11px] text-[#9CA3C0] mt-0.5">{r.phone} · {r.city}, {r.country}</p>
                 </div>
               ))}
               {(!customer.recipients || customer.recipients.length === 0) && (
-                <p className="text-sm text-gray-400">No recipients</p>
+                <p className="text-[13px] text-[#9CA3C0]">No recipients</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Invoice History */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-900 mb-3">Shipping History</h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {customer.invoices?.map((inv) => (
-              <Link key={inv.id} to={`/pickups/${inv.id}`} className="block p-3 rounded-lg hover:bg-gray-50 border border-gray-100">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-primary-600">#{inv.invoiceNumber}</span>
-                  <span className="font-semibold">${parseFloat(inv.finalTotal).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-gray-500">{new Date(inv.createdAt).toLocaleDateString()}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${inv.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {inv.paymentStatus}
-                  </span>
-                </div>
-              </Link>
-            ))}
+        {/* Invoice history */}
+        <div className="gc-card p-6">
+          <h3 className="gc-card-title mb-4">Shipping History</h3>
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            {customer.invoices?.map((inv) => {
+              const status = inv.paymentStatus;
+              const statusColors = status === 'paid'
+                ? { bg: 'rgba(16,185,129,0.08)', color: '#10B981' }
+                : status === 'partial'
+                ? { bg: 'rgba(245,158,11,0.08)', color: '#F59E0B' }
+                : { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
+              return (
+                <Link
+                  key={inv.id}
+                  to={`/pickups/${inv.id}`}
+                  className="block px-4 py-3 rounded-[10px] hover:bg-[rgba(99,102,241,0.04)] border border-black/[0.03] transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-[#6366F1] text-[13px]">#{inv.invoiceNumber}</span>
+                    <span className="font-bold text-[13px] text-[#1A1D2B] tabular-nums">${parseFloat(inv.finalTotal).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-1.5">
+                    <span className="text-[11px] text-[#9CA3C0]">{new Date(inv.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-semibold capitalize"
+                      style={{ background: statusColors.bg, color: statusColors.color }}
+                    >
+                      <span className="w-[4px] h-[4px] rounded-full bg-current" />
+                      {status}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
             {(!customer.invoices || customer.invoices.length === 0) && (
-              <p className="text-center py-4 text-gray-400 text-sm">No shipping history</p>
+              <p className="text-center py-6 text-[#9CA3C0] text-[13px]">No shipping history</p>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

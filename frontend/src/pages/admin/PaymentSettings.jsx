@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import { useLayout } from '../../components/layout/Layout';
 
 export default function PaymentSettings() {
+  const { onMenuClick } = useLayout();
   const [methods, setMethods] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,8 +39,10 @@ export default function PaymentSettings() {
   ];
 
   return (
+    <>
+      <PageHeader title="Payment Methods" subtitle="Enable and configure accepted payment options" onMenuClick={onMenuClick} hideSearch />
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="gc-card p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-6">Payment Methods</h2>
 
         <div className="space-y-6">
@@ -82,5 +87,6 @@ export default function PaymentSettings() {
         </button>
       </div>
     </div>
+    </>
   );
 }

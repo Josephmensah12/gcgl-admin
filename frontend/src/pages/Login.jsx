@@ -22,42 +22,56 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-navy-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#0F1629] px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-xl bg-gold-400 flex items-center justify-center text-navy-900 font-bold text-2xl mb-4">
+          <div
+            className="w-16 h-16 mx-auto rounded-[14px] flex items-center justify-center text-white font-bold text-2xl mb-4"
+            style={{
+              background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+              boxShadow: '0 4px 15px rgba(245,158,11,0.3)',
+            }}
+          >
             GC
           </div>
-          <h1 className="text-2xl font-bold text-white">GCGL Admin Portal</h1>
-          <p className="text-gray-400 mt-1">Gold Coast Global Logistics</p>
+          <h1 className="text-[24px] font-extrabold text-white tracking-[-0.5px]">GCGL Admin Portal</h1>
+          <p className="text-white/50 text-[13px] mt-1.5">Gold Coast Global Logistics</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-8 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-[16px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] p-8 space-y-5"
+        >
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-[rgba(239,68,68,0.07)] border border-[rgba(239,68,68,0.2)] text-[#EF4444] px-4 py-3 rounded-[10px] text-[13px]">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
+            <label className="block text-[12.5px] font-semibold text-[#1A1D2B] mb-2 uppercase tracking-wide">
+              Username
+            </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+              className="gc-input"
               placeholder="Enter username"
               required
+              autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+            <label className="block text-[12.5px] font-semibold text-[#1A1D2B] mb-2 uppercase tracking-wide">
+              Password
+            </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+              className="gc-input"
               placeholder="Enter password"
               required
             />
@@ -66,11 +80,15 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary-600 text-white py-2.5 rounded-lg font-medium hover:bg-primary-700 transition-colors disabled:opacity-50"
+            className="w-full h-11 rounded-[10px] bg-[#6366F1] text-white font-semibold text-[14px] hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_4px_15px_rgba(99,102,241,0.3)]"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        <p className="text-center text-white/30 text-[11px] mt-6 tracking-wide">
+          LOGISTICS PORTAL · v2
+        </p>
       </div>
     </div>
   );

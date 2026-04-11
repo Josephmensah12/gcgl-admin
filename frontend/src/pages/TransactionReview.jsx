@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }) {
@@ -156,6 +158,7 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
 }
 
 export default function TransactionReview() {
+  const { onMenuClick } = useLayout();
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState({});
   const [categories, setCategories] = useState([]);
@@ -249,6 +252,8 @@ export default function TransactionReview() {
   if (loading) return <LoadingSpinner text="Loading transactions..." />;
 
   return (
+    <>
+      <PageHeader title="Bank Transactions" subtitle="Review and categorize imported bank activity" onMenuClick={onMenuClick} hideSearch />
     <div className="space-y-6">
       {/* Alert Banner */}
       {stats.pendingCount > 0 && (
@@ -260,22 +265,22 @@ export default function TransactionReview() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Pending Review</p>
           <p className="text-2xl font-bold text-amber-600">{stats.pendingCount || 0}</p>
           <p className="text-xs text-gray-400">{fmt(stats.pendingAmount)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">This Week</p>
           <p className="text-2xl font-bold text-gray-900">{stats.weeklyImports || 0}</p>
           <p className="text-xs text-gray-400">{stats.weeklyReviewed || 0} reviewed</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Suggestion Accuracy</p>
           <p className="text-2xl font-bold text-primary-600">{stats.suggestionAccuracy || 0}%</p>
           <p className="text-xs text-gray-400">AI learning</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Business Expenses</p>
           <p className="text-2xl font-bold text-green-600">{fmt(stats.totalBusinessExpenses)}</p>
           <p className="text-xs text-gray-400">{stats.totalApproved || 0} approved</p>
@@ -289,7 +294,7 @@ export default function TransactionReview() {
       )}
 
       {/* Filters & Bulk Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div className="gc-card p-4">
         <div className="flex flex-col sm:flex-row gap-3 justify-between">
           <div className="flex gap-3 items-center">
             <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
@@ -369,7 +374,7 @@ export default function TransactionReview() {
       </div>
 
       {/* Transaction Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="gc-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
@@ -453,5 +458,6 @@ export default function TransactionReview() {
         )}
       </div>
     </div>
+    </>
   );
 }

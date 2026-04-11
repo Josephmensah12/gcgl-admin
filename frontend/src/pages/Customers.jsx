@@ -2,8 +2,33 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
+
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #6366F1, #3B82F6)',
+  'linear-gradient(135deg, #10B981, #059669)',
+  'linear-gradient(135deg, #F59E0B, #D97706)',
+  'linear-gradient(135deg, #EF4444, #DC2626)',
+  'linear-gradient(135deg, #8B5CF6, #6366F1)',
+  'linear-gradient(135deg, #EC4899, #DB2777)',
+];
+function gradientFor(name) {
+  const hash = (name || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+function initialsOf(name) {
+  return (name || '')
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?';
+}
 
 export default function Customers() {
+  const { onMenuClick } = useLayout();
   const [customers, setCustomers] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
@@ -30,78 +55,109 @@ export default function Customers() {
   if (loading) return <LoadingSpinner text="Loading customers..." />;
 
   return (
-    <div className="space-y-6">
+    <>
+      <PageHeader
+        title="Customers"
+        subtitle={`${pagination.total} customer${pagination.total === 1 ? '' : 's'}`}
+        onMenuClick={onMenuClick}
+        hideSearch
+      />
+
       {/* Search */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div className="gc-card p-5 mb-[18px]">
         <div className="relative max-w-md">
+          <svg className="w-4 h-4 absolute left-3 top-3 text-[#9CA3C0] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
           <input
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
             placeholder="Search customers by name, email, phone..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
           />
-          <svg className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="gc-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-left text-gray-500">
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">Contact</th>
-                <th className="px-4 py-3 font-medium">Recipients</th>
-                <th className="px-4 py-3 font-medium">Shipments</th>
-                <th className="px-4 py-3 font-medium">Total Value</th>
-                <th className="px-4 py-3 font-medium">Unpaid</th>
+          <table className="w-full text-[13.5px]">
+            <thead>
+              <tr className="bg-[#F4F6FA]">
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Customer</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Contact</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Recipients</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Shipments</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Total Value</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Unpaid</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {customers.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link to={`/customers/${c.id}`} className="font-medium text-primary-600 hover:text-primary-700">
-                      {c.fullName}
-                    </Link>
+                <tr key={c.id} className="border-b border-black/[0.03] last:border-0 hover:bg-[rgba(99,102,241,0.02)] transition-colors">
+                  <td className="px-6 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-[30px] h-[30px] rounded-[8px] shrink-0 flex items-center justify-center text-white text-[11px] font-bold"
+                        style={{ background: gradientFor(c.fullName) }}
+                      >
+                        {initialsOf(c.fullName)}
+                      </div>
+                      <Link to={`/customers/${c.id}`} className="font-semibold text-[#6366F1] hover:text-[#4F46E5]">
+                        {c.fullName}
+                      </Link>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-gray-600">{c.phone}</p>
-                    <p className="text-xs text-gray-400">{c.email}</p>
+                  <td className="px-6 py-3.5">
+                    <p className="text-[#6B7194]">{c.phone}</p>
+                    <p className="text-[11px] text-[#9CA3C0]">{c.email}</p>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{c.recipients?.length || 0}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.stats.totalInvoices}</td>
-                  <td className="px-4 py-3 font-medium">{fmt(c.stats.totalValue)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-3.5 text-[#6B7194]">{c.recipients?.length || 0}</td>
+                  <td className="px-6 py-3.5 text-[#6B7194]">{c.stats.totalInvoices}</td>
+                  <td className="px-6 py-3.5 font-bold text-[#1A1D2B] tabular-nums">{fmt(c.stats.totalValue)}</td>
+                  <td className="px-6 py-3.5">
                     {c.stats.unpaidValue > 0 ? (
-                      <span className="text-red-600 font-medium">{fmt(c.stats.unpaidValue)}</span>
+                      <span className="font-semibold text-[#EF4444] tabular-nums">{fmt(c.stats.unpaidValue)}</span>
                     ) : (
-                      <span className="text-green-600">Paid</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold bg-[rgba(16,185,129,0.08)] text-[#10B981]">
+                        <span className="w-[5px] h-[5px] rounded-full bg-current" /> Paid
+                      </span>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {customers.length === 0 && <p className="text-center py-12 text-gray-400">No customers found</p>}
+          {customers.length === 0 && (
+            <p className="text-center py-12 text-[#9CA3C0]">No customers found</p>
+          )}
         </div>
 
         {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {(pagination.page - 1) * pagination.limit + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-black/[0.03]">
+            <p className="text-[12.5px] text-[#6B7194]">
+              Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
             </p>
-            <div className="flex gap-1">
-              <button disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))} className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50">Prev</button>
-              <button disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))} className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50">Next</button>
+            <div className="flex gap-2">
+              <button
+                disabled={pagination.page <= 1}
+                onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
+                className="h-8 px-3 rounded-[8px] border border-black/[0.06] text-[12px] font-medium text-[#6B7194] disabled:opacity-40 hover:bg-[#F4F6FA] transition-colors"
+              >
+                Prev
+              </button>
+              <button
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
+                className="h-8 px-3 rounded-[8px] border border-black/[0.06] text-[12px] font-medium text-[#6B7194] disabled:opacity-40 hover:bg-[#F4F6FA] transition-colors"
+              >
+                Next
+              </button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

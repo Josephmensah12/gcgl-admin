@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
@@ -115,6 +117,7 @@ function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) 
 }
 
 export default function ShipmentDetail() {
+  const { onMenuClick } = useLayout();
   const { id } = useParams();
   const [shipment, setShipment] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -241,14 +244,16 @@ export default function ShipmentDetail() {
   const unpaidCount = invoices.filter((inv) => inv.paymentStatus !== 'paid').length;
 
   return (
+    <>
+      <PageHeader title={shipment?.name || 'Shipment'} subtitle="Container details, invoices, and costs" onMenuClick={onMenuClick} hideSearch />
     <div className="space-y-6">
-      <Link to="/shipments" className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700 gap-1">
+      <Link to="/shipments" className="inline-flex items-center text-[13px] text-[#6366F1] hover:text-[#4F46E5] gap-1 font-medium">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         Back to Shipments
       </Link>
 
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="gc-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{shipment.name}</h2>
@@ -289,7 +294,7 @@ export default function ShipmentDetail() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500 mb-1">Capacity</p>
           <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
             <div className={`h-2 rounded-full ${getCapacityColor(shipment.capacityPercent)}`} style={{ width: `${shipment.capacityPercent}%` }} />
@@ -297,7 +302,7 @@ export default function ShipmentDetail() {
           <p className="text-sm font-semibold">{fmt(shipment.totalValue)} / {fmt(shipment.maxCapacity)}</p>
           <p className="text-xs text-gray-400">{shipment.capacityPercent}%</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Revenue</p>
           <p className="text-2xl font-bold text-gray-900">{fmt(totalValue)}</p>
           <p className="text-xs text-gray-400">{invoices.length} invoices</p>
@@ -320,7 +325,7 @@ export default function ShipmentDetail() {
           <p className="text-2xl font-bold text-red-600">{fmt(expenseTotals.total)}</p>
           <p className="text-xs text-gray-400">{expenseTotals.count} entries</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Net Profit</p>
           <p className={`text-2xl font-bold ${totalValue - expenseTotals.total > 0 ? 'text-green-600' : 'text-red-600'}`}>
             {fmt(totalValue - expenseTotals.total)}
@@ -361,7 +366,7 @@ export default function ShipmentDetail() {
 
       {/* Invoices Tab */}
       {activeTab === 'invoices' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           {tileFilter === 'pending' && (
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm text-amber-700 font-medium">Showing unpaid invoices only</p>
@@ -440,15 +445,15 @@ export default function ShipmentDetail() {
           {/* Payment method breakdown */}
           {txAggregates && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+              <div className="gc-card p-4">
                 <p className="text-sm text-gray-500">Total Payments</p>
                 <p className="text-xl font-bold text-green-600">{fmt(txAggregates.totalPayments)}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+              <div className="gc-card p-4">
                 <p className="text-sm text-gray-500">Total Refunds</p>
                 <p className="text-xl font-bold text-orange-600">{fmt(txAggregates.totalRefunds)}</p>
               </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+              <div className="gc-card p-4">
                 <p className="text-sm text-gray-500">Net Collected</p>
                 <p className="text-xl font-bold text-gray-900">{fmt(txAggregates.netCollected)}</p>
               </div>
@@ -456,7 +461,7 @@ export default function ShipmentDetail() {
           )}
 
           {/* Transaction list */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="gc-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -535,7 +540,7 @@ export default function ShipmentDetail() {
             return (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Bar Chart */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="gc-card p-6">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">Expense Breakdown</h3>
                     {expCatFilter && (
@@ -582,7 +587,7 @@ export default function ShipmentDetail() {
                 </div>
 
                 {/* Donut Chart - Top 5 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="gc-card p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">Top 5 Expenses</h3>
                   <p className="text-xs text-gray-400 mb-4">Click a segment to filter</p>
 
@@ -689,7 +694,7 @@ export default function ShipmentDetail() {
           })()}
 
           {/* Expense list */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="gc-card overflow-hidden">
             {expCatFilter && (
               <div className="flex items-center justify-between px-4 py-2 bg-primary-50 border-b border-primary-100">
                 <p className="text-sm text-primary-700 font-medium">Filtered: {expCatFilter}</p>
@@ -766,5 +771,6 @@ export default function ShipmentDetail() {
         </div>
       )}
     </div>
+    </>
   );
 }

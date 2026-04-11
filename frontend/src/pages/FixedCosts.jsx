@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 
 function OverrideModal({ shipment, onClose, onSaved }) {
   const [startDate, setStartDate] = useState(shipment.admin_start_date_override || shipment.start_date || '');
@@ -20,7 +22,7 @@ function OverrideModal({ shipment, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="gc-card shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b bg-amber-50">
           <h2 className="text-lg font-semibold">Override Dates — {shipment.name}</h2>
         </div>
@@ -75,7 +77,7 @@ function ManualAllocationModal({ shipment, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <div className="gc-card shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b"><h2 className="text-lg font-semibold">Manual Allocation — {shipment.name}</h2></div>
         <div className="p-6 space-y-4">
           <div>
@@ -102,6 +104,7 @@ function ManualAllocationModal({ shipment, onClose, onSaved }) {
 }
 
 export default function FixedCosts() {
+  const { onMenuClick } = useLayout();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [overrideShipment, setOverrideShipment] = useState(null);
@@ -144,28 +147,31 @@ export default function FixedCosts() {
   const mc = data?.monthlyFixedCosts;
 
   return (
+    <>
+      <PageHeader title="Fixed Cost Allocation" subtitle="Proportional daily rate across active shipments" onMenuClick={onMenuClick} hideSearch />
+
     <div className="space-y-6">
       {overrideShipment && <OverrideModal shipment={overrideShipment} onClose={() => setOverrideShipment(null)} onSaved={handleSaved} />}
       {manualShipment && <ManualAllocationModal shipment={manualShipment} onClose={() => setManualShipment(null)} onSaved={handleSaved} />}
 
       {/* Monthly Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Monthly Fixed Costs</p>
           <p className="text-2xl font-bold text-gray-900">{mc ? fmt(mc.total_fixed_costs) : '$0.00'}</p>
           <p className="text-xs text-gray-400">{mc?.month_year || 'Not calculated'}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Daily Rate</p>
           <p className="text-2xl font-bold text-primary-600">{mc ? fmt(mc.daily_rate) : '$0.00'}</p>
           <p className="text-xs text-gray-400">{mc?.days_in_month || 0} days this month</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Active Shipments</p>
           <p className="text-2xl font-bold text-green-600">{data?.activeShipments?.length || 0}</p>
           <p className="text-xs text-gray-400">receiving allocations</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between">
+        <div className="gc-card p-5 flex flex-col justify-between">
           <p className="text-sm text-gray-500 mb-2">Manual Trigger</p>
           <button onClick={handleTrigger} disabled={triggering}
             className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
@@ -175,7 +181,7 @@ export default function FixedCosts() {
       </div>
 
       {/* Fixed Cost Categories */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="gc-card p-5">
         <h3 className="font-semibold text-gray-900 mb-3">Fixed Cost Categories</h3>
         <p className="text-xs text-gray-500 mb-3">Toggle which expense categories count as fixed costs for daily allocation.</p>
         <div className="flex flex-wrap gap-2">
@@ -189,7 +195,7 @@ export default function FixedCosts() {
       </div>
 
       {/* Active Shipments */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="gc-card p-5">
         <h3 className="font-semibold text-gray-900 mb-4">Shipment Fixed Cost Tracking</h3>
         <div className="space-y-3">
           {data?.activeShipments?.map((sh) => (
@@ -222,7 +228,7 @@ export default function FixedCosts() {
 
       {/* Detail Panel */}
       {detail && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-900">Allocation Detail — {detail.shipment?.name}</h3>
             <button onClick={() => { setDetail(null); setDetailShipmentId(null); }} className="text-xs text-gray-500">Close</button>
@@ -271,7 +277,7 @@ export default function FixedCosts() {
       )}
 
       {/* Recent Allocations */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div className="gc-card p-5">
         <h3 className="font-semibold text-gray-900 mb-4">Recent Allocations (Last 14 Days)</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -308,5 +314,6 @@ export default function FixedCosts() {
         </div>
       </div>
     </div>
+    </>
   );
 }

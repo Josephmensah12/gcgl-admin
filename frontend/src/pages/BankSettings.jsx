@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 
 export default function BankSettings() {
+  const { onMenuClick } = useLayout();
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -85,8 +88,10 @@ export default function BankSettings() {
   if (loading) return <LoadingSpinner />;
 
   return (
+    <>
+      <PageHeader title="Bank Accounts" subtitle="Plaid connections and CSV imports" onMenuClick={onMenuClick} hideSearch />
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="gc-card p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-2">Bank Connections</h2>
         <p className="text-sm text-gray-500 mb-6">Connect your bank accounts via Plaid for automated expense tracking.</p>
 
@@ -150,7 +155,7 @@ export default function BankSettings() {
       </div>
 
       {/* CSV Import */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="gc-card p-6">
         <h3 className="font-semibold text-gray-900 mb-2">Import from CSV</h3>
         <p className="text-sm text-gray-500 mb-4">Upload a bank or credit card statement export (CSV format) to import transactions for review.</p>
 
@@ -262,7 +267,7 @@ export default function BankSettings() {
       </div>
 
       {/* Security info */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="gc-card p-6">
         <h3 className="font-semibold text-gray-900 mb-3">Security</h3>
         <div className="space-y-2 text-sm text-gray-600">
           <p>Bank-grade encryption for all transaction data</p>
@@ -273,5 +278,6 @@ export default function BankSettings() {
       </div>
 
     </div>
+    </>
   );
 }

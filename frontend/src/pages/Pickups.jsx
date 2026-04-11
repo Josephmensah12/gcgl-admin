@@ -1,15 +1,42 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+
+/* Deterministic customer avatar gradient */
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #6366F1, #3B82F6)',
+  'linear-gradient(135deg, #10B981, #059669)',
+  'linear-gradient(135deg, #F59E0B, #D97706)',
+  'linear-gradient(135deg, #EF4444, #DC2626)',
+  'linear-gradient(135deg, #8B5CF6, #6366F1)',
+  'linear-gradient(135deg, #EC4899, #DB2777)',
+];
+function gradientFor(name) {
+  const hash = (name || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+function initialsOf(name) {
+  return (name || '')
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?';
+}
 
 export default function Pickups() {
   const navigate = useNavigate();
+  const { onMenuClick } = useLayout();
+  const [searchParams] = useSearchParams();
   const [pickups, setPickups] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // all, unassigned, assigned
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [filter, setFilter] = useState(searchParams.get('filter') || 'all');
   const [sortBy, setSortBy] = useState('invoice_number');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [selected, setSelected] = useState(new Set());
@@ -48,12 +75,14 @@ export default function Pickups() {
     const arrow = active ? (sortOrder === 'ASC' ? '\u2191' : '\u2193') : '\u2195';
     return (
       <th
-        className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-gray-700 ${className}`}
+        className={`px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.8px] cursor-pointer select-none hover:text-[#1A1D2B] transition-colors ${
+          active ? 'text-[#6366F1]' : 'text-[#9CA3C0]'
+        } ${className}`}
         onClick={() => toggleSort(col)}
       >
         <span className="inline-flex items-center gap-1">
           {label}
-          <span className={`text-xs ${active ? 'text-primary-600' : 'text-gray-300'}`}>{arrow}</span>
+          <span className={`text-[10px] ${active ? 'text-[#6366F1]' : 'text-[#C7CDDB]'}`}>{arrow}</span>
         </span>
       </th>
     );
@@ -65,11 +94,6 @@ export default function Pickups() {
     axios.get('/api/v1/shipments/active').then((res) => setShipments(res.data.data)).catch(() => {});
     axios.get('/api/v1/pickups/warehouse-summary').then((res) => setSummary(res.data.data)).catch(() => {});
   }, []);
-
-  const handleSearch = (e) => {
-    setSearch(e.target.value);
-    setPagination((prev) => ({ ...prev, page: 1 }));
-  };
 
   const toggleSelect = (id) => {
     setSelected((prev) => {
@@ -114,71 +138,86 @@ export default function Pickups() {
     }
   };
 
-  const getAgingBadge = (days) => {
-    if (days <= 3) return 'bg-green-100 text-green-700';
-    if (days <= 7) return 'bg-yellow-100 text-yellow-700';
-    if (days <= 14) return 'bg-orange-100 text-orange-700';
-    return 'bg-red-100 text-red-700';
+  const getAgingTint = (days) => {
+    if (days <= 3) return { bg: 'rgba(16,185,129,0.08)', color: '#10B981' };
+    if (days <= 7) return { bg: 'rgba(245,158,11,0.08)', color: '#F59E0B' };
+    if (days <= 14) return { bg: 'rgba(249,115,22,0.08)', color: '#F97316' };
+    return { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
   };
 
   if (loading) return <LoadingSpinner text="Loading invoices..." />;
 
   return (
-    <div className="space-y-6">
-      {/* Warehouse Summary */}
+    <>
+      <PageHeader
+        title="Invoices"
+        subtitle={`${pagination.total} total • manage pickups and shipment assignments`}
+        onMenuClick={onMenuClick}
+        hideSearch
+        actions={
+          <button
+            onClick={() => navigate('/pickups/new')}
+            className="hidden sm:inline-flex items-center gap-2 px-4 h-10 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] shadow-[0_4px_15px_rgba(99,102,241,0.25)] transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Invoice
+          </button>
+        }
+      />
+
+      {/* Warehouse aging strip */}
       {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-[14px] mb-[18px]">
           {summary.aging.map((a) => (
-            <div key={a.label} className="bg-white rounded-lg border border-gray-100 p-3 text-center">
-              <p className="text-lg font-bold text-gray-900">{a.count}</p>
-              <p className="text-xs text-gray-500">{a.label}</p>
+            <div
+              key={a.label}
+              className="bg-white rounded-[16px] border border-black/[0.04] px-4 py-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300"
+            >
+              <p className="text-[22px] font-extrabold text-[#1A1D2B] tracking-[-0.5px]">{a.count}</p>
+              <p className="text-[11px] text-[#6B7194] mt-1">{a.label}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div className="flex flex-col sm:flex-row gap-3 justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="relative flex-1 max-w-md">
-              <input
-                type="text"
-                value={search}
-                onChange={handleSearch}
-                placeholder="Search by customer, phone, invoice #..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              />
-              <svg className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <select
-              value={filter}
-              onChange={(e) => { setFilter(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-            >
-              <option value="all">All Invoices</option>
-              <option value="unassigned">Unassigned Only</option>
-            </select>
-            <button onClick={() => navigate('/pickups/new')}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 whitespace-nowrap">
-              + New Invoice
-            </button>
+      <div className="bg-white rounded-[16px] border border-black/[0.04] p-5 mb-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <div className="relative flex-1 max-w-md">
+            <svg className="w-4 h-4 absolute left-3 top-3 text-[#9CA3C0] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+              placeholder="Search by customer, phone, invoice #..."
+              className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
+            />
           </div>
+          <select
+            value={filter}
+            onChange={(e) => { setFilter(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+            className="h-10 px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] focus:border-[#6366F1] outline-none transition-all"
+          >
+            <option value="all">All Invoices</option>
+            <option value="unassigned">Unassigned Only</option>
+          </select>
 
           {selected.size > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">{selected.size} selected</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-[13px] text-[#6B7194]">{selected.size} selected</span>
               <button
                 onClick={() => setShowAssign(true)}
-                className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition-colors"
+                className="h-10 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] transition-colors"
               >
                 Assign to Shipment
               </button>
               <button
                 onClick={handleUnassign}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                className="h-10 px-4 rounded-[10px] bg-[#F4F6FA] text-[#1A1D2B] text-[13px] font-medium hover:bg-[#E9EBF2] transition-colors"
               >
                 Unassign
               </button>
@@ -187,16 +226,16 @@ export default function Pickups() {
         </div>
       </div>
 
-      {/* Assign Modal */}
+      {/* Assign modal */}
       {showAssign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAssign(false)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Assign to Shipment</h3>
-            <p className="text-sm text-gray-500 mb-4">Assigning {selected.size} pickup(s)</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowAssign(false)}>
+          <div className="bg-white rounded-[16px] p-6 w-full max-w-md mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.08)]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[18px] font-bold text-[#1A1D2B] tracking-[-0.3px] mb-2">Assign to Shipment</h3>
+            <p className="text-[13px] text-[#6B7194] mb-4">Assigning {selected.size} invoice{selected.size === 1 ? '' : 's'}</p>
             <select
               value={assignShipmentId}
               onChange={(e) => setAssignShipmentId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4"
+              className="w-full h-10 px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] focus:border-[#6366F1] outline-none mb-4"
             >
               <option value="">Select shipment...</option>
               {shipments.map((s) => (
@@ -206,10 +245,17 @@ export default function Pickups() {
               ))}
             </select>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowAssign(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">
+              <button
+                onClick={() => setShowAssign(false)}
+                className="h-10 px-4 rounded-[10px] text-[#6B7194] hover:bg-[#F4F6FA] text-[13px] font-medium transition-colors"
+              >
                 Cancel
               </button>
-              <button onClick={handleAssign} disabled={!assignShipmentId} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50">
+              <button
+                onClick={handleAssign}
+                disabled={!assignShipmentId}
+                className="h-10 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
                 Assign
               </button>
             </div>
@@ -218,91 +264,127 @@ export default function Pickups() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-[16px] border border-black/[0.04] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-left text-gray-500">
-                <th className="px-4 py-3">
-                  <input type="checkbox" checked={selected.size === pickups.length && pickups.length > 0} onChange={selectAll} className="rounded" />
+          <table className="w-full text-[13.5px]">
+            <thead>
+              <tr className="bg-[#F4F6FA]">
+                <th className="px-6 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === pickups.length && pickups.length > 0}
+                    onChange={selectAll}
+                    className="rounded accent-[#6366F1]"
+                  />
                 </th>
                 <SortHeader col="invoice_number" label="Invoice #" />
                 <SortHeader col="customer_name" label="Customer" />
                 <SortHeader col="recipient_name" label="Recipient" />
-                <th className="px-4 py-3 font-medium">Items</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Items</th>
                 <SortHeader col="final_total" label="Total" />
                 <SortHeader col="payment_status" label="Payment" />
-                <th className="px-4 py-3 font-medium">Shipment</th>
+                <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Shipment</th>
                 <SortHeader col="created_at" label="Age" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {pickups.map((p) => (
-                <tr key={p.id} className={`hover:bg-gray-50 ${selected.has(p.id) ? 'bg-primary-50' : ''}`}>
-                  <td className="px-4 py-3">
-                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link to={`/pickups/${p.id}`} className="font-medium text-primary-600 hover:text-primary-700">
-                      #{p.invoiceNumber}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium text-gray-900">{p.customerName}</p>
-                      <p className="text-xs text-gray-500">{p.customerPhone}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{p.recipientName || '-'}</td>
-                  <td className="px-4 py-3 text-gray-600">{p.itemCount}</td>
-                  <td className="px-4 py-3 font-medium">${parseFloat(p.finalTotal).toFixed(2)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                      ${p.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {p.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.Shipment ? (
-                      <Link to={`/shipments/${p.Shipment.id}`} className="text-primary-600 hover:text-primary-700 text-xs">
-                        {p.Shipment.name}
+            <tbody>
+              {pickups.map((p) => {
+                const statusColors = p.paymentStatus === 'paid'
+                  ? { bg: 'rgba(16,185,129,0.08)', color: '#10B981' }
+                  : p.paymentStatus === 'partial'
+                  ? { bg: 'rgba(245,158,11,0.08)', color: '#F59E0B' }
+                  : { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
+                const aging = getAgingTint(p.warehouseDays);
+                return (
+                  <tr
+                    key={p.id}
+                    className={`border-b border-black/[0.03] last:border-0 hover:bg-[rgba(99,102,241,0.02)] transition-colors ${selected.has(p.id) ? 'bg-[rgba(99,102,241,0.04)]' : ''}`}
+                  >
+                    <td className="px-6 py-3.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(p.id)}
+                        onChange={() => toggleSelect(p.id)}
+                        className="rounded accent-[#6366F1]"
+                      />
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <Link to={`/pickups/${p.id}`} className="font-bold text-[#6366F1] hover:text-[#4F46E5]">
+                        #{p.invoiceNumber}
                       </Link>
-                    ) : (
-                      <span className="text-xs text-gray-400">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getAgingBadge(p.warehouseDays)}`}>
-                      {p.warehouseDays}d
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-[30px] h-[30px] rounded-[8px] shrink-0 flex items-center justify-center text-white text-[11px] font-bold"
+                          style={{ background: gradientFor(p.customerName) }}
+                        >
+                          {initialsOf(p.customerName)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-[#1A1D2B] truncate">{p.customerName}</p>
+                          <p className="text-[11px] text-[#9CA3C0] truncate">{p.customerPhone}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3.5 text-[#6B7194]">{p.recipientName || '—'}</td>
+                    <td className="px-6 py-3.5 text-[#6B7194]">{p.itemCount}</td>
+                    <td className="px-6 py-3.5 font-bold text-[#1A1D2B] tabular-nums">
+                      ${parseFloat(p.finalTotal).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold capitalize"
+                        style={{ background: statusColors.bg, color: statusColors.color }}
+                      >
+                        <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'currentColor' }} />
+                        {p.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5">
+                      {p.Shipment ? (
+                        <Link to={`/shipments/${p.Shipment.id}`} className="text-[#6366F1] hover:text-[#4F46E5] text-[12px] font-medium">
+                          {p.Shipment.name}
+                        </Link>
+                      ) : (
+                        <span className="text-[11px] text-[#9CA3C0]">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <span
+                        className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-semibold"
+                        style={{ background: aging.bg, color: aging.color }}
+                      >
+                        {p.warehouseDays}d
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {pickups.length === 0 && (
-            <p className="text-center py-12 text-gray-400">No invoices found</p>
+            <p className="text-center py-12 text-[#9CA3C0]">No invoices found</p>
           )}
         </div>
 
-        {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing {(pagination.page - 1) * pagination.limit + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-black/[0.03]">
+            <p className="text-[12.5px] text-[#6B7194]">
+              Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
             </p>
-            <div className="flex gap-1">
+            <div className="flex gap-2">
               <button
                 disabled={pagination.page <= 1}
                 onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
-                className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+                className="h-8 px-3 rounded-[8px] border border-black/[0.06] text-[12px] font-medium text-[#6B7194] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F4F6FA] transition-colors"
               >
                 Prev
               </button>
               <button
                 disabled={pagination.page >= pagination.totalPages}
                 onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
-                className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+                className="h-8 px-3 rounded-[8px] border border-black/[0.06] text-[12px] font-medium text-[#6B7194] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#F4F6FA] transition-colors"
               >
                 Next
               </button>
@@ -310,6 +392,6 @@ export default function Pickups() {
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import { useLayout } from '../../components/layout/Layout';
 
 export default function CatalogManager() {
+  const { onMenuClick } = useLayout();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
@@ -73,9 +76,11 @@ export default function CatalogManager() {
   });
 
   return (
+    <>
+      <PageHeader title="Catalog" subtitle="Manage product categories and fixed-price items" onMenuClick={onMenuClick} hideSearch />
     <div className="space-y-6">
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div className="gc-card p-4">
         <div className="flex flex-col sm:flex-row gap-3 justify-between">
           <div className="flex gap-3 flex-1">
             <input
@@ -138,7 +143,7 @@ export default function CatalogManager() {
 
       {/* Items by category */}
       {Object.entries(grouped).map(([category, catItems]) => (
-        <div key={category} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div key={category} className="gc-card p-5">
           <h3 className="font-semibold text-gray-900 mb-3">{category} ({catItems.length})</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {catItems.map((item) => (
@@ -173,12 +178,13 @@ export default function CatalogManager() {
 
       {items.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-400 mb-4">No catalog items</p>
-          <button onClick={openCreate} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
+          <p className="text-[#9CA3C0] mb-4">No catalog items</p>
+          <button onClick={openCreate} className="px-4 h-10 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5]">
             Add First Item
           </button>
         </div>
       )}
     </div>
+    </>
   );
 }

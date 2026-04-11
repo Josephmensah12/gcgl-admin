@@ -3,9 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TransactionModal from '../components/TransactionModal';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 export default function PickupDetail() {
+  const { onMenuClick } = useLayout();
   const { id } = useParams();
   const [pickup, setPickup] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -90,11 +93,20 @@ export default function PickupDetail() {
   const voidedCount = transactions.filter((t) => t.voidedAt).length;
 
   return (
-    <div className="space-y-6">
-      <Link to="/pickups" className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700 gap-1">
+    <>
+      <PageHeader
+        title={`Invoice #${pickup.invoiceNumber}`}
+        subtitle={pickup.customerName}
+        onMenuClick={onMenuClick}
+        hideSearch
+      />
+
+      <Link to="/pickups" className="inline-flex items-center text-[13px] text-[#6366F1] hover:text-[#4F46E5] gap-1 mb-4 font-medium">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         Back to Invoices
       </Link>
+
+      <div className="space-y-6">
 
       {/* Transaction Modal */}
       {modal && (
@@ -109,7 +121,7 @@ export default function PickupDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invoice Info */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="gc-card p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Invoice #{pickup.invoiceNumber}</h2>
               <div className="flex items-center gap-2">
@@ -201,7 +213,7 @@ export default function PickupDetail() {
           </div>
 
           {/* Transaction History */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Transaction History</h3>
               {voidedCount > 0 && (
@@ -265,7 +277,7 @@ export default function PickupDetail() {
 
         {/* Sidebar Info */}
         <div className="space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Customer</h3>
             {editing ? (
               <div className="space-y-2">
@@ -288,7 +300,7 @@ export default function PickupDetail() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Recipient (Ghana)</h3>
             {editing ? (
               <div className="space-y-2">
@@ -310,7 +322,7 @@ export default function PickupDetail() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Shipment</h3>
             {editing ? (
               <select value={editForm.shipmentId} onChange={(e) => setEditForm({ ...editForm, shipmentId: e.target.value })}
@@ -329,7 +341,7 @@ export default function PickupDetail() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">Date</span><span>{new Date(pickup.createdAt).toLocaleDateString()}</span></div>
@@ -340,7 +352,7 @@ export default function PickupDetail() {
 
           {/* Payment Summary Card */}
           {txSummary && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="gc-card p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Payment Summary</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-gray-500">Invoice Total</span><span className="font-semibold">{fmt(txSummary.totalAmount)}</span></div>
@@ -358,6 +370,7 @@ export default function PickupDetail() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -2,11 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 const CUBIC_RATE = 0.011;
 
 export default function CreateInvoice() {
+  const { onMenuClick } = useLayout();
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1=customer, 2=recipient, 3=items, 4=review
 
@@ -219,6 +222,8 @@ export default function CreateInvoice() {
   const categories = [...new Set(catalog.map((c) => c.category))];
 
   return (
+    <>
+      <PageHeader title="Create Invoice" subtitle="Customer → recipient → items → review" onMenuClick={onMenuClick} hideSearch />
     <div className="max-w-3xl mx-auto space-y-6">
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold shadow-lg animate-fade-in">
@@ -242,7 +247,7 @@ export default function CreateInvoice() {
 
       {/* Step 1: Customer */}
       {step === 1 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="gc-card p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Select Customer</h2>
 
           <div className="relative mb-4">
@@ -289,7 +294,7 @@ export default function CreateInvoice() {
 
       {/* Step 2: Recipient */}
       {step === 2 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="gc-card p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-1">Select Recipient</h2>
           <p className="text-sm text-gray-500 mb-4">Ghana delivery address for {selectedCustomer?.fullName}</p>
 
@@ -349,7 +354,7 @@ export default function CreateInvoice() {
       {/* Step 3: Items */}
       {step === 3 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="gc-card p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Add Items</h2>
 
             {/* Type toggle */}
@@ -451,7 +456,7 @@ export default function CreateInvoice() {
 
           {/* Added items */}
           {lineItems.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="gc-card p-5">
               <h3 className="font-semibold text-gray-900 mb-3">Added Items ({lineItems.length})</h3>
               <div className="space-y-2">
                 {lineItems.map((li) => (
@@ -509,7 +514,7 @@ export default function CreateInvoice() {
       {/* Step 4: Review */}
       {step === 4 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="gc-card p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Review Invoice</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -547,7 +552,7 @@ export default function CreateInvoice() {
 
           {/* Shipment */}
           {shipments.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="gc-card p-5">
               <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Shipment</label>
               <select value={selectedShipment} onChange={(e) => setSelectedShipment(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm">
@@ -571,5 +576,6 @@ export default function CreateInvoice() {
         </div>
       )}
     </div>
+    </>
   );
 }

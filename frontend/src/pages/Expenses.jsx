@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 
 function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
@@ -118,6 +120,7 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
 }
 
 export default function Expenses() {
+  const { onMenuClick } = useLayout();
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [shipments, setShipments] = useState([]);
@@ -250,20 +253,22 @@ export default function Expenses() {
   if (loading) return <LoadingSpinner text="Loading expenses..." />;
 
   return (
+    <>
+      <PageHeader title="Expenses" subtitle="Manual expense tracking and categories" onMenuClick={onMenuClick} hideSearch />
     <div className="space-y-6">
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Total Expenses</p>
           <p className="text-2xl font-bold text-red-600">{fmt(totals.total)}</p>
           <p className="text-xs text-gray-400">{totals.count} entries</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Fixed Expenses</p>
           <p className="text-2xl font-bold text-purple-600">{fmt(expenses.filter((e) => e.is_fixed_cost).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0))}</p>
           <p className="text-xs text-gray-400">{expenses.filter((e) => e.is_fixed_cost).length} fixed entries</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Largest</p>
           <p className="text-2xl font-bold text-amber-600">{fmt(analytics?.summary?.max)}</p>
           <p className="text-xs text-gray-400">single expense</p>
@@ -307,7 +312,7 @@ export default function Expenses() {
       {activeTab === 'list' && (
         <>
           {/* Filters */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div className="gc-card p-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <input type="text" value={filters.search}
                 onChange={(e) => { setFilters((f) => ({ ...f, search: e.target.value })); setPagination((p) => ({ ...p, page: 1 })); }}
@@ -329,7 +334,7 @@ export default function Expenses() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="gc-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -420,7 +425,7 @@ export default function Expenses() {
           {/* Two graphs side by side */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Monthly Trend */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="gc-card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-5">Monthly Expense Trend</h3>
               <div className="flex items-end gap-2 h-64">
                 {monthData.map((m, i) => (
@@ -439,7 +444,7 @@ export default function Expenses() {
             </div>
 
             {/* Expenses by Shipment - Line Graph */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="gc-card p-6">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-semibold text-gray-900">Expenses by Shipment</h3>
                 {selectedShipmentFilter && (
@@ -502,7 +507,7 @@ export default function Expenses() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* By Category (filtered by selected shipment) */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="gc-card p-5">
               <h3 className="font-semibold text-gray-900 mb-1">By Category</h3>
               {selectedLabel && (
                 <p className="text-xs text-primary-600 font-medium mb-3">Filtered: {selectedLabel}</p>
@@ -528,7 +533,7 @@ export default function Expenses() {
             </div>
 
             {/* By Shipment */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="gc-card p-5">
               <h3 className="font-semibold text-gray-900 mb-4">By Shipment</h3>
               <div className="space-y-2">
                 {analytics.byShipment.map((s) => {
@@ -556,7 +561,7 @@ export default function Expenses() {
           </div>
 
           {/* Top Vendors */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-4">Top Vendors</h3>
             <div className="space-y-2">
               {analytics.topVendors.map((v, i) => (
@@ -576,7 +581,7 @@ export default function Expenses() {
       {activeTab === 'categories' && (
         <div className="space-y-4">
           {/* Add new category */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Add New Category</h3>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
@@ -601,7 +606,7 @@ export default function Expenses() {
           </div>
 
           {/* Category list */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="gc-card p-5">
             <h3 className="font-semibold text-gray-900 mb-4">Expense Categories ({categories.length})</h3>
             <div className="space-y-2">
               {categories.map((cat) => (
@@ -651,5 +656,6 @@ export default function Expenses() {
         </div>
       )}
     </div>
+    </>
   );
 }

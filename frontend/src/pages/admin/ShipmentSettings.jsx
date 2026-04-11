@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import PageHeader from '../../components/layout/PageHeader';
+import { useLayout } from '../../components/layout/Layout';
 
 export default function ShipmentSettings() {
+  const { onMenuClick } = useLayout();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,8 +32,10 @@ export default function ShipmentSettings() {
   if (loading) return <LoadingSpinner />;
 
   return (
+    <>
+      <PageHeader title="Shipment Configuration" subtitle="Capacity tracking and alert thresholds" onMenuClick={onMenuClick} hideSearch />
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="gc-card p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-6">Shipment Configuration</h2>
 
         <div className="space-y-6">
@@ -136,5 +141,6 @@ export default function ShipmentSettings() {
         </div>
       </div>
     </div>
+    </>
   );
 }
