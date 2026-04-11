@@ -1,27 +1,120 @@
 @import "tailwindcss";
 
 @theme {
-  --color-navy-900: #0f172a;
-  --color-navy-800: #1a2332;
-  --color-navy-700: #1e293b;
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-gold-400: #d4a843;
-  --color-gold-500: #b8922e;
+  /* ── Surface & background ────────────────────────────────── */
+  --color-bg-page: #F4F6FA;
+  --color-surface: #FFFFFF;
+  --color-border-card: rgba(0, 0, 0, 0.04);
+
+  /* Sidebar */
+  --color-sidebar-bg: #0F1629;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --color-sidebar-border: rgba(255, 255, 255, 0.06);
+
+  /* ── Text ─────────────────────────────────────────────────── */
+  --color-text-primary: #1A1D2B;
+  --color-text-secondary: #6B7194;
+  --color-text-muted: #9CA3C0;
+
+  /* ── Accent (indigo) ──────────────────────────────────────── */
+  --color-accent: #6366F1;
+  --color-accent-hover: #4F46E5;
+  --color-accent-bg: rgba(99, 102, 241, 0.08);
+  --color-accent-ring: rgba(99, 102, 241, 0.25);
+
+  /* ── Status palette ───────────────────────────────────────── */
+  --color-green: #10B981;
+  --color-green-bg: rgba(16, 185, 129, 0.08);
+
+  --color-red: #EF4444;
+  --color-red-bg: rgba(239, 68, 68, 0.07);
+
+  --color-amber: #F59E0B;
+  --color-amber-bg: rgba(245, 158, 11, 0.08);
+
+  --color-blue: #3B82F6;
+  --color-blue-bg: rgba(59, 130, 246, 0.08);
+
+  /* ── Backwards-compat aliases (existing pages still reference these) ── */
+  --color-primary-50: #EEF2FF;
+  --color-primary-100: #E0E7FF;
+  --color-primary-200: #C7D2FE;
+  --color-primary-500: #6366F1;
+  --color-primary-600: #6366F1;
+  --color-primary-700: #4F46E5;
+  --color-navy-900: #0F1629;
+  --color-navy-800: #131A30;
+  --color-navy-700: #1B2442;
+  --color-gold-400: #F59E0B;
+  --color-gold-500: #D97706;
+
+  /* ── Shadow tiers ─────────────────────────────────────────── */
+  --shadow-card-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  --shadow-card-md: 0 4px 20px rgba(0,0,0,0.06);
+  --shadow-card-lg: 0 10px 40px rgba(0,0,0,0.08);
+
+  /* ── Radius ───────────────────────────────────────────────── */
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  /* ── Font ─────────────────────────────────────────────────── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Global base ──────────────────────────────────────────── */
+html, body {
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #F4F6FA;
+  color: #1A1D2B;
   -webkit-font-smoothing: antialiased;
-  background-color: #f1f5f9;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv11', 'ss01';
 }
 
-::-webkit-scrollbar { width: 6px; }
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+
+/* ── Focus ring ───────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 2px;
+}
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.82); }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Utility: tabular figures for money ───────────────────── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

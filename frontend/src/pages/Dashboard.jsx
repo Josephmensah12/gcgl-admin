@@ -1,272 +1,382 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/layout/PageHeader';
+import { useLayout } from '../components/layout/Layout';
 
-function MetricCard({ title, value, subtitle, icon, color, trend }) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    amber: 'bg-amber-50 text-amber-600',
-    red: 'bg-red-50 text-red-600',
-    purple: 'bg-purple-50 text-purple-600',
-    gold: 'bg-yellow-50 text-yellow-700',
+/* ─────────────────────────────────────────────────────────── */
+/*  Helpers                                                    */
+/* ─────────────────────────────────────────────────────────── */
+
+const fmtCurrency = (n) =>
+  (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function SplitCurrency({ value }) {
+  const n = Number(value) || 0;
+  const [whole, dec] = n
+    .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .split('.');
+  return (
+    <span className="tabular-nums">
+      <span>${whole}</span>
+      <span className="text-[18px] text-[#9CA3C0]">.{dec}</span>
+    </span>
+  );
+}
+
+function initialsOf(name) {
+  return (name || '')
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?';
+}
+
+// Deterministic gradient per customer name
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #6366F1, #3B82F6)',
+  'linear-gradient(135deg, #10B981, #059669)',
+  'linear-gradient(135deg, #F59E0B, #D97706)',
+  'linear-gradient(135deg, #EF4444, #DC2626)',
+  'linear-gradient(135deg, #8B5CF6, #6366F1)',
+  'linear-gradient(135deg, #EC4899, #DB2777)',
+];
+function gradientFor(name) {
+  const hash = (name || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  KPI Card                                                   */
+/* ─────────────────────────────────────────────────────────── */
+
+function KpiCard({ label, value, subtext, trend, accent, icon }) {
+  const accents = {
+    gold:  { gradient: 'linear-gradient(135deg, #F59E0B, #D97706)', iconBg: 'rgba(245,158,11,0.08)', iconColor: '#F59E0B' },
+    blue:  { gradient: 'linear-gradient(135deg, #6366F1, #3B82F6)', iconBg: 'rgba(59,130,246,0.08)', iconColor: '#3B82F6' },
+    green: { gradient: 'linear-gradient(135deg, #10B981, #059669)', iconBg: 'rgba(16,185,129,0.08)', iconColor: '#10B981' },
+    red:   { gradient: 'linear-gradient(135deg, #EF4444, #DC2626)', iconBg: 'rgba(239,68,68,0.07)',  iconColor: '#EF4444' },
   };
+  const a = accents[accent] || accents.blue;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-gray-500 font-medium">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-          {trend && (
-            <span className={`inline-flex items-center mt-2 text-xs font-medium ${trend.up ? 'text-green-600' : 'text-red-500'}`}>
-              {trend.up ? '\u2191' : '\u2193'} {trend.label}
-            </span>
-          )}
-        </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color] || colorClasses.blue}`}>
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300">
+      <div
+        className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]"
+        style={{ background: a.gradient }}
+      />
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-[12.5px] font-medium text-[#6B7194]">{label}</p>
+        <div
+          className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center"
+          style={{ background: a.iconBg, color: a.iconColor }}
+        >
+          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
           </svg>
         </div>
       </div>
-    </div>
-  );
-}
-
-function AlertNotifications({ alerts, navigate }) {
-  const [visible, setVisible] = useState(true);
-  const [dismissed, setDismissed] = useState(new Set());
-
-  useEffect(() => {
-    if (alerts.length === 0) return;
-    const timer = setTimeout(() => setVisible(false), 8000);
-    return () => clearTimeout(timer);
-  }, [alerts]);
-
-  if (!alerts.length || !visible) return null;
-
-  const active = alerts.filter((_, i) => !dismissed.has(i));
-  if (active.length === 0) return null;
-
-  const typeStyles = {
-    error: 'bg-red-600',
-    warning: 'bg-amber-500',
-    info: 'bg-blue-500',
-  };
-
-  const typeIcons = {
-    error: 'M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    warning: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    info: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  };
-
-  return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm" style={{ animation: 'slideIn 0.3s ease' }}>
-      <style>{`
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateX(50px); } }
-      `}</style>
-      {alerts.map((alert, i) => {
-        if (dismissed.has(i)) return null;
-        return (
-          <div key={i} className={`${typeStyles[alert.type] || typeStyles.info} text-white rounded-lg shadow-lg px-4 py-3 flex items-start gap-3 cursor-pointer`}
-            onClick={() => { if (alert.link) navigate(alert.link); setDismissed((prev) => new Set([...prev, i])); }}>
-            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d={typeIcons[alert.type] || typeIcons.info} />
-            </svg>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">{alert.title}</p>
-              <p className="text-xs opacity-90 mt-0.5">{alert.message}</p>
-            </div>
-            <button className="text-white/70 hover:text-white flex-shrink-0" onClick={(e) => { e.stopPropagation(); setDismissed((prev) => new Set([...prev, i])); }}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function RecentPickupsTable({ pickups }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h3 className="font-semibold text-gray-900 mb-4">Recent Invoices</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-100">
-              <th className="pb-3 font-medium">Invoice #</th>
-              <th className="pb-3 font-medium">Customer</th>
-              <th className="pb-3 font-medium">Total</th>
-              <th className="pb-3 font-medium">Payment</th>
-              <th className="pb-3 font-medium">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {pickups.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50">
-                <td className="py-3 font-medium text-gray-900">#{p.invoiceNumber}</td>
-                <td className="py-3 text-gray-600">{p.customerName}</td>
-                <td className="py-3 font-medium">${parseFloat(p.finalTotal).toFixed(2)}</td>
-                <td className="py-3">
-                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                    ${p.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {p.paymentStatus}
-                  </span>
-                </td>
-                <td className="py-3 text-gray-500">{new Date(p.createdAt).toLocaleDateString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {pickups.length === 0 && <p className="text-center py-8 text-gray-400">No recent invoices</p>}
+      <div className="text-[28px] font-extrabold text-[#1A1D2B] tracking-[-0.8px] leading-none mb-2">
+        {value}
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        {subtext && <span className="text-[12px] text-[#9CA3C0] truncate">{subtext}</span>}
+        {trend && (
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-semibold ${
+              trend.variant === 'positive'
+                ? 'bg-[rgba(16,185,129,0.08)] text-[#10B981]'
+                : trend.variant === 'negative'
+                ? 'bg-[rgba(239,68,68,0.07)] text-[#EF4444]'
+                : 'bg-[rgba(99,102,241,0.08)] text-[#6366F1]'
+            }`}
+          >
+            {trend.arrow && <span>{trend.arrow}</span>}
+            {trend.label}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function RevenueChart({ data }) {
-  if (!data.length) return null;
+/* ─────────────────────────────────────────────────────────── */
+/*  Container Progress                                         */
+/* ─────────────────────────────────────────────────────────── */
 
-  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h3 className="font-semibold text-gray-900 mb-4">Revenue Trend</h3>
-      <div className="flex items-end gap-2 h-40">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <span className="text-xs text-gray-500 font-medium">
-              ${d.revenue >= 1000 ? `${(d.revenue / 1000).toFixed(1)}k` : d.revenue.toFixed(0)}
-            </span>
-            <div
-              className="w-full bg-primary-500 rounded-t-md min-h-[4px] transition-all"
-              style={{ height: `${(d.revenue / maxRevenue) * 120}px` }}
-            />
-            <span className="text-xs text-gray-400">{d.month.split(' ')[0]}</span>
-          </div>
-        ))}
+function ContainerProgress({ shipment }) {
+  if (!shipment) {
+    return (
+      <div className="bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
+        <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px] mb-4">Container Progress</h3>
+        <p className="text-[13px] text-[#9CA3C0]">No active shipment</p>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function ContainerGauge({ shipment }) {
-  if (!shipment) return null;
   const current = parseFloat(shipment.totalValue) || 0;
   const max = shipment.maxCapacity || 30000;
-  const pct = Math.min((current / max) * 100, 100);
-  const angle = (pct / 100) * 180; // 0-180 degrees for half circle
+  const pct = Math.min(Math.round((current / max) * 100), 100);
+  const circumference = 2 * Math.PI * 50;
+  const dashOffset = circumference * (1 - pct / 100);
 
-  // Color based on fill level
-  const getColor = (p) => {
-    if (p >= 90) return '#dc2626';
-    if (p >= 70) return '#f59e0b';
-    if (p >= 40) return '#2563eb';
-    return '#94a3b8';
-  };
-  const color = getColor(pct);
-  const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const stats = shipment.stats || {};
+  const totalInvoices = stats.invoiceCount || 0;
+  const paidValue = parseFloat(stats.paidValue) || 0;
+  const unpaidValue = parseFloat(stats.unpaidValue) || 0;
 
-  // SVG arc path
-  const startAngle = -180;
-  const endAngle = startAngle + angle;
-  const startRad = (startAngle * Math.PI) / 180;
-  const endRad = (endAngle * Math.PI) / 180;
-  const r = 80;
-  const cx = 100, cy = 100;
-  const x1 = cx + r * Math.cos(startRad);
-  const y1 = cy + r * Math.sin(startRad);
-  const x2 = cx + r * Math.cos(endRad);
-  const y2 = cy + r * Math.sin(endRad);
-  const largeArc = angle > 180 ? 1 : 0;
+  const startDate = shipment.start_date ? new Date(shipment.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-gray-900">Container Progress</h3>
-        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">collecting</span>
-      </div>
-      <p className="text-sm text-gray-500 mb-3">{shipment.name}</p>
-
-      <div className="flex justify-center">
-        <svg viewBox="0 0 200 120" className="w-full" style={{ maxWidth: '280px' }}>
-          {/* Background arc */}
-          <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-            fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round" />
-
-          {/* Progress arc */}
-          {pct > 0 && (
-            <path d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
-              fill="none" stroke={color} strokeWidth="18" strokeLinecap="round" />
-          )}
-
-          {/* Percentage text */}
-          <text x={cx} y={cy - 15} textAnchor="middle" className="text-[28px] font-black" fill={color}>
-            {Math.round(pct)}%
-          </text>
-          <text x={cx} y={cy + 5} textAnchor="middle" className="text-[12px] font-medium" fill="#6b7280">
-            {fmt(current)} / {fmt(max)}
-          </text>
-
-          {/* Min/Max labels */}
-          <text x={cx - r - 5} y={cy + 15} textAnchor="middle" className="text-[9px]" fill="#9ca3af">$0</text>
-          <text x={cx + r + 5} y={cy + 15} textAnchor="middle" className="text-[9px]" fill="#9ca3af">{fmt(max)}</text>
-        </svg>
+    <div className="bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Container Progress</h3>
+        <span className="px-2.5 py-1 rounded-md bg-[rgba(245,158,11,0.08)] text-[#F59E0B] text-[11px] font-semibold uppercase tracking-wide">
+          {shipment.status || 'collecting'}
+        </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-        <div>
-          <p className="text-xs text-gray-400">Invoices</p>
-          <p className="text-sm font-bold text-gray-800">{shipment.stats?.invoiceCount || 0}</p>
+      <div className="flex items-center gap-5">
+        {/* Ring */}
+        <div className="relative w-[160px] h-[160px] shrink-0">
+          <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+            <defs>
+              <linearGradient id="ring-gradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#6366F1" />
+                <stop offset="100%" stopColor="#3B82F6" />
+              </linearGradient>
+            </defs>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#EEF0F6" strokeWidth="10" />
+            <circle
+              cx="60"
+              cy="60"
+              r="50"
+              fill="none"
+              stroke="url(#ring-gradient)"
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div className="leading-none">
+              <span className="text-[32px] font-extrabold text-[#1A1D2B] tracking-[-1px]">{pct}</span>
+              <span className="text-[18px] font-semibold text-[#9CA3C0] ml-0.5">%</span>
+            </div>
+            <p className="text-[11px] text-[#6B7194] mt-1">${fmtCurrency(current)}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs text-gray-400">Paid</p>
-          <p className="text-sm font-bold text-green-600">{fmt(shipment.stats?.paidValue || 0)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-400">Unpaid</p>
-          <p className="text-sm font-bold text-red-600">{fmt(shipment.stats?.unpaidValue || 0)}</p>
+
+        {/* Stat rows */}
+        <div className="flex-1 space-y-2 min-w-0">
+          <StatRow label="Total Invoices" value={totalInvoices} />
+          <StatRow label="Paid" value={`$${fmtCurrency(paidValue)}`} valueColor="#10B981" />
+          <StatRow label="Unpaid" value={`$${fmtCurrency(unpaidValue)}`} valueColor="#EF4444" />
+          <StatRow label="Container Date" value={startDate} valueColor="#F59E0B" valueSize="13px" />
         </div>
       </div>
     </div>
   );
 }
+
+function StatRow({ label, value, valueColor = '#1A1D2B', valueSize = '14px' }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 rounded-[10px] bg-[#F4F6FA]">
+      <span className="text-[12px] font-medium text-[#6B7194]">{label}</span>
+      <span
+        className="font-bold tabular-nums"
+        style={{ color: valueColor, fontSize: valueSize }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Revenue Trend                                              */
+/* ─────────────────────────────────────────────────────────── */
+
+function RevenueTrend({ data }) {
+  const items = (data || []).slice(-6);
+  const maxRevenue = Math.max(...items.map((d) => Number(d.revenue) || 0), 1);
+  const peakIdx = items.reduce((best, d, i) => (Number(d.revenue) > Number(items[best].revenue) ? i : best), 0);
+
+  const formatK = (n) => {
+    const v = Number(n) || 0;
+    if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`;
+    return `$${Math.round(v)}`;
+  };
+
+  return (
+    <div className="bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Revenue Trend</h3>
+        <span className="px-2.5 py-1 rounded-md bg-[rgba(99,102,241,0.08)] text-[#6366F1] text-[11px] font-semibold">
+          6 Months
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-center py-10 text-[13px] text-[#9CA3C0]">No revenue data yet</p>
+      ) : (
+        <div className="flex items-end gap-3 h-[200px]">
+          {items.map((d, i) => {
+            const rev = Number(d.revenue) || 0;
+            const height = Math.max(4, (rev / maxRevenue) * 165);
+            const isPeak = i === peakIdx;
+            const month = String(d.month || '').split(' ')[0];
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-semibold text-[#6B7194]">{formatK(rev)}</span>
+                <div
+                  className="w-full max-w-[48px] rounded-t-[8px] rounded-b-[4px] transition-all duration-500 hover:brightness-110"
+                  style={{
+                    height: `${height}px`,
+                    background: isPeak
+                      ? 'linear-gradient(180deg, #F59E0B, #D97706)'
+                      : 'linear-gradient(180deg, #6366F1, #3B82F6)',
+                    boxShadow: isPeak ? '0 4px 15px rgba(245,158,11,0.25)' : 'none',
+                  }}
+                />
+                <span className="text-[11.5px] font-medium text-[#9CA3C0]">{month}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Recent Invoices                                            */
+/* ─────────────────────────────────────────────────────────── */
+
+function RecentInvoicesTable({ pickups, totalCount }) {
+  return (
+    <div className="bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-black/[0.03]">
+        <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Recent Invoices</h3>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13.5px]">
+          <thead>
+            <tr className="bg-[#F4F6FA]">
+              <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Invoice #</th>
+              <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Customer</th>
+              <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Total</th>
+              <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Status</th>
+              <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pickups.map((p) => {
+              const statusColors =
+                p.paymentStatus === 'paid'
+                  ? { bg: 'rgba(16,185,129,0.08)', color: '#10B981' }
+                  : p.paymentStatus === 'partial'
+                  ? { bg: 'rgba(245,158,11,0.08)', color: '#F59E0B' }
+                  : { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
+              return (
+                <tr
+                  key={p.id}
+                  className="border-b border-black/[0.03] last:border-0 hover:bg-[rgba(99,102,241,0.02)] transition-colors"
+                >
+                  <td className="px-6 py-3.5">
+                    <Link
+                      to={`/pickups/${p.id}`}
+                      className="font-bold text-[#6366F1] hover:text-[#4F46E5]"
+                    >
+                      #{p.invoiceNumber}
+                    </Link>
+                  </td>
+                  <td className="px-6 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-[30px] h-[30px] rounded-[8px] shrink-0 flex items-center justify-center text-white text-[11px] font-bold"
+                        style={{ background: gradientFor(p.customerName) }}
+                      >
+                        {initialsOf(p.customerName)}
+                      </div>
+                      <span className="font-medium text-[#1A1D2B] truncate">{p.customerName}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-3.5 font-bold text-[#1A1D2B] tabular-nums">
+                    ${fmtCurrency(p.finalTotal)}
+                  </td>
+                  <td className="px-6 py-3.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold capitalize"
+                      style={{ background: statusColors.bg, color: statusColors.color }}
+                    >
+                      <span
+                        className="w-[5px] h-[5px] rounded-full"
+                        style={{ background: 'currentColor' }}
+                      />
+                      {p.paymentStatus}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3.5 text-[#6B7194]">
+                    {new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {pickups.length === 0 && (
+          <p className="text-center py-12 text-[#9CA3C0]">No recent invoices</p>
+        )}
+      </div>
+
+      <Link
+        to="/pickups"
+        className="block text-center py-3.5 border-t border-black/[0.03] text-[13px] font-semibold text-[#6366F1] hover:bg-[rgba(99,102,241,0.04)] transition-colors"
+      >
+        View all {totalCount ? `${totalCount} ` : ''}invoices →
+      </Link>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Page                                                       */
+/* ─────────────────────────────────────────────────────────── */
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { onMenuClick } = useLayout();
   const [metrics, setMetrics] = useState(null);
   const [chart, setChart] = useState([]);
   const [pickups, setPickups] = useState([]);
-  const [alerts, setAlerts] = useState([]);
   const [activeShipment, setActiveShipment] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [totalInvoices, setTotalInvoices] = useState(0);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+  useEffect(() => { loadDashboard(); }, []);
 
   const loadDashboard = async () => {
     try {
-      const [metricsRes, chartRes, pickupsRes, alertsRes, shipmentsRes] = await Promise.all([
+      const [metricsRes, chartRes, pickupsRes, shipmentsRes, invoiceListRes] = await Promise.all([
         axios.get('/api/v1/dashboard/metrics'),
         axios.get('/api/v1/dashboard/revenue-chart'),
         axios.get('/api/v1/dashboard/recent-pickups'),
-        axios.get('/api/v1/dashboard/alerts'),
         axios.get('/api/v1/shipments?status=collecting&limit=1'),
+        axios.get('/api/v1/pickups?page=1&limit=1'),
       ]);
       setMetrics(metricsRes.data.data);
       setChart(chartRes.data.data);
       setPickups(pickupsRes.data.data);
-      setAlerts(alertsRes.data.data);
       const ships = shipmentsRes.data.data.shipments || [];
       if (ships.length > 0) setActiveShipment(ships[0]);
+      setTotalInvoices(invoiceListRes.data.data.pagination?.total || 0);
     } catch (err) {
       console.error('Dashboard error:', err);
     } finally {
@@ -276,58 +386,65 @@ export default function Dashboard() {
 
   if (loading) return <LoadingSpinner text="Loading dashboard..." />;
 
-  const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const revenueTrend = metrics?.revenueLastMonth > 0
-    ? { up: metrics.revenueThisMonth >= metrics.revenueLastMonth, label: `${Math.abs(Math.round(((metrics.revenueThisMonth - metrics.revenueLastMonth) / metrics.revenueLastMonth) * 100))}% vs last month` }
-    : null;
+  const revenueTrend =
+    metrics?.revenueLastMonth > 0
+      ? {
+          arrow: metrics.revenueThisMonth >= metrics.revenueLastMonth ? '↑' : '↓',
+          variant: metrics.revenueThisMonth >= metrics.revenueLastMonth ? 'positive' : 'negative',
+          label: `${Math.abs(Math.round(((metrics.revenueThisMonth - metrics.revenueLastMonth) / metrics.revenueLastMonth) * 100))}% vs last month`,
+        }
+      : null;
 
   return (
-    <div className="space-y-6">
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Warehouse Invoices"
-          value={metrics?.warehouseItems || 0}
-          subtitle={fmt(metrics?.warehouseValue)}
+    <>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Welcome back — here's what's happening today."
+        onMenuClick={onMenuClick}
+      />
+
+      {/* KPI row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[18px] mb-[18px]">
+        <KpiCard
+          label="Warehouse Invoices"
+          value={metrics?.warehouseItems ?? 0}
+          subtext={`$${fmtCurrency(metrics?.warehouseValue)} total`}
+          accent="gold"
           icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-          color="blue"
         />
-        <MetricCard
-          title="Active Shipments"
-          value={metrics?.activeShipments || 0}
-          subtitle="Collecting & ready"
+        <KpiCard
+          label="Active Shipments"
+          value={metrics?.activeShipments ?? 0}
+          subtext="Collecting & ready"
+          accent="blue"
           icon="M8 17h8M8 17l-2 2m2-2l-2-2m10 2l2 2m-2-2l2-2M3 9h18M3 9a2 2 0 012-2h14a2 2 0 012 2M3 9v8a2 2 0 002 2h14a2 2 0 002-2V9"
-          color="purple"
         />
-        <MetricCard
-          title="Revenue This Month"
-          value={fmt(metrics?.revenueThisMonth)}
-          subtitle={`${metrics?.invoicesThisMonth || 0} invoices`}
-          icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          color="green"
+        <KpiCard
+          label="Revenue This Month"
+          value={<SplitCurrency value={metrics?.revenueThisMonth} />}
+          subtext={`${metrics?.invoicesThisMonth || 0} invoices`}
           trend={revenueTrend}
+          accent="green"
+          icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
         />
-        <MetricCard
-          title="Unpaid Invoices"
-          value={fmt(metrics?.unpaidTotal)}
-          subtitle={`${metrics?.unpaidCount || 0} invoices`}
+        <KpiCard
+          label="Unpaid Invoices"
+          value={<SplitCurrency value={metrics?.unpaidTotal} />}
+          subtext={`${metrics?.unpaidCount || 0} invoices`}
+          trend={{ variant: 'negative', label: 'Needs attention' }}
+          accent="red"
           icon="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          color="red"
         />
       </div>
 
-      {/* Alert Notifications - top right corner */}
-      <AlertNotifications alerts={alerts} navigate={navigate} />
-
-      {/* Charts & Gauge */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ContainerGauge shipment={activeShipment} />
-        <RevenueChart data={chart} />
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
+        <ContainerProgress shipment={activeShipment} />
+        <RevenueTrend data={chart} />
       </div>
 
-      {/* Recent Invoices */}
-      <RecentPickupsTable pickups={pickups} />
-    </div>
+      {/* Recent invoices */}
+      <RecentInvoicesTable pickups={pickups} totalCount={totalInvoices} />
+    </>
   );
 }
