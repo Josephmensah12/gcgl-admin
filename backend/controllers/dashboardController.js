@@ -155,24 +155,36 @@ exports.getAlerts = asyncHandler(async (req, res) => {
     });
   }
 
-  // Shipments near capacity
+  // Shipments near capacity (compute totalValue on the fly)
   const settings = await db.Setting.findByPk(1);
   const threshold = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
-  const nearCapacity = await db.Shipment.findAll({
-    where: {
-      status: 'collecting',
-      totalValue: { [Op.gte]: threshold * 0.9 },
-    },
-  });
-  nearCapacity.forEach((s) => {
-    alerts.push({
-      type: 'info',
-      title: 'Shipment Near Capacity',
-      message: `${s.name} is at $${parseFloat(s.totalValue).toLocaleString()} / $${threshold.toLocaleString()}`,
-      link: `/shipments/${s.id}`,
+  const collecting = await db.Shipment.findAll({ where: { status: 'collecting' } });
+  if (collecting.length > 0) {
+    const totals = await db.Invoice.findAll({
+      where: { shipmentId: { [Op.in]: collecting.map((s) => s.id) }, status: 'completed' },
+      attributes: [
+        'shipmentId',
+        [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue'],
+      ],
+      group: ['shipmentId'],
+      raw: true,
     });
-  });
+    const totalMap = {};
+    for (const t of totals) totalMap[t.shipmentId] = parseFloat(t.totalValue) || 0;
+
+    for (const s of collecting) {
+      const tv = totalMap[s.id] || 0;
+      if (tv >= threshold * 0.9) {
+        alerts.push({
+          type: 'info',
+          title: 'Shipment Near Capacity',
+          message: `${s.name} is at $${tv.toLocaleString()} / $${threshold.toLocaleString()}`,
+          link: `/shipments/${s.id}`,
+        });
+      }
+    }
+  }
 
   // Unpaid invoices > 30 days
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

@@ -35,9 +35,23 @@ const FixedCostAllocationService = {
       result.allocated = dailyRate;
       result.shipments = [{ id: activeShipments[0].id, name: activeShipments[0].name, amount: dailyRate }];
     } else {
-      const totalValue = activeShipments.reduce((s, sh) => s + (parseFloat(sh.totalValue) || 0), 0);
+      // Compute fresh totalValue per shipment (cached column can drift)
+      const sumRows = await db.Invoice.findAll({
+        where: { shipmentId: { [Op.in]: activeShipments.map((s) => s.id) }, status: 'completed' },
+        attributes: [
+          'shipmentId',
+          [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue'],
+        ],
+        group: ['shipmentId'],
+        raw: true,
+      });
+      const tvMap = {};
+      for (const r of sumRows) tvMap[r.shipmentId] = parseFloat(r.totalValue) || 0;
+
+      const totalValue = activeShipments.reduce((s, sh) => s + (tvMap[sh.id] || 0), 0);
       for (const sh of activeShipments) {
-        const proportion = totalValue > 0 ? (parseFloat(sh.totalValue) || 0) / totalValue : 1 / activeShipments.length;
+        const shTv = tvMap[sh.id] || 0;
+        const proportion = totalValue > 0 ? shTv / totalValue : 1 / activeShipments.length;
         const amount = Math.round(dailyRate * proportion * 100) / 100;
         await this.allocateToShipment(sh.id, today, dailyRate, amount, monthYear, 'automatic');
         result.shipments.push({ id: sh.id, name: sh.name, amount });

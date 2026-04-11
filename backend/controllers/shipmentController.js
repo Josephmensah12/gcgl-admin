@@ -52,12 +52,17 @@ exports.list = asyncHandler(async (req, res) => {
   const settings = await db.Setting.findByPk(1);
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
-  const shipments = rows.map((s) => ({
-    ...s.toJSON(),
-    stats: statsMap[s.id] || { invoiceCount: 0, totalValue: 0, paidValue: 0, unpaidValue: 0 },
-    capacityPercent: Math.min(100, Math.round(((parseFloat(s.totalValue) || 0) / maxCapacity) * 100)),
-    maxCapacity,
-  }));
+  const shipments = rows.map((s) => {
+    const stats = statsMap[s.id] || { invoiceCount: 0, totalValue: 0, paidValue: 0, unpaidValue: 0 };
+    return {
+      ...s.toJSON(),
+      // Override stored total_value with fresh SUM of assigned invoices (cached column can drift)
+      totalValue: stats.totalValue,
+      stats,
+      capacityPercent: Math.min(100, Math.round((stats.totalValue / maxCapacity) * 100)),
+      maxCapacity,
+    };
+  });
 
   res.json({
     success: true,
@@ -94,11 +99,20 @@ exports.getById = asyncHandler(async (req, res) => {
   const settings = await db.Setting.findByPk(1);
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
+  // Compute fresh totalValue from assigned invoices (cached column can drift)
+  const totals = await db.Invoice.findOne({
+    where: { shipmentId: shipment.id, status: 'completed' },
+    attributes: [[db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue']],
+    raw: true,
+  });
+  const totalValue = parseFloat(totals?.totalValue) || 0;
+
   res.json({
     success: true,
     data: {
       ...shipment.toJSON(),
-      capacityPercent: Math.min(100, Math.round(((parseFloat(shipment.totalValue) || 0) / maxCapacity) * 100)),
+      totalValue,
+      capacityPercent: Math.min(100, Math.round((totalValue / maxCapacity) * 100)),
       maxCapacity,
     },
   });
@@ -163,11 +177,29 @@ exports.getActiveShipments = asyncHandler(async (req, res) => {
   const settings = await db.Setting.findByPk(1);
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
-  const result = shipments.map((s) => ({
-    ...s.toJSON(),
-    capacityPercent: Math.min(100, Math.round(((parseFloat(s.totalValue) || 0) / maxCapacity) * 100)),
-    maxCapacity,
-  }));
+  // Compute fresh totalValue per shipment (cached column can drift)
+  const shipmentIds = shipments.map((s) => s.id);
+  const stats = await db.Invoice.findAll({
+    where: { shipmentId: { [Op.in]: shipmentIds }, status: 'completed' },
+    attributes: [
+      'shipmentId',
+      [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue'],
+    ],
+    group: ['shipmentId'],
+    raw: true,
+  });
+  const totalValueMap = {};
+  for (const s of stats) totalValueMap[s.shipmentId] = parseFloat(s.totalValue) || 0;
+
+  const result = shipments.map((s) => {
+    const totalValue = totalValueMap[s.id] || 0;
+    return {
+      ...s.toJSON(),
+      totalValue,
+      capacityPercent: Math.min(100, Math.round((totalValue / maxCapacity) * 100)),
+      maxCapacity,
+    };
+  });
 
   res.json({ success: true, data: result });
 });
