@@ -29,6 +29,44 @@ function initialsOf(name) {
     .toUpperCase() || '?';
 }
 
+// Compute a {from, to} ISO date range for a named preset.
+// 'month' uses the second argument (YYYY-MM).
+function computeDateRange(preset, monthYear) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+  const endOfDay   = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  switch (preset) {
+    case 'today': {
+      return { from: startOfDay(now).toISOString(), to: endOfDay(now).toISOString() };
+    }
+    case 'week': {
+      // Week starts on Sunday. 0 = Sunday
+      const dayOfWeek = now.getDay();
+      const start = new Date(y, m, d - dayOfWeek, 0, 0, 0);
+      return { from: start.toISOString(), to: endOfDay(now).toISOString() };
+    }
+    case 'month': {
+      const [yy, mm] = (monthYear || `${y}-${String(m + 1).padStart(2, '0')}`).split('-').map(Number);
+      const start = new Date(yy, mm - 1, 1, 0, 0, 0);
+      const end = new Date(yy, mm, 0, 23, 59, 59, 999); // day 0 of next month = last day of this month
+      return { from: start.toISOString(), to: end.toISOString() };
+    }
+    case 'year': {
+      return {
+        from: new Date(y, 0, 1, 0, 0, 0).toISOString(),
+        to: new Date(y, 11, 31, 23, 59, 59, 999).toISOString(),
+      };
+    }
+    case 'all':
+    default:
+      return { from: '', to: '' };
+  }
+}
+
 export default function Pickups() {
   const navigate = useNavigate();
   const { onMenuClick } = useLayout();
@@ -46,10 +84,20 @@ export default function Pickups() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
 
+  // Date filter state
+  const [datePreset, setDatePreset] = useState('all'); // 'all' | 'today' | 'week' | 'month' | 'year'
+  const [monthYear, setMonthYear] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
   const loadPickups = useCallback(async () => {
     try {
       const params = { page: pagination.page, limit: pagination.limit, search, sortBy, sortOrder };
       if (filter === 'unassigned') params.unassigned = 'true';
+      const { from, to } = computeDateRange(datePreset, monthYear);
+      if (from) params.dateFrom = from;
+      if (to) params.dateTo = to;
       const res = await axios.get('/api/v1/pickups', { params });
       setPickups(res.data.data.pickups);
       setPagination((prev) => ({ ...prev, ...res.data.data.pagination }));
@@ -58,7 +106,12 @@ export default function Pickups() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, search, filter, sortBy, sortOrder]);
+  }, [pagination.page, pagination.limit, search, filter, sortBy, sortOrder, datePreset, monthYear]);
+
+  const selectPreset = (preset) => {
+    setDatePreset(preset);
+    setPagination((p) => ({ ...p, page: 1 }));
+  };
 
   const toggleSort = (col) => {
     if (sortBy === col) {
@@ -222,6 +275,42 @@ export default function Pickups() {
                 Unassign
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Date filter row */}
+        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-black/[0.04]">
+          <span className="text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px] mr-1">Date</span>
+          {[
+            { key: 'all',   label: 'All'       },
+            { key: 'today', label: 'Today'     },
+            { key: 'week',  label: 'This Week' },
+            { key: 'month', label: 'Month'     },
+            { key: 'year',  label: 'This Year' },
+          ].map(({ key, label }) => {
+            const active = datePreset === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => selectPreset(key)}
+                className={`h-8 px-3 rounded-[8px] text-[12px] font-semibold transition-all ${
+                  active
+                    ? 'bg-[#6366F1] text-white shadow-[0_2px_8px_rgba(99,102,241,0.25)]'
+                    : 'bg-[#F4F6FA] text-[#6B7194] hover:bg-[#E9EBF2]'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+          {datePreset === 'month' && (
+            <input
+              type="month"
+              value={monthYear}
+              onChange={(e) => { setMonthYear(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+              className="h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none ml-1"
+            />
           )}
         </div>
       </div>

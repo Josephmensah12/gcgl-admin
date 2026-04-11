@@ -8,6 +8,7 @@ exports.list = asyncHandler(async (req, res) => {
     page = 1, limit = 20, search = '', status = '', category = '',
     shipmentId = '', sortBy = 'created_at', sortOrder = 'DESC',
     unassigned = '',
+    dateFrom = '', dateTo = '',
   } = req.query;
 
   const where = { status: 'completed' };
@@ -31,6 +32,14 @@ exports.list = asyncHandler(async (req, res) => {
     ];
   } else if (shipmentId) {
     where.shipmentId = shipmentId;
+  }
+
+  // Date range on createdAt — both inclusive. Accepts ISO strings or YYYY-MM-DD.
+  if (dateFrom || dateTo) {
+    const range = {};
+    if (dateFrom) range[Op.gte] = new Date(dateFrom);
+    if (dateTo) range[Op.lte] = new Date(dateTo);
+    where.createdAt = range;
   }
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
