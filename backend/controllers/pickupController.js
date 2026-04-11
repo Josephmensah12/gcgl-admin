@@ -39,6 +39,10 @@ exports.list = asyncHandler(async (req, res) => {
     limit: parseInt(limit),
     offset,
     order: [[sortBy, sortOrder]],
+    // distinct + col is required so the count isn't inflated by the LEFT JOIN
+    // on lineItems (one row per line item would turn 297 invoices into 1032).
+    distinct: true,
+    col: 'id',
     include: [
       { model: db.Customer, attributes: ['fullName', 'phone', 'email'] },
       { model: db.Shipment, attributes: ['id', 'name', 'status'] },

@@ -22,6 +22,9 @@ exports.list = asyncHandler(async (req, res) => {
     limit: parseInt(limit),
     offset,
     order: [[sortBy, sortOrder]],
+    // distinct avoids count inflation from the has-many recipients join
+    distinct: true,
+    col: 'id',
     include: [
       { model: db.Recipient, as: 'recipients', attributes: ['id', 'firstName', 'lastName', 'phone', 'city'] },
     ],
