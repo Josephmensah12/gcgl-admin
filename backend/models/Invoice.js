@@ -28,7 +28,42 @@ module.exports = (sequelize) => {
     shipmentId: DataTypes.STRING,
     status: { type: DataTypes.STRING, defaultValue: 'completed' },
     lastEditedAt: DataTypes.DATE,
-  }, { tableName: 'invoices', underscored: true });
+  }, {
+    tableName: 'invoices',
+    underscored: true,
+    hooks: {
+      /**
+       * Auto-assign shipment by date when an invoice is created or saved
+       * without one. Finds the most recent shipment whose start_date is on
+       * or before the invoice's createdAt. Prevents orphaned invoices from
+       * imports, renumbers, and manual creation.
+       */
+      afterSave: async (instance) => {
+        if (instance.shipmentId && instance.shipmentId !== '') return;
+        try {
+          const Shipment = sequelize.models.Shipment;
+          if (!Shipment) return;
+          const invDate = instance.createdAt || new Date();
+          const ship = await Shipment.findOne({
+            where: {
+              start_date: { [require('sequelize').Op.lte]: invDate },
+            },
+            order: [['start_date', 'DESC']],
+          });
+          if (ship) {
+            // Use raw query to avoid re-triggering this hook
+            await sequelize.query(
+              'UPDATE invoices SET shipment_id = :sid WHERE id = :id AND (shipment_id IS NULL OR shipment_id = \'\')',
+              { replacements: { sid: ship.id, id: instance.id } }
+            );
+            instance.shipmentId = ship.id;
+          }
+        } catch (e) {
+          console.error('Auto-assign shipment failed for invoice', instance.id, ':', e.message);
+        }
+      },
+    },
+  });
 
   Invoice.associate = (db) => {
     Invoice.hasMany(db.LineItem, { foreignKey: 'invoiceId', as: 'lineItems', onDelete: 'CASCADE' });
