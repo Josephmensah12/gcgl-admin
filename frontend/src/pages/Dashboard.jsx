@@ -180,6 +180,41 @@ function ContainerProgress({ shipment }) {
           <StatRow label="Container Date" value={startDate} valueColor="#F59E0B" valueSize="13px" />
         </div>
       </div>
+
+      {/* Tracking info (if tracking number set) */}
+      {shipment.trackingNumber && (
+        <div className="mt-4 pt-4 border-t border-black/[0.03]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#6366F1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              <span className="text-[12px] font-bold text-[#1A1D2B] tracking-wide">{shipment.trackingNumber}</span>
+              <span className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[10px] font-semibold text-[#6B7194]">{shipment.carrier || 'MSC'}</span>
+            </div>
+            {shipment.eta && (
+              <div className="text-right">
+                <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide">ETA</p>
+                <p className="text-[13px] font-bold text-[#6366F1]">
+                  {new Date(shipment.eta).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {(() => {
+                    const days = Math.ceil((new Date(shipment.eta) - new Date()) / 86400000);
+                    if (days > 0) return <span className="text-[10.5px] text-[#9CA3C0] ml-1">({days}d)</span>;
+                    if (days === 0) return <span className="text-[10.5px] text-[#10B981] ml-1">(today)</span>;
+                    return <span className="text-[10.5px] text-[#EF4444] ml-1">({Math.abs(days)}d ago)</span>;
+                  })()}
+                </p>
+              </div>
+            )}
+          </div>
+          {shipment.vesselName && (
+            <p className="text-[11.5px] text-[#6B7194]">
+              <span className="font-semibold">{shipment.vesselName}</span>
+              {shipment.voyageNumber && <span className="text-[#9CA3C0]"> · Voyage {shipment.voyageNumber}</span>}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

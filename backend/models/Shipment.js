@@ -10,6 +10,14 @@ module.exports = (sequelize) => {
     totalVolume: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
     totalWeight: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
     shippedAt: DataTypes.DATE,
+    // Container tracking
+    trackingNumber: { type: DataTypes.STRING, allowNull: true },
+    carrier: { type: DataTypes.STRING, defaultValue: 'MSC' },
+    vesselName: { type: DataTypes.STRING, allowNull: true },
+    voyageNumber: { type: DataTypes.STRING, allowNull: true },
+    eta: { type: DataTypes.DATEONLY, allowNull: true },
+    departureDate: { type: DataTypes.DATEONLY, allowNull: true },
+    terminal49TrackerId: { type: DataTypes.STRING, allowNull: true },
     // Fixed cost allocation fields
     start_date: { type: DataTypes.DATEONLY, allowNull: true },
     end_date: { type: DataTypes.DATEONLY, allowNull: true },
@@ -25,6 +33,7 @@ module.exports = (sequelize) => {
   Shipment.associate = (db) => {
     Shipment.hasMany(db.Invoice, { foreignKey: 'shipmentId', as: 'invoices' });
     Shipment.hasMany(db.FixedCostAllocation, { foreignKey: 'shipment_id', as: 'fixedCostAllocations' });
+    Shipment.hasMany(db.ShipmentEvent, { foreignKey: 'shipmentId', as: 'events' });
   };
 
   return Shipment;

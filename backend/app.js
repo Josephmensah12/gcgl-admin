@@ -45,6 +45,13 @@ app.use(`${API_BASE}/financial-reports`, require('./routes/financialReportRoutes
 // Square webhook — no auth middleware (Square's servers call this directly)
 const pickupController = require('./controllers/pickupController');
 app.post(`${API_BASE}/webhooks/square`, pickupController.squareWebhook);
+
+// Terminal49 webhook — no auth (Terminal49 servers call this directly)
+const trackingController = require('./controllers/trackingController');
+app.post(`${API_BASE}/webhooks/terminal49`, trackingController.terminal49Webhook);
+
+// Tracking routes (authenticated)
+app.use(`${API_BASE}`, require('./routes/trackingRoutes'));
 app.use(`${API_BASE}/settings`, require('./routes/settingsRoutes'));
 app.use(`${API_BASE}/catalog`, require('./routes/catalogRoutes'));
 

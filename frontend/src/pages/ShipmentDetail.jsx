@@ -252,6 +252,9 @@ export default function ShipmentDetail() {
         Back to Shipments
       </Link>
 
+      {/* Tracking card */}
+      <TrackingCard shipment={shipment} onUpdated={(s) => setShipment((prev) => ({ ...prev, ...s }))} />
+
       {/* Header */}
       <div className="gc-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -781,5 +784,192 @@ export default function ShipmentDetail() {
       )}
     </div>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Tracking card with container # input + event timeline      */
+/* ─────────────────────────────────────────────────────────── */
+
+function TrackingCard({ shipment, onUpdated }) {
+  const [trackingInput, setTrackingInput] = useState(shipment.trackingNumber || '');
+  const [carrierInput, setCarrierInput] = useState(shipment.carrier || 'MSC');
+  const [saving, setSaving] = useState(false);
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (shipment.trackingNumber) loadEvents();
+  }, [shipment.id, shipment.trackingNumber]);
+
+  const loadEvents = async () => {
+    setLoadingEvents(true);
+    try {
+      const res = await axios.get(`/api/v1/shipments/${shipment.id}/events`);
+      setEvents(res.data.data.events || []);
+    } catch {} finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const saveTracking = async () => {
+    if (!trackingInput.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await axios.post(`/api/v1/shipments/${shipment.id}/track`, {
+        tracking_number: trackingInput.trim(),
+        carrier: carrierInput,
+      });
+      onUpdated({
+        trackingNumber: trackingInput.trim(),
+        carrier: carrierInput,
+        terminal49TrackerId: res.data.data.trackerId,
+      });
+      loadEvents();
+    } catch (err) {
+      setError(err.response?.data?.error?.message || err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasTracking = Boolean(shipment.trackingNumber);
+
+  // ETA countdown
+  let etaLabel = null;
+  if (shipment.eta) {
+    const days = Math.ceil((new Date(shipment.eta) - new Date()) / 86400000);
+    if (days > 0) etaLabel = `${days} day${days === 1 ? '' : 's'} away`;
+    else if (days === 0) etaLabel = 'Arriving today';
+    else etaLabel = `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
+  }
+
+  const eventIcon = (type) => {
+    if (type.includes('departed') || type.includes('loaded')) return '🚢';
+    if (type.includes('arrived') || type.includes('discharged')) return '⚓';
+    if (type.includes('transit')) return '🌊';
+    if (type.includes('customs') || type.includes('gate')) return '📦';
+    if (type.includes('delivered') || type.includes('out')) return '✅';
+    return '📍';
+  };
+
+  return (
+    <div className="gc-card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-[#6366F1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <h3 className="text-[15px] font-bold text-[#1A1D2B]">Container Tracking</h3>
+        </div>
+        {hasTracking && (
+          <span className="px-2.5 py-1 rounded-md bg-[rgba(16,185,129,0.08)] text-[#10B981] text-[11px] font-semibold">
+            Active
+          </span>
+        )}
+      </div>
+
+      {!hasTracking ? (
+        <div>
+          <p className="text-[13px] text-[#6B7194] mb-3">
+            Enter a container or B/L number to start tracking this shipment via Terminal49.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={trackingInput}
+              onChange={(e) => setTrackingInput(e.target.value)}
+              placeholder="Container # or B/L (e.g. MSCU1234567)"
+              className="h-10 flex-1 min-w-[200px] px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] outline-none"
+            />
+            <select
+              value={carrierInput}
+              onChange={(e) => setCarrierInput(e.target.value)}
+              className="h-10 px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px]"
+            >
+              <option value="MSC">MSC</option>
+              <option value="MAERSK">Maersk</option>
+              <option value="CMA CGM">CMA CGM</option>
+              <option value="HAPAG-LLOYD">Hapag-Lloyd</option>
+              <option value="COSCO">COSCO</option>
+              <option value="EVERGREEN">Evergreen</option>
+              <option value="ONE">ONE</option>
+              <option value="ZIM">ZIM</option>
+            </select>
+            <button
+              onClick={saveTracking}
+              disabled={saving || !trackingInput.trim()}
+              className="h-10 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
+            >
+              {saving ? 'Activating...' : 'Start Tracking'}
+            </button>
+          </div>
+          {error && <p className="mt-2 text-[12px] text-[#EF4444]">{error}</p>}
+        </div>
+      ) : (
+        <div>
+          {/* Tracking summary */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div>
+              <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide">Container</p>
+              <p className="text-[15px] font-bold text-[#1A1D2B] tracking-wide">{shipment.trackingNumber}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide">Carrier</p>
+              <p className="text-[13px] font-semibold text-[#1A1D2B]">{shipment.carrier || 'MSC'}</p>
+            </div>
+            {shipment.vesselName && (
+              <div>
+                <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide">Vessel</p>
+                <p className="text-[13px] font-semibold text-[#1A1D2B]">{shipment.vesselName}{shipment.voyageNumber ? ` · ${shipment.voyageNumber}` : ''}</p>
+              </div>
+            )}
+            {shipment.eta && (
+              <div className="ml-auto text-right">
+                <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide">ETA</p>
+                <p className="text-[15px] font-bold text-[#6366F1]">
+                  {new Date(shipment.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+                {etaLabel && <p className="text-[11px] text-[#6B7194]">{etaLabel}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Event timeline */}
+          {loadingEvents ? (
+            <p className="text-[13px] text-[#9CA3C0]">Loading events...</p>
+          ) : events.length === 0 ? (
+            <div className="px-4 py-6 rounded-[10px] bg-[#F4F6FA] text-center">
+              <p className="text-[13px] text-[#6B7194]">No tracking events yet.</p>
+              <p className="text-[11px] text-[#9CA3C0] mt-1">Events will appear automatically as Terminal49 receives updates from {shipment.carrier || 'the carrier'}.</p>
+            </div>
+          ) : (
+            <div className="relative pl-6 border-l-2 border-[#EEF0F6] space-y-4">
+              {events.map((ev) => (
+                <div key={ev.id} className="relative">
+                  <div className="absolute -left-[25px] w-4 h-4 rounded-full bg-white border-2 border-[#6366F1] flex items-center justify-center text-[8px]">
+                    {eventIcon(ev.eventType)}
+                  </div>
+                  <div className="pl-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[12.5px] font-semibold text-[#1A1D2B]">
+                        {ev.description || ev.eventType.replace(/\./g, ' → ')}
+                      </span>
+                      <span className="text-[10.5px] text-[#9CA3C0]">
+                        {new Date(ev.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    {ev.location && <p className="text-[11.5px] text-[#6B7194] mt-0.5">📍 {ev.location}</p>}
+                    {ev.vessel && <p className="text-[11px] text-[#9CA3C0]">🚢 {ev.vessel}{ev.voyage ? ` · ${ev.voyage}` : ''}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
