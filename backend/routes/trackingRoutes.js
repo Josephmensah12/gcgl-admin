@@ -6,6 +6,7 @@ const { authenticate } = require('../middleware/auth');
 router.use(authenticate);
 
 router.post('/shipments/:id/track', trackingController.setTrackingNumber);
+router.post('/shipments/:id/sync-tracking', trackingController.syncTracking);
 router.get('/shipments/:id/events', trackingController.getEvents);
 router.get('/tracking/status', trackingController.trackingStatus);
 

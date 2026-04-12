@@ -62,6 +62,19 @@ async function start() {
         }
       }, { timezone: 'America/Chicago' });
       console.log('Fixed cost allocation cron scheduled (daily 1:00 AM CST)');
+
+      // Daily container tracking sync at 6:00 AM CST
+      const { syncAllTracking } = require('./controllers/trackingController');
+      cron.schedule('0 6 * * *', async () => {
+        console.log('Running daily tracking sync...');
+        try {
+          const result = await syncAllTracking();
+          console.log('Tracking sync complete:', result);
+        } catch (err) {
+          console.error('Tracking sync failed:', err.message);
+        }
+      }, { timezone: 'America/Chicago' });
+      console.log('Tracking sync cron scheduled (daily 6:00 AM CST)');
     });
   } catch (err) {
     console.error('Startup error:', err);

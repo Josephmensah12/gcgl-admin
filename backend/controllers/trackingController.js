@@ -4,14 +4,18 @@ const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const {
   createTracker,
+  getTracker,
+  listTrackers,
   isConfigured,
-  parseWebhookPayload,
-  mapEventToStatus,
+  mapStatusToGCGL,
+  extractEvents,
+  extractShipmentInfo,
+  verifyWebhookSignature,
 } = require('../services/trackingService');
 
 /**
  * POST /api/v1/shipments/:id/track
- * Set a tracking number on a shipment and create a Terminal49 tracker.
+ * Set a tracking number and create a Shipsgo ocean shipment tracker.
  */
 exports.setTrackingNumber = asyncHandler(async (req, res) => {
   const shipment = await db.Shipment.findByPk(req.params.id);
@@ -20,25 +24,34 @@ exports.setTrackingNumber = asyncHandler(async (req, res) => {
   const { tracking_number, carrier } = req.body;
   if (!tracking_number) throw new AppError('tracking_number is required', 400, 'MISSING_FIELD');
 
-  const carrierName = carrier || shipment.carrier || 'MSC';
+  const carrierScac = carrier || 'MSCU';
 
-  // Create Terminal49 tracker
   let trackerId = null;
+  let trackerError = null;
   if (isConfigured()) {
     try {
-      const result = await createTracker(tracking_number, carrierName);
+      const result = await createTracker(tracking_number, carrierScac);
       trackerId = result.trackerId;
-      console.log(`Terminal49 tracker created: ${trackerId} for ${tracking_number}`);
+      console.log(`Shipsgo tracker created: ${trackerId} for ${tracking_number}`);
+
+      // Immediately fetch details if available
+      if (trackerId) {
+        try {
+          await syncSingleShipment(shipment, trackerId);
+        } catch (e) {
+          console.log('Initial sync skipped:', e.message);
+        }
+      }
     } catch (e) {
-      console.error('Terminal49 tracker creation failed:', e.message);
-      // Don't fail the request — save the number even if Terminal49 is down
+      console.error('Shipsgo tracker creation failed:', e.message);
+      trackerError = e.message;
     }
   }
 
   await shipment.update({
     trackingNumber: tracking_number.trim(),
-    carrier: carrierName,
-    terminal49TrackerId: trackerId,
+    carrier: carrierScac,
+    terminal49TrackerId: trackerId, // reusing column name for Shipsgo ID
   });
 
   res.json({
@@ -48,15 +61,14 @@ exports.setTrackingNumber = asyncHandler(async (req, res) => {
       carrier: shipment.carrier,
       trackerId,
       message: trackerId
-        ? 'Tracking active — events will arrive via webhook'
-        : 'Tracking number saved but Terminal49 tracker was not created',
+        ? 'Tracking active — updates will sync daily'
+        : `Tracking number saved. ${trackerError || 'Shipsgo tracker was not created.'}`,
     },
   });
 });
 
 /**
  * GET /api/v1/shipments/:id/events
- * Return the tracking event timeline for a shipment.
  */
 exports.getEvents = asyncHandler(async (req, res) => {
   const shipment = await db.Shipment.findByPk(req.params.id, {
@@ -69,7 +81,6 @@ exports.getEvents = asyncHandler(async (req, res) => {
     order: [['eventDate', 'DESC']],
   });
 
-  // ETA countdown
   let etaDays = null;
   if (shipment.eta) {
     const diff = new Date(shipment.eta) - new Date();
@@ -107,92 +118,192 @@ exports.getEvents = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/v1/tracking/status
- * Check if Terminal49 is configured.
  */
 exports.trackingStatus = asyncHandler(async (req, res) => {
-  res.json({ success: true, data: { configured: isConfigured() } });
+  res.json({ success: true, data: { configured: isConfigured(), provider: 'shipsgo' } });
 });
 
 /**
- * POST /api/v1/webhooks/terminal49
- * Receive tracking events from Terminal49. No auth (called by Terminal49 servers).
- * Always returns 200 to prevent retries.
+ * POST /api/v1/shipments/:id/sync-tracking
+ * Manually trigger a tracking sync for one shipment.
  */
-exports.terminal49Webhook = async (req, res) => {
-  try {
-    const payload = req.body;
-    const parsed = parseWebhookPayload(payload);
-    if (!parsed) {
-      return res.status(200).json({ received: true, skipped: 'unparseable' });
-    }
+exports.syncTracking = asyncHandler(async (req, res) => {
+  const shipment = await db.Shipment.findByPk(req.params.id);
+  if (!shipment) throw new AppError('Shipment not found', 404, 'NOT_FOUND');
+  if (!shipment.terminal49TrackerId) throw new AppError('No tracker ID on this shipment', 400, 'NO_TRACKER');
 
-    // Find the shipment by terminal49TrackerId
-    const trackerId = parsed.trackingRequestId;
-    let shipment = null;
-    if (trackerId) {
-      shipment = await db.Shipment.findOne({
-        where: { terminal49TrackerId: trackerId },
-      });
-    }
+  const result = await syncSingleShipment(shipment, shipment.terminal49TrackerId);
+  res.json({ success: true, data: result });
+});
 
-    if (!shipment) {
-      console.log('Terminal49 webhook: no matching shipment for tracker', trackerId);
-      return res.status(200).json({ received: true, matched: false });
-    }
+/**
+ * Sync a single shipment from Shipsgo. Shared by the manual trigger
+ * and the daily cron.
+ */
+async function syncSingleShipment(shipment, shipsgoId) {
+  const shipsgoData = await getTracker(shipsgoId);
+  if (!shipsgoData) return { synced: false, reason: 'no data from Shipsgo' };
 
-    // Deduplicate: check if we already have this exact event
+  const info = extractShipmentInfo(shipsgoData);
+  const events = extractEvents(shipsgoData);
+
+  // Upsert events (deduplicate by eventType + eventDate)
+  let newEvents = 0;
+  for (const ev of events) {
     const existing = await db.ShipmentEvent.findOne({
       where: {
         shipmentId: shipment.id,
-        eventType: parsed.eventType,
-        eventDate: parsed.eventDate,
+        eventType: ev.eventType,
+        eventDate: ev.eventDate,
       },
     });
-    if (existing) {
-      return res.status(200).json({ received: true, duplicate: true });
+    if (!existing) {
+      await db.ShipmentEvent.create({
+        shipmentId: shipment.id,
+        eventType: ev.eventType,
+        eventDate: ev.eventDate,
+        location: ev.location,
+        vessel: ev.vessel,
+        voyage: ev.voyage,
+        description: ev.description,
+        rawData: shipsgoData,
+        source: 'shipsgo',
+      });
+      newEvents++;
+    }
+  }
+
+  // Update shipment fields
+  const updates = {};
+  if (info.vesselName && info.vesselName !== shipment.vesselName) updates.vesselName = info.vesselName;
+  if (info.voyageNumber && info.voyageNumber !== shipment.voyageNumber) updates.voyageNumber = info.voyageNumber;
+  if (info.eta) updates.eta = info.eta.split('T')[0];
+  if (info.departureDate) updates.departureDate = info.departureDate.split('T')[0];
+
+  // Auto-advance status
+  const gcglStatus = mapStatusToGCGL(info.status);
+  if (gcglStatus) {
+    const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivered'];
+    const currentIdx = pipeline.indexOf(shipment.status);
+    const newIdx = pipeline.indexOf(gcglStatus);
+    if (newIdx > currentIdx) updates.status = gcglStatus;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await shipment.update(updates);
+  }
+
+  return { synced: true, newEvents, updates: Object.keys(updates) };
+}
+
+/**
+ * Daily cron job: sync all shipments that have a Shipsgo tracker.
+ * Called from server.js cron schedule.
+ */
+exports.syncAllTracking = async function syncAllTracking() {
+  if (!isConfigured()) {
+    console.log('Tracking sync: Shipsgo not configured, skipping');
+    return;
+  }
+
+  const shipments = await db.Shipment.findAll({
+    where: {
+      terminal49TrackerId: { [Op.ne]: null },
+      status: { [Op.notIn]: ['delivered'] }, // skip delivered shipments
+    },
+  });
+
+  console.log(`Tracking sync: ${shipments.length} active tracked shipment(s)`);
+  let synced = 0;
+  let errors = 0;
+
+  for (const ship of shipments) {
+    try {
+      const result = await syncSingleShipment(ship, ship.terminal49TrackerId);
+      if (result.synced) synced++;
+      if (result.newEvents > 0) {
+        console.log(`  ${ship.name}: ${result.newEvents} new event(s), updates: ${result.updates.join(', ') || 'none'}`);
+      }
+    } catch (e) {
+      errors++;
+      console.error(`  ${ship.name}: sync failed — ${e.message}`);
+    }
+  }
+
+  console.log(`Tracking sync complete: ${synced} synced, ${errors} errors`);
+  return { synced, errors };
+};
+
+/**
+ * POST /api/v1/webhooks/shipsgo
+ * Receive webhook events from Shipsgo (optional — used if webhooks are configured).
+ */
+exports.shipsgoWebhook = async (req, res) => {
+  try {
+    const payload = req.body;
+
+    // Find shipment by container number or Shipsgo ID
+    const containerNumber = payload.container_number || payload.containerNumber;
+    const shipsgoId = payload.id || payload.shipment_id;
+
+    let shipment = null;
+    if (shipsgoId) {
+      shipment = await db.Shipment.findOne({ where: { terminal49TrackerId: String(shipsgoId) } });
+    }
+    if (!shipment && containerNumber) {
+      shipment = await db.Shipment.findOne({ where: { trackingNumber: containerNumber } });
     }
 
-    // Insert event
-    await db.ShipmentEvent.create({
-      shipmentId: shipment.id,
-      eventType: parsed.eventType,
-      eventDate: parsed.eventDate,
-      location: parsed.location,
-      vessel: parsed.vessel,
-      voyage: parsed.voyage,
-      description: parsed.description,
-      rawData: parsed.raw,
-      source: 'terminal49',
-    });
+    if (!shipment) {
+      console.log('Shipsgo webhook: no matching shipment for', containerNumber || shipsgoId);
+      return res.status(200).json({ received: true, matched: false });
+    }
 
-    // Auto-update shipment fields from event data
-    const updates = {};
-    if (parsed.vessel && !shipment.vesselName) updates.vesselName = parsed.vessel;
-    if (parsed.voyage && !shipment.voyageNumber) updates.voyageNumber = parsed.voyage;
-    if (parsed.eta) updates.eta = parsed.eta.split('T')[0];
+    // Sync from the webhook payload
+    const info = extractShipmentInfo(payload);
+    const events = extractEvents(payload);
 
-    // Auto-advance shipment status
-    const newStatus = mapEventToStatus(parsed.eventType);
-    if (newStatus) {
-      const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivered'];
-      const currentIdx = pipeline.indexOf(shipment.status);
-      const newIdx = pipeline.indexOf(newStatus);
-      if (newIdx > currentIdx) {
-        updates.status = newStatus;
-        if (newStatus === 'shipped' && !shipment.departureDate) {
-          updates.departureDate = parsed.eventDate.split ? parsed.eventDate.split('T')[0] : new Date(parsed.eventDate).toISOString().split('T')[0];
-        }
+    let newEvents = 0;
+    for (const ev of events) {
+      const existing = await db.ShipmentEvent.findOne({
+        where: { shipmentId: shipment.id, eventType: ev.eventType, eventDate: ev.eventDate },
+      });
+      if (!existing) {
+        await db.ShipmentEvent.create({
+          shipmentId: shipment.id,
+          eventType: ev.eventType,
+          eventDate: ev.eventDate,
+          location: ev.location,
+          vessel: ev.vessel,
+          voyage: ev.voyage,
+          description: ev.description,
+          rawData: payload,
+          source: 'shipsgo',
+        });
+        newEvents++;
       }
     }
 
-    if (Object.keys(updates).length > 0) {
-      await shipment.update(updates);
+    const updates = {};
+    if (info.vesselName) updates.vesselName = info.vesselName;
+    if (info.voyageNumber) updates.voyageNumber = info.voyageNumber;
+    if (info.eta) updates.eta = info.eta.split('T')[0];
+    if (info.departureDate) updates.departureDate = info.departureDate.split('T')[0];
+
+    const gcglStatus = mapStatusToGCGL(info.status);
+    if (gcglStatus) {
+      const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivered'];
+      if (pipeline.indexOf(gcglStatus) > pipeline.indexOf(shipment.status)) {
+        updates.status = gcglStatus;
+      }
     }
 
-    console.log(`Terminal49 webhook: ${parsed.eventType} for shipment ${shipment.name} (${parsed.location || 'no location'})`);
-    return res.status(200).json({ received: true, shipmentId: shipment.id, eventType: parsed.eventType });
+    if (Object.keys(updates).length > 0) await shipment.update(updates);
+
+    console.log(`Shipsgo webhook: ${newEvents} new event(s) for ${shipment.name}`);
+    return res.status(200).json({ received: true, newEvents });
   } catch (err) {
-    console.error('Terminal49 webhook error:', err.message);
+    console.error('Shipsgo webhook error:', err.message);
     return res.status(200).json({ received: true, error: err.message });
   }
 };

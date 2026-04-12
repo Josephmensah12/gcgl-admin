@@ -46,9 +46,9 @@ app.use(`${API_BASE}/financial-reports`, require('./routes/financialReportRoutes
 const pickupController = require('./controllers/pickupController');
 app.post(`${API_BASE}/webhooks/square`, pickupController.squareWebhook);
 
-// Terminal49 webhook — no auth (Terminal49 servers call this directly)
+// Shipsgo webhook — no auth (Shipsgo servers call this directly)
 const trackingController = require('./controllers/trackingController');
-app.post(`${API_BASE}/webhooks/terminal49`, trackingController.terminal49Webhook);
+app.post(`${API_BASE}/webhooks/shipsgo`, trackingController.shipsgoWebhook);
 
 // Tracking routes (authenticated)
 app.use(`${API_BASE}`, require('./routes/trackingRoutes'));
