@@ -831,6 +831,15 @@ function TrackingCard({ shipment, onUpdated }) {
         carrier: carrierInput,
         terminal49TrackerId: res.data.data.trackerId,
       });
+
+      // Immediately sync tracking data from Shipsgo
+      try {
+        const syncRes = await axios.post(`/api/v1/shipments/${shipment.id}/sync-tracking`);
+        if (syncRes.data.data?.updates?.length > 0) {
+          const freshRes = await axios.get(`/api/v1/shipments/${shipment.id}`);
+          onUpdated(freshRes.data.data);
+        }
+      } catch {}
       loadEvents();
     } catch (err) {
       setError(err.response?.data?.error?.message || err.message);
@@ -961,11 +970,12 @@ function TrackingCard({ shipment, onUpdated }) {
           <div className="flex gap-2">
             <button type="button" disabled={saving} onClick={async () => {
               setSaving(true);
+              setError(null);
               try {
                 await axios.put(`/api/v1/shipments/${shipment.id}`, editForm);
                 onUpdated(editForm);
-                setEditingTracking(false);
-                // Re-create tracker if tracking number changed
+
+                // Re-create tracker if tracking number changed, then sync fresh data
                 if (editForm.trackingNumber && editForm.trackingNumber !== shipment.trackingNumber) {
                   try {
                     await axios.post(`/api/v1/shipments/${shipment.id}/track`, {
@@ -974,11 +984,26 @@ function TrackingCard({ shipment, onUpdated }) {
                     });
                   } catch {}
                 }
+
+                // Always fetch fresh tracking data after any edit
+                if (editForm.trackingNumber) {
+                  try {
+                    const syncRes = await axios.post(`/api/v1/shipments/${shipment.id}/sync-tracking`);
+                    if (syncRes.data.data?.updates?.length > 0) {
+                      // Reload shipment to get updated vessel/eta/status
+                      const freshRes = await axios.get(`/api/v1/shipments/${shipment.id}`);
+                      onUpdated(freshRes.data.data);
+                    }
+                  } catch {}
+                  loadEvents();
+                }
+
+                setEditingTracking(false);
               } catch (err) { setError(err.response?.data?.error?.message || 'Save failed'); }
               finally { setSaving(false); }
             }}
               className="h-9 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50">
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Saving...' : 'Save & Sync'}
             </button>
             <button type="button" onClick={() => setEditingTracking(false)}
               className="h-9 px-4 rounded-[10px] text-[#6B7194] text-[13px] font-medium hover:bg-[#F4F6FA]">
