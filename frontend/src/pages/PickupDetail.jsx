@@ -25,6 +25,84 @@ export default function PickupDetail() {
   const [emailModal, setEmailModal] = useState(null); // null | { to, cc, message, sending, error, success }
   const [emailConfigured, setEmailConfigured] = useState(null); // null = unknown, bool = known
 
+  // Draft state for discount edits — staged locally, only persisted when
+  // the page-level "Save Changes" button is clicked.
+  // draftInvoiceDiscount: { discount_type, discount_value } | null
+  // draftLineDiscounts: { [lineItemId]: { discount_type, discount_value } }
+  const [draftInvoiceDiscount, setDraftInvoiceDiscount] = useState(null);
+  const [draftLineDiscounts, setDraftLineDiscounts] = useState({});
+  const [savingDrafts, setSavingDrafts] = useState(false);
+
+  const isDirty = draftInvoiceDiscount !== null || Object.keys(draftLineDiscounts).length > 0;
+
+  const discardDrafts = () => {
+    setDraftInvoiceDiscount(null);
+    setDraftLineDiscounts({});
+  };
+
+  const saveDrafts = async () => {
+    setSavingDrafts(true);
+    try {
+      // Apply line-item drafts first, then invoice-level. Each response
+      // updates pickup, so the final call leaves us with the freshest state.
+      let lastPickup = null;
+      for (const [liId, payload] of Object.entries(draftLineDiscounts)) {
+        const res = await axios.patch(`/api/v1/pickups/${id}/items/${liId}/discount`, payload);
+        lastPickup = res.data.data;
+      }
+      if (draftInvoiceDiscount) {
+        const res = await axios.patch(`/api/v1/pickups/${id}/discount`, draftInvoiceDiscount);
+        lastPickup = res.data.data;
+      }
+      if (lastPickup) setPickup((prev) => ({ ...prev, ...lastPickup }));
+      discardDrafts();
+    } catch (err) {
+      console.error('Save drafts error:', err);
+      const status = err.response?.status;
+      const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
+      alert(`Failed to save changes (HTTP ${status || 'net-err'}): ${msg}`);
+    } finally {
+      setSavingDrafts(false);
+    }
+  };
+
+  // Frontend mirror of the backend discount math — used for live preview while
+  // drafts are unsaved. Returns { subtotal, totalDiscount, finalTotal, lines }
+  // where each line includes its effective pre/disc/final values.
+  const computePreview = () => {
+    const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+    const lines = (pickup.lineItems || []).map((li) => {
+      const draft = draftLineDiscounts[li.id];
+      const dt = draft?.discount_type ?? li.discountType ?? 'none';
+      const dv = parseFloat(draft?.discount_value ?? li.discountValue ?? 0) || 0;
+      const qty = parseInt(li.quantity) || 0;
+      const unit = parseFloat(li.basePrice) || 0;
+      const pre = round2(qty * unit);
+      let da = 0;
+      if (dt === 'percentage' && dv > 0) da = round2(pre * (dv / 100));
+      else if (dt === 'fixed' && dv > 0) da = round2(Math.min(dv, pre));
+      return { ...li, _pre: pre, _da: da, _final: round2(pre - da), _dt: dt, _dv: dv };
+    });
+    const subtotal = round2(lines.reduce((s, l) => s + l._final, 0));
+    const lineDiscSum = round2(lines.reduce((s, l) => s + l._da, 0));
+    const invDisc = draftInvoiceDiscount ?? { discount_type: pickup.discountType, discount_value: pickup.discountValue };
+    const idt = invDisc?.discount_type || 'none';
+    const idv = parseFloat(invDisc?.discount_value || 0) || 0;
+    let invDiscAmt = 0;
+    if (idt === 'percentage' && idv > 0) invDiscAmt = round2(subtotal * (idv / 100));
+    else if (idt === 'fixed' && idv > 0) invDiscAmt = round2(Math.min(idv, subtotal));
+    const finalTotal = round2(subtotal - invDiscAmt);
+    return {
+      subtotal,
+      totalDiscount: round2(lineDiscSum + invDiscAmt),
+      finalTotal,
+      lines,
+      invDiscAmt,
+      invDiscType: idt,
+      invDiscValue: idv,
+    };
+  };
+
   const openEmailModal = () => {
     setEmailModal({
       to: pickup.customerEmail && pickup.customerEmail !== 'noemail@gcgl.com' ? pickup.customerEmail : '',
@@ -123,7 +201,11 @@ export default function PickupDetail() {
   if (loading) return <LoadingSpinner />;
   if (!pickup) return <p className="text-center py-12 text-gray-500">Invoice not found</p>;
 
-  const balanceDue = Math.max(0, (parseFloat(pickup.finalTotal) || 0) - (parseFloat(pickup.amountPaid) || 0));
+  const preview = computePreview();
+  const displaySubtotal = preview.subtotal;
+  const displayDiscount = preview.totalDiscount;
+  const displayFinal = preview.finalTotal;
+  const balanceDue = Math.max(0, displayFinal - (parseFloat(pickup.amountPaid) || 0));
   const activeTxns = showVoided ? transactions : transactions.filter((t) => !t.voidedAt);
   const voidedCount = transactions.filter((t) => t.voidedAt).length;
 
@@ -140,6 +222,41 @@ export default function PickupDetail() {
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         Back to Invoices
       </Link>
+
+      {/* Sticky dirty banner — appears when drafts exist */}
+      {isDirty && (
+        <div className="sticky top-4 z-20 mb-4 bg-[#6366F1] text-white rounded-[12px] shadow-[0_8px_24px_rgba(99,102,241,0.35)] px-5 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-semibold">Unsaved changes</p>
+              <p className="text-[11.5px] text-white/75">
+                {Object.keys(draftLineDiscounts).length > 0 && `${Object.keys(draftLineDiscounts).length} line discount${Object.keys(draftLineDiscounts).length === 1 ? '' : 's'}`}
+                {Object.keys(draftLineDiscounts).length > 0 && draftInvoiceDiscount && ' · '}
+                {draftInvoiceDiscount && 'invoice discount'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={discardDrafts}
+              disabled={savingDrafts}
+              className="h-9 px-3 rounded-[8px] bg-white/10 hover:bg-white/20 text-[12.5px] font-semibold transition-colors disabled:opacity-50"
+            >
+              Discard
+            </button>
+            <button
+              onClick={saveDrafts}
+              disabled={savingDrafts}
+              className="h-9 px-4 rounded-[8px] bg-white text-[#6366F1] text-[12.5px] font-semibold hover:bg-white/90 disabled:opacity-50 transition-colors"
+            >
+              {savingDrafts ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
 
@@ -302,43 +419,41 @@ export default function PickupDetail() {
             {/* Line Items */}
             <h3 className="font-semibold text-gray-900 mb-3">Line Items</h3>
             <div className="space-y-3">
-              {pickup.lineItems?.map((item) => (
+              {preview.lines.map((item) => (
                 <LineItemRow
                   key={item.id}
                   item={item}
                   locked={pickup.paymentStatus === 'paid'}
-                  onDiscountSave={async (payload) => {
-                    try {
-                      const res = await axios.patch(`/api/v1/pickups/${id}/items/${item.id}/discount`, payload);
-                      // Merge instead of replacing so fields not returned by the discount
-                      // endpoint (like lineItem.photos and Customer.Recipients) stay intact
-                      setPickup((prev) => ({ ...prev, ...res.data.data }));
-                    } catch (err) {
-                      console.error('Line discount error:', err);
-                      const status = err.response?.status;
-                      const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
-                      alert(`Failed to apply line discount (HTTP ${status || 'net-err'}): ${msg}`);
-                    }
+                  onStage={(payload) => {
+                    setDraftLineDiscounts((prev) => ({ ...prev, [item.id]: payload }));
                   }}
+                  onClearDraft={() => {
+                    setDraftLineDiscounts((prev) => {
+                      const next = { ...prev };
+                      delete next[item.id];
+                      return next;
+                    });
+                  }}
+                  hasDraft={Boolean(draftLineDiscounts[item.id])}
                 />
               ))}
             </div>
 
-            {/* Totals */}
+            {/* Totals (live preview from drafts) */}
             <div className="border-t border-gray-200 mt-4 pt-4 space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Subtotal</span>
-                <span className="tabular-nums">{fmt(pickup.subtotal)}</span>
+                <span className="tabular-nums">{fmt(displaySubtotal)}</span>
               </div>
-              {parseFloat(pickup.totalDiscount) > 0 && (
+              {displayDiscount > 0.01 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Discount</span>
-                  <span className="tabular-nums text-red-600">−{fmt(pickup.totalDiscount)}</span>
+                  <span className="tabular-nums text-red-600">−{fmt(displayDiscount)}</span>
                 </div>
               )}
               <div className="flex justify-between pt-2 mt-1 border-t border-gray-100">
                 <span className="text-gray-700 font-medium">Total</span>
-                <span className="font-bold text-lg tabular-nums">{fmt(pickup.finalTotal)}</span>
+                <span className="font-bold text-lg tabular-nums">{fmt(displayFinal)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
                 <span className="text-gray-500">Paid</span>
@@ -352,21 +467,14 @@ export default function PickupDetail() {
               </div>
             </div>
 
-            {/* Invoice-level discount editor */}
+            {/* Invoice-level discount editor (stages to draft) */}
             <InvoiceDiscountEditor
               pickup={pickup}
+              preview={preview}
+              draft={draftInvoiceDiscount}
               locked={pickup.paymentStatus === 'paid'}
-              onSave={async (payload) => {
-                try {
-                  const res = await axios.patch(`/api/v1/pickups/${id}/discount`, payload);
-                  setPickup((prev) => ({ ...prev, ...res.data.data }));
-                } catch (err) {
-                  console.error('Invoice discount error:', err);
-                  const status = err.response?.status;
-                  const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
-                  alert(`Failed to apply invoice discount (HTTP ${status || 'net-err'}): ${msg}`);
-                }
-              }}
+              onStage={(payload) => setDraftInvoiceDiscount(payload)}
+              onClearDraft={() => setDraftInvoiceDiscount(null)}
             />
           </div>
 
@@ -553,34 +661,41 @@ export default function PickupDetail() {
 /*  Line item row with inline discount editor                  */
 /* ─────────────────────────────────────────────────────────── */
 
-function LineItemRow({ item, onDiscountSave, locked }) {
+function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft }) {
+  // `item` here is the preview-augmented line from computePreview(),
+  // so it carries _pre/_da/_final/_dt/_dv — these reflect the current
+  // draft if any, otherwise the persisted values.
   const [editing, setEditing] = useState(false);
-  const [type, setType] = useState(item.discountType || 'none');
-  const [value, setValue] = useState(
-    item.discountValue != null ? String(item.discountValue) : '0'
-  );
-  const [saving, setSaving] = useState(false);
+  const [type, setType] = useState(item._dt || 'none');
+  const [value, setValue] = useState(item._dv != null ? String(item._dv) : '0');
+
+  // Keep local editor state in sync when the underlying item changes
+  // (e.g., drafts cleared by the parent Discard button)
+  useEffect(() => {
+    setType(item._dt || 'none');
+    setValue(item._dv != null ? String(item._dv) : '0');
+  }, [item._dt, item._dv]);
 
   const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
-  const preDiscount = parseFloat(item.preDiscountTotal) ||
-                      (parseFloat(item.basePrice) || 0) * (parseInt(item.quantity) || 1);
-  const discountAmt = parseFloat(item.discountAmount) || 0;
-  const finalPrice = parseFloat(item.finalPrice) || 0;
+  const preDiscount = item._pre || 0;
+  const discountAmt = item._da || 0;
+  const finalPrice = item._final || 0;
   const hasDiscount = discountAmt > 0.01;
 
-  const save = async () => {
-    setSaving(true);
-    await onDiscountSave({ discount_type: type, discount_value: parseFloat(value) || 0 });
-    setSaving(false);
+  const stage = () => {
+    onStage({ discount_type: type, discount_value: parseFloat(value) || 0 });
     setEditing(false);
   };
 
-  const clear = async () => {
-    setSaving(true);
+  const clear = () => {
     setType('none');
     setValue('0');
-    await onDiscountSave({ discount_type: 'none', discount_value: 0 });
-    setSaving(false);
+    onStage({ discount_type: 'none', discount_value: 0 });
+    setEditing(false);
+  };
+
+  const revert = () => {
+    onClearDraft();
     setEditing(false);
   };
 
@@ -614,14 +729,28 @@ function LineItemRow({ item, onDiscountSave, locked }) {
       </div>
 
       {!editing ? (
-        <button
-          type="button"
-          disabled={locked}
-          onClick={() => setEditing(true)}
-          className="mt-2 text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {hasDiscount ? 'Edit discount' : 'Add discount'}
-        </button>
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => setEditing(true)}
+            className="text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {hasDiscount ? 'Edit discount' : 'Add discount'}
+          </button>
+          {hasDraft && (
+            <>
+              <span className="text-[10px] font-semibold text-[#F59E0B] uppercase tracking-wide">· unsaved</span>
+              <button
+                type="button"
+                onClick={revert}
+                className="text-[11px] text-[#9CA3C0] hover:text-[#1A1D2B]"
+              >
+                Revert
+              </button>
+            </>
+          )}
+        </div>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200">
           <select
@@ -646,17 +775,15 @@ function LineItemRow({ item, onDiscountSave, locked }) {
           )}
           <button
             type="button"
-            onClick={save}
-            disabled={saving}
-            className="h-8 px-3 rounded-[8px] bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
+            onClick={stage}
+            className="h-8 px-3 rounded-[8px] bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5]"
           >
-            {saving ? '...' : 'Save'}
+            Apply
           </button>
           {hasDiscount && (
             <button
               type="button"
               onClick={clear}
-              disabled={saving}
               className="h-8 px-3 rounded-[8px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-medium hover:bg-[#E9EBF2]"
             >
               Clear
@@ -666,8 +793,8 @@ function LineItemRow({ item, onDiscountSave, locked }) {
             type="button"
             onClick={() => {
               setEditing(false);
-              setType(item.discountType || 'none');
-              setValue(item.discountValue != null ? String(item.discountValue) : '0');
+              setType(item._dt || 'none');
+              setValue(item._dv != null ? String(item._dv) : '0');
             }}
             className="h-8 px-3 rounded-[8px] text-[#9CA3C0] text-[12px] font-medium hover:text-[#1A1D2B]"
           >
@@ -683,47 +810,57 @@ function LineItemRow({ item, onDiscountSave, locked }) {
 /*  Invoice-level discount editor                              */
 /* ─────────────────────────────────────────────────────────── */
 
-function InvoiceDiscountEditor({ pickup, onSave, locked }) {
-  const [type, setType] = useState(pickup.discountType || 'none');
-  const [value, setValue] = useState(
-    pickup.discountValue != null ? String(pickup.discountValue) : '0'
-  );
-  const [saving, setSaving] = useState(false);
+function InvoiceDiscountEditor({ pickup, preview, draft, onStage, onClearDraft, locked }) {
+  // Effective (draft-aware) type + value. Draft wins if present.
+  const effectiveType = draft?.discount_type ?? (pickup.discountType || 'none');
+  const effectiveValue = draft?.discount_value ?? pickup.discountValue ?? 0;
 
-  // Re-sync when parent updates
+  const [type, setType] = useState(effectiveType);
+  const [value, setValue] = useState(effectiveValue != null ? String(effectiveValue) : '0');
+
   useEffect(() => {
-    setType(pickup.discountType || 'none');
-    setValue(pickup.discountValue != null ? String(pickup.discountValue) : '0');
-  }, [pickup.discountType, pickup.discountValue]);
+    setType(effectiveType);
+    setValue(effectiveValue != null ? String(effectiveValue) : '0');
+  }, [effectiveType, effectiveValue]);
 
   const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
-  const appliedPercent = parseFloat(pickup.discountPercent) || 0;
-  const subtotal = parseFloat(pickup.subtotal) || 0;
-  const hasDiscount = type !== 'none' && parseFloat(value) > 0;
+  const subtotal = preview.subtotal;
+  const hasDraft = draft !== null && draft !== undefined;
 
-  // Live preview of invoice-level discount amount (not applied until saved)
-  const previewAmount = (() => {
+  // Live preview of invoice-level discount amount from the current editor state
+  const editorPreviewAmount = (() => {
     const v = parseFloat(value) || 0;
     if (type === 'percentage') return (subtotal * v) / 100;
     if (type === 'fixed') return Math.min(v, subtotal);
     return 0;
   })();
 
-  const save = async () => {
-    setSaving(true);
-    await onSave({ discount_type: type, discount_value: parseFloat(value) || 0 });
-    setSaving(false);
+  const stage = () => {
+    onStage({ discount_type: type, discount_value: parseFloat(value) || 0 });
+  };
+
+  const revert = () => {
+    onClearDraft();
+    setType(pickup.discountType || 'none');
+    setValue(pickup.discountValue != null ? String(pickup.discountValue) : '0');
   };
 
   return (
     <div className="mt-5 pt-4 border-t border-gray-200">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-[13px] font-bold text-[#1A1D2B]">Invoice Discount</h4>
-        {appliedPercent > 0 && (
-          <span className="px-2 py-0.5 rounded-md bg-[rgba(99,102,241,0.08)] text-[#6366F1] text-[11px] font-semibold">
-            {appliedPercent.toFixed(2)}% effective
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {hasDraft && (
+            <span className="px-2 py-0.5 rounded-md bg-[rgba(245,158,11,0.12)] text-[#B45309] text-[10px] font-semibold uppercase tracking-wide">
+              unsaved
+            </span>
+          )}
+          {parseFloat(pickup.discountPercent) > 0 && !hasDraft && (
+            <span className="px-2 py-0.5 rounded-md bg-[rgba(99,102,241,0.08)] text-[#6366F1] text-[11px] font-semibold">
+              {parseFloat(pickup.discountPercent).toFixed(2)}% saved
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <select
@@ -750,16 +887,30 @@ function InvoiceDiscountEditor({ pickup, onSave, locked }) {
         )}
         <button
           type="button"
-          onClick={save}
-          disabled={saving || locked}
+          onClick={stage}
+          disabled={locked}
           className="h-9 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
         >
-          {saving ? 'Saving...' : 'Apply'}
+          Apply
         </button>
+        {hasDraft && (
+          <button
+            type="button"
+            onClick={revert}
+            className="h-9 px-3 rounded-[10px] text-[#9CA3C0] text-[13px] font-medium hover:text-[#1A1D2B]"
+          >
+            Revert
+          </button>
+        )}
       </div>
-      {hasDiscount && previewAmount > 0 && (
+      {type !== 'none' && editorPreviewAmount > 0 && (
         <p className="mt-2 text-[11.5px] text-[#6B7194]">
-          Preview: subtotal {fmt(subtotal)} − {fmt(previewAmount)} = <span className="font-bold text-[#1A1D2B] tabular-nums">{fmt(Math.max(0, subtotal - previewAmount))}</span>
+          Preview: subtotal {fmt(subtotal)} − {fmt(editorPreviewAmount)} = <span className="font-bold text-[#1A1D2B] tabular-nums">{fmt(Math.max(0, subtotal - editorPreviewAmount))}</span>
+        </p>
+      )}
+      {hasDraft && (
+        <p className="mt-1 text-[11px] text-[#F59E0B]">
+          Staged — click "Save Changes" at the top to commit.
         </p>
       )}
       {locked && (
