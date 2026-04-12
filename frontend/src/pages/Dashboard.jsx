@@ -140,13 +140,18 @@ function ShipmentTrackerTile({ shipments }) {
   const shipX = (1-t)*(1-t)*houston.x + 2*(1-t)*t*freeport.x + t*t*tema.x;
   const shipY = (1-t)*(1-t)*houston.y + 2*(1-t)*t*freeport.y + t*t*tema.y;
 
-  // Status label near the ship
+  // Status label based on last confirmed event
+  const lastLoc = (primary.lastEvent?.location || '').toLowerCase();
+  const lastType = primary.lastEvent?.type || '';
   let shipLabel = 'Departing Houston';
   if (arrived) shipLabel = 'Arrived in Ghana';
-  else if (pct > 80) shipLabel = 'Approaching Ghana';
-  else if (pct > 50) shipLabel = 'Crossing Atlantic';
-  else if (pct > 20) shipLabel = 'Past Bahamas';
-  else if (pct > 5) shipLabel = 'In Caribbean';
+  else if (lastType === 'DISC' || (lastType === 'ARRV' && (lastLoc.includes('tema') || lastLoc.includes('ghana')))) shipLabel = 'Arrived in Ghana';
+  else if (lastType === 'DEPA' && (lastLoc.includes('freeport') || lastLoc.includes('bahamas'))) shipLabel = 'Left Freeport';
+  else if (lastType === 'ARRV' && (lastLoc.includes('freeport') || lastLoc.includes('bahamas'))) shipLabel = 'At Freeport';
+  else if (lastType === 'DEPA' && (lastLoc.includes('houston') || lastLoc.includes('united states'))) shipLabel = 'Left Houston';
+  else if (pct > 55) shipLabel = 'Crossing Atlantic';
+  else if (pct > 20) shipLabel = 'In Caribbean';
+  else if (pct > 5) shipLabel = 'Departing Houston';
 
   const etaText = primary.etaDays != null
     ? primary.etaDays > 0 ? `${primary.etaDays} day${primary.etaDays === 1 ? '' : 's'} away`

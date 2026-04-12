@@ -154,28 +154,82 @@ exports.getTrackedShipments = asyncHandler(async (req, res) => {
     order: [['createdAt', 'DESC']],
   });
 
-  const result = shipments.map((s) => {
-    const dep = s.departureDate ? new Date(s.departureDate) : null;
-    const eta = s.eta ? new Date(s.eta) : null;
-    const now = new Date();
+  // For each shipment, find the last CONFIRMED tracking event (date <= now)
+  const now = new Date();
+  const result = [];
 
+  for (const s of shipments) {
+    const lastEvent = await db.ShipmentEvent.findOne({
+      where: {
+        shipmentId: s.id,
+        eventDate: { [Op.lte]: now },
+      },
+      order: [['eventDate', 'DESC']],
+    });
+
+    // Position the ship based on the last confirmed event location/type
+    // instead of a time-based percentage
     let transitPercent = 0;
-    if (dep && eta && eta > dep) {
-      const total = eta.getTime() - dep.getTime();
-      const elapsed = now.getTime() - dep.getTime();
-      transitPercent = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
-    }
-    // If delivered/discharged, snap to 100
-    if (['delivered', 'customs'].includes(s.status) && transitPercent < 80) {
-      transitPercent = s.status === 'delivered' ? 100 : 90;
+    let lastEventType = lastEvent?.eventType || null;
+    let lastEventLocation = lastEvent?.location || '';
+    let lastEventDate = lastEvent?.eventDate || null;
+
+    if (lastEventType) {
+      const EVENT_POSITIONS = {
+        'EMSH': 5,   // Empty container shipped → at origin
+        'GTIN': 8,   // Gate in at terminal → at origin
+        'LOAD': 15,  // Loaded on vessel → departing origin
+        'DEPA': 20,  // Departed → just left port
+        'ARRV': 45,  // Arrived → at a port (could be transshipment or destination)
+        'TSLO': 50,  // Transshipment loaded
+        'TSDI': 45,  // Transshipment discharged
+        'DISC': 92,  // Discharged → at destination
+        'GTOT': 97,  // Gate out → leaving destination port
+        'EMRT': 100, // Empty return → done
+      };
+
+      transitPercent = EVENT_POSITIONS[lastEventType] || 50;
+
+      // Refine: if the event is a DEPA or ARRV, check if it's at origin,
+      // transshipment, or destination
+      const locLower = lastEventLocation.toLowerCase();
+      if (lastEventType === 'DEPA') {
+        if (locLower.includes('houston') || locLower.includes('united states')) {
+          transitPercent = 20; // Just left Houston
+        } else if (locLower.includes('freeport') || locLower.includes('bahamas')) {
+          transitPercent = 55; // Left Freeport, heading to Ghana
+        } else {
+          transitPercent = 40; // Unknown port departure
+        }
+        // If departed and time has passed, interpolate toward next stop
+        if (lastEventDate) {
+          const daysSinceDep = (now.getTime() - new Date(lastEventDate).getTime()) / (1000 * 60 * 60 * 24);
+          transitPercent = Math.min(transitPercent + Math.round(daysSinceDep * 2.5), 88);
+        }
+      } else if (lastEventType === 'ARRV') {
+        if (locLower.includes('freeport') || locLower.includes('bahamas')) {
+          transitPercent = 42;
+        } else if (locLower.includes('tema') || locLower.includes('ghana')) {
+          transitPercent = 92;
+        }
+      }
+    } else {
+      // No events — fall back to time-based if we have dates
+      const dep = s.departureDate ? new Date(s.departureDate) : null;
+      const eta = s.eta ? new Date(s.eta) : null;
+      if (dep && eta && eta > dep) {
+        const total = eta.getTime() - dep.getTime();
+        const elapsed = now.getTime() - dep.getTime();
+        transitPercent = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+      }
     }
 
     let etaDays = null;
-    if (eta) {
-      etaDays = Math.ceil((eta.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (s.eta) {
+      etaDays = Math.ceil((new Date(s.eta).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     }
 
-    return {
+    result.push({
       id: s.id,
       name: s.name,
       trackingNumber: s.trackingNumber,
@@ -187,8 +241,13 @@ exports.getTrackedShipments = asyncHandler(async (req, res) => {
       eta: s.eta,
       etaDays,
       transitPercent,
-    };
-  });
+      lastEvent: lastEvent ? {
+        type: lastEvent.eventType,
+        location: lastEvent.location,
+        date: lastEvent.eventDate,
+      } : null,
+    });
+  }
 
   res.json({ success: true, data: result });
 });
