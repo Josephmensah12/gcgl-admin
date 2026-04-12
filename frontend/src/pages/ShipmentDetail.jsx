@@ -801,6 +801,7 @@ function TrackingCard({ shipment, onUpdated }) {
   const [error, setError] = useState(null);
   const [editingTracking, setEditingTracking] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   useEffect(() => {
     if (shipment.trackingNumber) loadEvents();
@@ -1055,7 +1056,7 @@ function TrackingCard({ shipment, onUpdated }) {
             </button>
           </div>
 
-          {/* Event timeline */}
+          {/* Event timeline with collapsible caret */}
           {loadingEvents ? (
             <p className="text-[13px] text-[#9CA3C0]">Loading events...</p>
           ) : events.length === 0 ? (
@@ -1064,34 +1065,56 @@ function TrackingCard({ shipment, onUpdated }) {
               <p className="text-[11px] text-[#9CA3C0] mt-1">Events will appear automatically as Shipsgo receives updates from {shipment.carrier || 'the carrier'}.</p>
             </div>
           ) : (
-            <div className="relative pl-6 border-l-2 border-[#EEF0F6] space-y-4">
-              {events.map((ev) => {
-                const isFuture = new Date(ev.eventDate) > new Date();
-                return (
-                  <div key={ev.id} className={`relative ${isFuture ? 'opacity-40' : ''}`}>
-                    <div className={`absolute -left-[25px] w-4 h-4 rounded-full bg-white border-2 flex items-center justify-center text-[8px] ${isFuture ? 'border-[#C7CDDB]' : 'border-[#6366F1]'}`}>
-                      {eventIcon(ev.eventType)}
-                    </div>
-                    <div className="pl-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {isFuture && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[9px] font-bold text-[#9CA3C0] uppercase tracking-wide">
-                            Estimated
-                          </span>
-                        )}
-                        <span className={`text-[12.5px] font-semibold ${isFuture ? 'text-[#9CA3C0]' : 'text-[#1A1D2B]'}`}>
-                          {ev.description || ev.eventType.replace(/\./g, ' → ')}
-                        </span>
-                        <span className="text-[10.5px] text-[#9CA3C0]">
-                          {isFuture ? 'ETA ' : ''}{new Date(ev.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
+            <div>
+              <button
+                type="button"
+                onClick={() => setTimelineOpen((o) => !o)}
+                className="flex items-center gap-2 w-full text-left mb-3 group"
+              >
+                <svg
+                  className={`w-4 h-4 text-[#6B7194] transition-transform duration-200 ${timelineOpen ? 'rotate-90' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="text-[12.5px] font-semibold text-[#1A1D2B] group-hover:text-[#6366F1] transition-colors">
+                  Tracking Events
+                </span>
+                <span className="text-[10.5px] font-medium text-[#9CA3C0]">
+                  ({events.filter(e => new Date(e.eventDate) <= new Date()).length} confirmed, {events.filter(e => new Date(e.eventDate) > new Date()).length} estimated)
+                </span>
+              </button>
+              {timelineOpen && (
+                <div className="relative pl-6 border-l-2 border-[#EEF0F6] space-y-4">
+                  {events.map((ev) => {
+                    const isFuture = new Date(ev.eventDate) > new Date();
+                    return (
+                      <div key={ev.id} className={`relative ${isFuture ? 'opacity-40' : ''}`}>
+                        <div className={`absolute -left-[25px] w-4 h-4 rounded-full bg-white border-2 flex items-center justify-center text-[8px] ${isFuture ? 'border-[#C7CDDB]' : 'border-[#6366F1]'}`}>
+                          {eventIcon(ev.eventType)}
+                        </div>
+                        <div className="pl-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isFuture && (
+                              <span className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[9px] font-bold text-[#9CA3C0] uppercase tracking-wide">
+                                Estimated
+                              </span>
+                            )}
+                            <span className={`text-[12.5px] font-semibold ${isFuture ? 'text-[#9CA3C0]' : 'text-[#1A1D2B]'}`}>
+                              {ev.description || ev.eventType.replace(/\./g, ' → ')}
+                            </span>
+                            <span className="text-[10.5px] text-[#9CA3C0]">
+                              {isFuture ? 'ETA ' : ''}{new Date(ev.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                          {ev.location && <p className={`text-[11.5px] mt-0.5 ${isFuture ? 'text-[#C7CDDB]' : 'text-[#6B7194]'}`}>📍 {ev.location}</p>}
+                          {ev.vessel && <p className={`text-[11px] ${isFuture ? 'text-[#C7CDDB]' : 'text-[#9CA3C0]'}`}>🚢 {ev.vessel}{ev.voyage ? ` · ${ev.voyage}` : ''}</p>}
+                        </div>
                       </div>
-                      {ev.location && <p className={`text-[11.5px] mt-0.5 ${isFuture ? 'text-[#C7CDDB]' : 'text-[#6B7194]'}`}>📍 {ev.location}</p>}
-                      {ev.vessel && <p className={`text-[11px] ${isFuture ? 'text-[#C7CDDB]' : 'text-[#9CA3C0]'}`}>🚢 {ev.vessel}{ev.voyage ? ` · ${ev.voyage}` : ''}</p>}
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
