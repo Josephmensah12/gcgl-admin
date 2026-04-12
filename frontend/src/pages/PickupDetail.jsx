@@ -435,9 +435,31 @@ export default function PickupDetail() {
                     });
                   }}
                   hasDraft={Boolean(draftLineDiscounts[item.id])}
+                  onRemove={pickup.paymentStatus !== 'paid' ? async () => {
+                    if (!confirm('Remove this item?')) return;
+                    try {
+                      const res = await axios.delete(`/api/v1/pickups/${id}/items/${item.id}`);
+                      setPickup((prev) => ({ ...prev, ...res.data.data }));
+                    } catch (err) {
+                      alert(err.response?.data?.error?.message || 'Failed to remove');
+                    }
+                  } : null}
                 />
               ))}
             </div>
+
+            {/* Add service item */}
+            <AddServiceItem
+              locked={pickup.paymentStatus === 'paid'}
+              onAdd={async (payload) => {
+                try {
+                  const res = await axios.post(`/api/v1/pickups/${id}/items`, payload);
+                  setPickup((prev) => ({ ...prev, ...res.data.data }));
+                } catch (err) {
+                  alert(err.response?.data?.error?.message || 'Failed to add item');
+                }
+              }}
+            />
 
             {/* Totals (live preview from drafts) */}
             <div className="border-t border-gray-200 mt-4 pt-4 space-y-1">
@@ -739,7 +761,104 @@ function SquarePayButton({ invoiceId, balanceDue }) {
 /*  Line item row with inline discount editor                  */
 /* ─────────────────────────────────────────────────────────── */
 
-function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft }) {
+function AddServiceItem({ locked, onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [desc, setDesc] = useState('');
+  const [qty, setQty] = useState('1');
+  const [price, setPrice] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  if (locked) return null;
+
+  const submit = async () => {
+    if (!desc.trim() || !price) return;
+    setSaving(true);
+    await onAdd({
+      description: desc.trim(),
+      quantity: parseInt(qty) || 1,
+      base_price: parseFloat(price) || 0,
+      type: 'service',
+    });
+    setSaving(false);
+    setOpen(false);
+    setDesc('');
+    setQty('1');
+    setPrice('');
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 inline-flex items-center gap-2 text-[12.5px] font-semibold text-[#6366F1] hover:text-[#4F46E5]"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Add service item (packing, handling, etc.)
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-4 rounded-[10px] bg-[#F4F6FA] border border-black/[0.04]">
+      <h4 className="text-[13px] font-bold text-[#1A1D2B] mb-3">Add Service Item</h4>
+      <div className="flex flex-wrap gap-2 items-end">
+        <div className="flex-1 min-w-[160px]">
+          <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Description</label>
+          <input
+            type="text"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="e.g. Packing service, Handling fee"
+            className="gc-input"
+            autoFocus
+          />
+        </div>
+        <div className="w-20">
+          <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Qty</label>
+          <input
+            type="number"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            min="1"
+            className="gc-input text-center"
+          />
+        </div>
+        <div className="w-28">
+          <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Price ($)</label>
+          <input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            className="gc-input"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || !desc.trim() || !price}
+          className="h-10 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
+        >
+          {saving ? 'Adding...' : 'Add'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="h-10 px-3 rounded-[10px] text-[#9CA3C0] text-[13px] font-medium hover:text-[#1A1D2B]"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove }) {
   // `item` here is the preview-augmented line from computePreview(),
   // so it carries _pre/_da/_final/_dt/_dv — these reflect the current
   // draft if any, otherwise the persisted values.
@@ -816,6 +935,15 @@ function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft }) {
           >
             {hasDiscount ? 'Edit discount' : 'Add discount'}
           </button>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]"
+            >
+              Remove
+            </button>
+          )}
           {hasDraft && (
             <>
               <span className="text-[10px] font-semibold text-[#F59E0B] uppercase tracking-wide">· unsaved</span>

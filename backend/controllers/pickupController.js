@@ -300,6 +300,68 @@ exports.getWarehouseSummary = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /api/v1/pickups/:id/items
+ * Add a service/custom item to an existing invoice.
+ */
+exports.addLineItem = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+
+  const { description, quantity, base_price, type } = req.body;
+  if (!description) throw new AppError('description is required', 400, 'MISSING_FIELD');
+  if (!base_price && base_price !== 0) throw new AppError('base_price is required', 400, 'MISSING_FIELD');
+
+  const qty = parseInt(quantity) || 1;
+  const price = parseFloat(base_price) || 0;
+  const crypto = require('crypto');
+
+  const item = await db.LineItem.create({
+    id: crypto.randomUUID(),
+    invoiceId: invoice.id,
+    type: type || 'service',
+    description,
+    quantity: qty,
+    basePrice: price,
+    discountType: 'none',
+    discountValue: 0,
+    preDiscountTotal: Math.round(qty * price * 100) / 100,
+    discountAmount: 0,
+    finalPrice: Math.round(qty * price * 100) / 100,
+    sortOrder: 999,
+  });
+
+  await invoice.update({ addedItemCount: (invoice.addedItemCount || 0) + 1 });
+  await invoice.recalculateTotals();
+
+  const fresh = await db.Invoice.findByPk(invoice.id, {
+    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+  });
+  res.status(201).json({ success: true, data: fresh });
+});
+
+/**
+ * DELETE /api/v1/pickups/:id/items/:itemId
+ * Remove a line item from an invoice.
+ */
+exports.removeLineItem = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+
+  const item = await db.LineItem.findOne({
+    where: { id: req.params.itemId, invoiceId: invoice.id },
+  });
+  if (!item) throw new AppError('Line item not found', 404, 'NOT_FOUND');
+
+  await item.destroy();
+  await invoice.recalculateTotals();
+
+  const fresh = await db.Invoice.findByPk(invoice.id, {
+    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+  });
+  res.json({ success: true, data: fresh });
+});
+
+/**
  * PATCH /api/v1/pickups/:id/discount
  * Update the invoice-level discount. Accepts discount_type ('none' | 'percentage' | 'fixed')
  * and discount_value (number). Recomputes totals and returns the updated invoice.
