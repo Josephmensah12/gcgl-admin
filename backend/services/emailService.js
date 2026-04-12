@@ -326,6 +326,22 @@ async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage, p
     ? applyMessagePlaceholders(company.emailInvoiceMessage, placeholderCtx)
     : `Please see invoice #${invoice.invoiceNumber}.`;
 
+  // Build CID attachment for the logo if it's a base64 data URL
+  const attachments = [];
+  const companyLogo = company?.logo;
+  if (companyLogo && companyLogo.startsWith('data:')) {
+    const match = companyLogo.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (match) {
+      const ext = match[1] === 'svg+xml' ? 'svg' : match[1];
+      attachments.push({
+        filename: `logo.${ext}`,
+        content: Buffer.from(match[2], 'base64'),
+        cid: 'company-logo',
+        contentDisposition: 'inline',
+      });
+    }
+  }
+
   const info = await transporter.sendMail({
     from: `"${fromName}" <${fromAddress}>`,
     to,
@@ -334,6 +350,7 @@ async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage, p
     subject,
     html,
     text: textBody,
+    attachments,
   });
 
   return { messageId: info.messageId };
