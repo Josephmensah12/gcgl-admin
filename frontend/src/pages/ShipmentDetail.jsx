@@ -798,6 +798,8 @@ function TrackingCard({ shipment, onUpdated }) {
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [error, setError] = useState(null);
+  const [editingTracking, setEditingTracking] = useState(false);
+  const [editForm, setEditForm] = useState({});
 
   useEffect(() => {
     if (shipment.trackingNumber) loadEvents();
@@ -908,6 +910,73 @@ function TrackingCard({ shipment, onUpdated }) {
           </div>
           {error && <p className="mt-2 text-[12px] text-[#EF4444]">{error}</p>}
         </div>
+      ) : editingTracking ? (
+        <div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Container #</label>
+              <input type="text" value={editForm.trackingNumber || ''} onChange={(e) => setEditForm((f) => ({ ...f, trackingNumber: e.target.value }))}
+                className="gc-input" />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Carrier</label>
+              <select value={editForm.carrier || 'MSC'} onChange={(e) => setEditForm((f) => ({ ...f, carrier: e.target.value }))}
+                className="gc-input">
+                <option value="MSC">MSC</option><option value="MAERSK">Maersk</option><option value="CMA CGM">CMA CGM</option>
+                <option value="HAPAG-LLOYD">Hapag-Lloyd</option><option value="COSCO">COSCO</option><option value="EVERGREEN">Evergreen</option>
+                <option value="ONE">ONE</option><option value="ZIM">ZIM</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Vessel</label>
+              <input type="text" value={editForm.vesselName || ''} onChange={(e) => setEditForm((f) => ({ ...f, vesselName: e.target.value }))}
+                placeholder="Vessel name" className="gc-input" />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Voyage #</label>
+              <input type="text" value={editForm.voyageNumber || ''} onChange={(e) => setEditForm((f) => ({ ...f, voyageNumber: e.target.value }))}
+                placeholder="Voyage number" className="gc-input" />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Departure Date</label>
+              <input type="date" value={editForm.departureDate || ''} onChange={(e) => setEditForm((f) => ({ ...f, departureDate: e.target.value }))}
+                className="gc-input" />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">ETA</label>
+              <input type="date" value={editForm.eta || ''} onChange={(e) => setEditForm((f) => ({ ...f, eta: e.target.value }))}
+                className="gc-input" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" disabled={saving} onClick={async () => {
+              setSaving(true);
+              try {
+                await axios.put(`/api/v1/shipments/${shipment.id}`, editForm);
+                onUpdated(editForm);
+                setEditingTracking(false);
+                // Re-create tracker if tracking number changed
+                if (editForm.trackingNumber && editForm.trackingNumber !== shipment.trackingNumber) {
+                  try {
+                    await axios.post(`/api/v1/shipments/${shipment.id}/track`, {
+                      tracking_number: editForm.trackingNumber,
+                      carrier: editForm.carrier || 'MSCU',
+                    });
+                  } catch {}
+                }
+              } catch (err) { setError(err.response?.data?.error?.message || 'Save failed'); }
+              finally { setSaving(false); }
+            }}
+              className="h-9 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50">
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button type="button" onClick={() => setEditingTracking(false)}
+              className="h-9 px-4 rounded-[10px] text-[#6B7194] text-[13px] font-medium hover:bg-[#F4F6FA]">
+              Cancel
+            </button>
+          </div>
+          {error && <p className="mt-2 text-[12px] text-[#EF4444]">{error}</p>}
+        </div>
       ) : (
         <div>
           {/* Tracking summary */}
@@ -935,6 +1004,20 @@ function TrackingCard({ shipment, onUpdated }) {
                 {etaLabel && <p className="text-[11px] text-[#6B7194]">{etaLabel}</p>}
               </div>
             )}
+            <button type="button" onClick={() => {
+              setEditForm({
+                trackingNumber: shipment.trackingNumber || '',
+                carrier: shipment.carrier || 'MSC',
+                vesselName: shipment.vesselName || '',
+                voyageNumber: shipment.voyageNumber || '',
+                departureDate: shipment.departureDate || '',
+                eta: shipment.eta || '',
+              });
+              setEditingTracking(true);
+            }}
+              className="text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5]">
+              Edit
+            </button>
           </div>
 
           {/* Event timeline */}
