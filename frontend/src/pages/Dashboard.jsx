@@ -104,6 +104,98 @@ function KpiCard({ label, value, subtext, trend, accent, icon }) {
 }
 
 /* ─────────────────────────────────────────────────────────── */
+/*  Shipment Tracker Tile                                      */
+/* ─────────────────────────────────────────────────────────── */
+
+function ShipmentTrackerTile({ shipments }) {
+  const active = shipments.filter(s => s.trackingNumber);
+
+  if (active.length === 0) {
+    return (
+      <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }} />
+        <p className="text-[12.5px] font-medium text-[#6B7194] mb-2">Shipments at Sea</p>
+        <div className="flex items-center justify-center h-[60px]">
+          <p className="text-[12px] text-[#9CA3C0]">No tracked shipments</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative overflow-hidden bg-white rounded-[16px] p-5 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300">
+      <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }} />
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[12.5px] font-medium text-[#6B7194]">Shipments at Sea</p>
+        <span className="px-1.5 py-0.5 rounded-md bg-[rgba(59,130,246,0.08)] text-[#3B82F6] text-[10px] font-bold">
+          {active.length}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {active.slice(0, 3).map((s) => {
+          const pct = s.transitPercent || 0;
+          const arrived = pct >= 100 || s.status === 'delivered';
+          const etaText = s.etaDays != null
+            ? s.etaDays > 0 ? `${s.etaDays}d` : s.etaDays === 0 ? 'Today' : 'Arrived'
+            : '';
+
+          return (
+            <div key={s.id}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold text-[#1A1D2B] truncate flex-1">{s.name}</span>
+                {etaText && (
+                  <span className={`text-[10px] font-bold ml-2 ${arrived ? 'text-[#10B981]' : 'text-[#3B82F6]'}`}>
+                    {etaText}
+                  </span>
+                )}
+              </div>
+              {/* Route line with ship */}
+              <div className="relative h-[18px]">
+                {/* Water line */}
+                <div className="absolute top-[8px] left-0 right-0 h-[2px] bg-[#EEF0F6] rounded-full" />
+                <div
+                  className="absolute top-[8px] left-0 h-[2px] rounded-full transition-all duration-1000"
+                  style={{
+                    width: `${pct}%`,
+                    background: arrived
+                      ? 'linear-gradient(90deg, #10B981, #059669)'
+                      : 'linear-gradient(90deg, #6366F1, #3B82F6)',
+                  }}
+                />
+                {/* Origin dot */}
+                <div className="absolute top-[6px] left-0 w-[6px] h-[6px] rounded-full bg-[#6366F1]" />
+                {/* Destination dot */}
+                <div className={`absolute top-[6px] right-0 w-[6px] h-[6px] rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#C7CDDB]'}`} />
+                {/* Ship icon */}
+                <div
+                  className="absolute top-0 transition-all duration-1000"
+                  style={{ left: `calc(${Math.min(pct, 95)}% - 8px)` }}
+                >
+                  <span className="text-[16px]" title={`${s.vesselName || s.trackingNumber} · ${pct}%`}>
+                    {arrived ? '⚓' : '🚢'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between mt-0.5">
+                <span className="text-[9px] text-[#9CA3C0]">{s.carrier || 'MSC'}</span>
+                <span className="text-[9px] text-[#9CA3C0]">
+                  {s.eta ? new Date(s.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {active.length > 3 && (
+        <p className="text-[10px] text-[#9CA3C0] text-center mt-2">+{active.length - 3} more</p>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
 /*  Container Progress                                         */
 /* ─────────────────────────────────────────────────────────── */
 
@@ -392,6 +484,7 @@ export default function Dashboard() {
   const [chart, setChart] = useState([]);
   const [pickups, setPickups] = useState([]);
   const [activeShipment, setActiveShipment] = useState(null);
+  const [trackedShipments, setTrackedShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalInvoices, setTotalInvoices] = useState(0);
 
@@ -399,12 +492,13 @@ export default function Dashboard() {
 
   const loadDashboard = async () => {
     try {
-      const [metricsRes, chartRes, pickupsRes, shipmentsRes, invoiceListRes] = await Promise.all([
+      const [metricsRes, chartRes, pickupsRes, shipmentsRes, invoiceListRes, trackedRes] = await Promise.all([
         axios.get('/api/v1/dashboard/metrics'),
         axios.get('/api/v1/dashboard/revenue-chart'),
         axios.get('/api/v1/dashboard/recent-pickups'),
         axios.get('/api/v1/shipments?status=collecting&limit=1'),
         axios.get('/api/v1/pickups?page=1&limit=1'),
+        axios.get('/api/v1/dashboard/tracked-shipments'),
       ]);
       setMetrics(metricsRes.data.data);
       setChart(chartRes.data.data);
@@ -412,6 +506,7 @@ export default function Dashboard() {
       const ships = shipmentsRes.data.data.shipments || [];
       if (ships.length > 0) setActiveShipment(ships[0]);
       setTotalInvoices(invoiceListRes.data.data.pagination?.total || 0);
+      setTrackedShipments(trackedRes.data.data || []);
     } catch (err) {
       console.error('Dashboard error:', err);
     } finally {
@@ -438,15 +533,9 @@ export default function Dashboard() {
         onMenuClick={onMenuClick}
       />
 
-      {/* KPI row */}
+      {/* Shipment tracker + KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[18px] mb-[18px]">
-        <KpiCard
-          label="Warehouse Invoices"
-          value={metrics?.warehouseItems ?? 0}
-          subtext={`$${fmtCurrency(metrics?.warehouseValue)} total`}
-          accent="gold"
-          icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-        />
+        <ShipmentTrackerTile shipments={trackedShipments} />
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}

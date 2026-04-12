@@ -134,6 +134,65 @@ exports.getRecentPickups = asyncHandler(async (req, res) => {
   res.json({ success: true, data: pickups });
 });
 
+/**
+ * GET /api/v1/dashboard/tracked-shipments
+ * Returns active tracked shipments (have a tracking_number) that either
+ * haven't arrived yet or arrived within the last 7 days. Includes transit
+ * percentage for the visual position.
+ */
+exports.getTrackedShipments = asyncHandler(async (req, res) => {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const shipments = await db.Shipment.findAll({
+    where: {
+      trackingNumber: { [Op.ne]: null },
+      [Op.or]: [
+        { status: { [Op.notIn]: ['delivered'] } },
+        { updatedAt: { [Op.gte]: sevenDaysAgo } },
+      ],
+    },
+    order: [['createdAt', 'DESC']],
+  });
+
+  const result = shipments.map((s) => {
+    const dep = s.departureDate ? new Date(s.departureDate) : null;
+    const eta = s.eta ? new Date(s.eta) : null;
+    const now = new Date();
+
+    let transitPercent = 0;
+    if (dep && eta && eta > dep) {
+      const total = eta.getTime() - dep.getTime();
+      const elapsed = now.getTime() - dep.getTime();
+      transitPercent = Math.max(0, Math.min(100, Math.round((elapsed / total) * 100)));
+    }
+    // If delivered/discharged, snap to 100
+    if (['delivered', 'customs'].includes(s.status) && transitPercent < 80) {
+      transitPercent = s.status === 'delivered' ? 100 : 90;
+    }
+
+    let etaDays = null;
+    if (eta) {
+      etaDays = Math.ceil((eta.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    return {
+      id: s.id,
+      name: s.name,
+      trackingNumber: s.trackingNumber,
+      carrier: s.carrier,
+      vesselName: s.vesselName,
+      voyageNumber: s.voyageNumber,
+      status: s.status,
+      departureDate: s.departureDate,
+      eta: s.eta,
+      etaDays,
+      transitPercent,
+    };
+  });
+
+  res.json({ success: true, data: result });
+});
+
 exports.getAlerts = asyncHandler(async (req, res) => {
   const alerts = [];
 

@@ -9,5 +9,6 @@ router.get('/metrics', dashboardController.getMetrics);
 router.get('/revenue-chart', dashboardController.getRevenueChart);
 router.get('/recent-pickups', dashboardController.getRecentPickups);
 router.get('/alerts', dashboardController.getAlerts);
+router.get('/tracked-shipments', dashboardController.getTrackedShipments);
 
 module.exports = router;
