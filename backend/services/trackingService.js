@@ -142,36 +142,81 @@ function mapStatusToGCGL(shipsgoStatus) {
 }
 
 /**
- * Extract events/milestones from a Shipsgo shipment response.
- * Returns normalized event objects.
+ * Human-readable event code descriptions.
+ */
+const EVENT_DESCRIPTIONS = {
+  'EMSH': 'Empty container shipped',
+  'GTIN': 'Gate in at terminal',
+  'LOAD': 'Loaded on vessel',
+  'DEPA': 'Departed port',
+  'ARRV': 'Arrived at port',
+  'DISC': 'Discharged from vessel',
+  'GTOT': 'Gate out — left port',
+  'EMRT': 'Empty container returned',
+  'TSLO': 'Transshipment loaded',
+  'TSDI': 'Transshipment discharged',
+  'BOOK': 'Booked',
+};
+
+/**
+ * Extract events from a Shipsgo shipment response.
+ * Events live in shipment.containers[].movements — NOT in a top-level
+ * milestones or events array.
  */
 function extractEvents(shipsgoShipment) {
   const events = [];
-  const milestones = shipsgoShipment.milestones || shipsgoShipment.events || [];
+  const containers = shipsgoShipment.containers || [];
 
-  for (const m of milestones) {
-    events.push({
-      eventType: m.type || m.status || m.event || 'unknown',
-      eventDate: m.date || m.timestamp || m.actual_date || m.estimated_date || new Date().toISOString(),
-      location: m.location || m.port || m.terminal || '',
-      vessel: m.vessel_name || m.vessel || '',
-      voyage: m.voyage_number || m.voyage || '',
-      description: m.description || m.type || '',
-    });
+  for (const container of containers) {
+    const movements = container.movements || [];
+    for (const m of movements) {
+      const locName = m.location?.name || '';
+      const country = m.location?.country?.name || '';
+      const locationStr = country ? `${locName}, ${country}` : locName;
+
+      events.push({
+        eventType: m.event || 'unknown',
+        eventDate: m.timestamp || new Date().toISOString(),
+        location: locationStr,
+        vessel: m.vessel?.name || '',
+        voyage: m.voyage || '',
+        description: EVENT_DESCRIPTIONS[m.event] || m.event || '',
+      });
+    }
   }
 
   return events;
 }
 
 /**
- * Extract ETA, vessel, voyage from Shipsgo shipment.
+ * Extract ETA, vessel, voyage, departure from Shipsgo shipment.
+ * Route-level data lives in shipment.route.port_of_loading / port_of_discharge.
+ * Vessel info is on the most recent movement with a vessel.
  */
 function extractShipmentInfo(shipsgoShipment) {
+  const route = shipsgoShipment.route || {};
+  const pol = route.port_of_loading || {};
+  const pod = route.port_of_discharge || {};
+
+  // Find the latest vessel from container movements
+  let vesselName = null;
+  let voyageNumber = null;
+  const containers = shipsgoShipment.containers || [];
+  for (const c of containers) {
+    for (const m of (c.movements || []).reverse()) {
+      if (m.vessel?.name && !vesselName) {
+        vesselName = m.vessel.name;
+        voyageNumber = m.voyage;
+        break;
+      }
+    }
+  }
+
   return {
-    eta: shipsgoShipment.date_of_eta || shipsgoShipment.eta || shipsgoShipment.pod_eta || null,
-    departureDate: shipsgoShipment.date_of_etd || shipsgoShipment.etd || shipsgoShipment.pol_etd || null,
-    vesselName: shipsgoShipment.vessel_name || shipsgoShipment.vessel || null,
-    voyageNumber: shipsgoShipment.voyage_number || shipsgoShipment.voyage || null,
+    eta: pod.date_of_discharge?.split('T')[0] || null,
+    departureDate: pol.date_of_loading?.split('T')[0] || null,
+    vesselName,
+    voyageNumber,
     status: shipsgoShipment.status || null,
   };
 }
