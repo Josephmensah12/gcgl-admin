@@ -88,17 +88,17 @@ const pctChange = (current, prior) => {
  * prior-period comparison) and the P&L / cash-flow reports.
  */
 async function aggregatesForRange(range) {
-  const [[inv]] = await db.sequelize.query(
+  const [inv] = await db.sequelize.query(
     `SELECT COALESCE(SUM(final_total), 0)::float AS revenue,
             COALESCE(SUM(amount_paid), 0)::float AS amount_paid,
             COUNT(*)::int AS invoice_count
        FROM invoices
       WHERE status = 'completed'
         AND created_at BETWEEN :startStr AND :endStr`,
-    { replacements: range, type: QueryTypes.SELECT, raw: false }
+    { replacements: range, type: QueryTypes.SELECT }
   );
 
-  const [[cash]] = await db.sequelize.query(
+  const [cash] = await db.sequelize.query(
     `SELECT
        COALESCE(SUM(CASE WHEN transaction_type = 'PAYMENT' THEN amount ELSE 0 END), 0)::float AS payments,
        COALESCE(SUM(CASE WHEN transaction_type = 'REFUND'  THEN amount ELSE 0 END), 0)::float AS refunds,
@@ -106,15 +106,15 @@ async function aggregatesForRange(range) {
      FROM invoice_payments
     WHERE voided_at IS NULL
       AND payment_date BETWEEN :startStr AND :endStr`,
-    { replacements: range, type: QueryTypes.SELECT, raw: false }
+    { replacements: range, type: QueryTypes.SELECT }
   );
 
-  const [[exp]] = await db.sequelize.query(
+  const [exp] = await db.sequelize.query(
     `SELECT COALESCE(SUM(amount), 0)::float AS expenses,
             COUNT(*)::int AS expense_count
        FROM expenses
       WHERE expense_date BETWEEN :startDate AND :endDate`,
-    { replacements: range, type: QueryTypes.SELECT, raw: false }
+    { replacements: range, type: QueryTypes.SELECT }
   );
 
   const revenue = round2(inv.revenue);
@@ -176,7 +176,7 @@ exports.getSummary = asyncHandler(async (req, res) => {
 exports.getProfitAndLoss = asyncHandler(async (req, res) => {
   const range = parseDateRange(req);
 
-  const [[inv]] = await db.sequelize.query(
+  const [inv] = await db.sequelize.query(
     `SELECT COALESCE(SUM(final_total), 0)::float AS revenue,
             COUNT(*)::int AS invoice_count
        FROM invoices
@@ -271,7 +271,7 @@ exports.getProfitAndLoss = asyncHandler(async (req, res) => {
 exports.getCashFlow = asyncHandler(async (req, res) => {
   const range = parseDateRange(req);
 
-  const [[inflow]] = await db.sequelize.query(
+  const [inflow] = await db.sequelize.query(
     `SELECT
        COALESCE(SUM(CASE WHEN transaction_type = 'PAYMENT' THEN amount ELSE 0 END), 0)::float AS payments,
        COALESCE(SUM(CASE WHEN transaction_type = 'REFUND'  THEN amount ELSE 0 END), 0)::float AS refunds
@@ -281,7 +281,7 @@ exports.getCashFlow = asyncHandler(async (req, res) => {
     { replacements: range, type: QueryTypes.SELECT }
   );
 
-  const [[outflow]] = await db.sequelize.query(
+  const [outflow] = await db.sequelize.query(
     `SELECT COALESCE(SUM(amount), 0)::float AS total
        FROM expenses
       WHERE expense_date BETWEEN :startDate AND :endDate`,
