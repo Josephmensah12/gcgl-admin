@@ -1036,7 +1036,7 @@ function TrackingCard({ shipment, onUpdated }) {
           ) : events.length === 0 ? (
             <div className="px-4 py-6 rounded-[10px] bg-[#F4F6FA] text-center">
               <p className="text-[13px] text-[#6B7194]">No tracking events yet.</p>
-              <p className="text-[11px] text-[#9CA3C0] mt-1">Events will appear automatically as Terminal49 receives updates from {shipment.carrier || 'the carrier'}.</p>
+              <p className="text-[11px] text-[#9CA3C0] mt-1">Events will appear automatically as Shipsgo receives updates from {shipment.carrier || 'the carrier'}.</p>
             </div>
           ) : (
             <div className="relative pl-6 border-l-2 border-[#EEF0F6] space-y-4">
