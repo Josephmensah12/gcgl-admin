@@ -55,12 +55,47 @@ module.exports = (sequelize) => {
 
     const items = await LineItem.findAll({ where: { invoiceId: this.id } });
 
-    // Subtotal = sum of post-line-discount totals
+    // Subtotal = sum of fresh (qty * basePrice) - line discount, derived here
+    // instead of trusting the stored finalPrice column (which had inconsistent
+    // historical semantics — some rows stored unit price, others stored
+    // line total). Each line is also re-saved so the beforeSave hook refreshes
+    // its own preDiscountTotal / discountAmount / finalPrice to self-heal
+    // stale data.
     let subtotal = 0;
     let lineDiscountsTotal = 0;
     for (const li of items) {
-      subtotal += parseFloat(li.finalPrice) || 0;
-      lineDiscountsTotal += parseFloat(li.discountAmount) || 0;
+      const qty = parseInt(li.quantity) || 0;
+      const unit = parseFloat(li.basePrice) || 0;
+      const preDisc = round2(qty * unit);
+
+      // Fresh discount calculation (mirrors LineItem.calculateTotals) so the
+      // subtotal reflects the current state even if the row hasn't been saved
+      // yet this transaction.
+      const discType = li.discountType || 'none';
+      const discVal = parseFloat(li.discountValue) || 0;
+      let discAmt = 0;
+      if (discType === 'percentage' && discVal > 0) discAmt = round2(preDisc * (discVal / 100));
+      else if (discType === 'fixed' && discVal > 0) discAmt = round2(Math.min(discVal, preDisc));
+
+      const lineTotal = round2(preDisc - discAmt);
+      subtotal += lineTotal;
+      lineDiscountsTotal += discAmt;
+
+      // Persist the refreshed values so future reads are consistent. Only save
+      // if something actually changed to avoid pointless writes.
+      const storedPreDisc = parseFloat(li.preDiscountTotal) || 0;
+      const storedDiscAmt = parseFloat(li.discountAmount) || 0;
+      const storedFinal = parseFloat(li.finalPrice) || 0;
+      if (
+        Math.abs(storedPreDisc - preDisc) > 0.001 ||
+        Math.abs(storedDiscAmt - discAmt) > 0.001 ||
+        Math.abs(storedFinal - lineTotal) > 0.001
+      ) {
+        li.preDiscountTotal = preDisc;
+        li.discountAmount = discAmt;
+        li.finalPrice = lineTotal;
+        await li.save();
+      }
     }
     subtotal = round2(subtotal);
 
