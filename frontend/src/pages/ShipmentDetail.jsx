@@ -794,6 +794,7 @@ export default function ShipmentDetail() {
 function TrackingCard({ shipment, onUpdated }) {
   const [trackingInput, setTrackingInput] = useState(shipment.trackingNumber || '');
   const [carrierInput, setCarrierInput] = useState(shipment.carrier || 'MSC');
+  const [numberType, setNumberType] = useState('booking');
   const [saving, setSaving] = useState(false);
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -823,6 +824,7 @@ function TrackingCard({ shipment, onUpdated }) {
       const res = await axios.post(`/api/v1/shipments/${shipment.id}/track`, {
         tracking_number: trackingInput.trim(),
         carrier: carrierInput,
+        number_type: numberType,
       });
       onUpdated({
         trackingNumber: trackingInput.trim(),
@@ -876,15 +878,23 @@ function TrackingCard({ shipment, onUpdated }) {
       {!hasTracking ? (
         <div>
           <p className="text-[13px] text-[#6B7194] mb-3">
-            Enter a container or B/L number to start tracking this shipment via Terminal49.
+            Enter a container or booking number to start tracking this shipment.
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={numberType}
+              onChange={(e) => setNumberType(e.target.value)}
+              className="h-10 px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px]"
+            >
+              <option value="booking">Booking #</option>
+              <option value="container">Container #</option>
+            </select>
             <input
               type="text"
               value={trackingInput}
               onChange={(e) => setTrackingInput(e.target.value)}
-              placeholder="Container # or B/L (e.g. MSCU1234567)"
-              className="h-10 flex-1 min-w-[200px] px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] outline-none"
+              placeholder={numberType === 'container' ? 'e.g. MSCU1234567' : 'e.g. 123456789'}
+              className="h-10 flex-1 min-w-[180px] px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] outline-none"
             />
             <select
               value={carrierInput}

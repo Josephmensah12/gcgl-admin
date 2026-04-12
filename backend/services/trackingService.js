@@ -65,17 +65,28 @@ function apiRequest(method, path, body) {
  * @param {string} carrier — carrier SCAC code (e.g., 'MSCU')
  * @returns {object} the created shipment
  */
-async function createTracker(containerNumber, carrier = 'MSCU') {
+/**
+ * @param {string} trackingNumber — container or booking number
+ * @param {string} carrier — carrier SCAC code
+ * @param {string} numberType — 'container' | 'booking' (default: auto-detect)
+ */
+async function createTracker(trackingNumber, carrier = 'MSCU', numberType) {
   if (!isConfigured()) {
     const err = new Error('Shipsgo not configured. Set SHIPSGO_API_KEY.');
     err.code = 'SHIPSGO_NOT_CONFIGURED';
     throw err;
   }
 
-  const body = {
-    container_number: containerNumber.trim(),
-    scac: carrier,
-  };
+  const num = trackingNumber.trim();
+  // Auto-detect: container numbers are 4 letters + 7 digits (e.g., MSCU1234567)
+  const isContainer = numberType === 'container' || (!numberType && /^[A-Z]{4}\d{7}$/i.test(num));
+
+  const body = { scac: carrier };
+  if (isContainer) {
+    body.container_number = num;
+  } else {
+    body.booking_number = num;
+  }
 
   const result = await apiRequest('POST', '/ocean/shipments', body);
   const shipment = result.shipment || result;

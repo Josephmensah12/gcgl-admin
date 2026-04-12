@@ -21,7 +21,7 @@ exports.setTrackingNumber = asyncHandler(async (req, res) => {
   const shipment = await db.Shipment.findByPk(req.params.id);
   if (!shipment) throw new AppError('Shipment not found', 404, 'NOT_FOUND');
 
-  const { tracking_number, carrier } = req.body;
+  const { tracking_number, carrier, number_type } = req.body;
   if (!tracking_number) throw new AppError('tracking_number is required', 400, 'MISSING_FIELD');
 
   const carrierScac = carrier || 'MSCU';
@@ -30,7 +30,7 @@ exports.setTrackingNumber = asyncHandler(async (req, res) => {
   let trackerError = null;
   if (isConfigured()) {
     try {
-      const result = await createTracker(tracking_number, carrierScac);
+      const result = await createTracker(tracking_number, carrierScac, number_type);
       trackerId = result.trackerId;
       console.log(`Shipsgo tracker created: ${trackerId} for ${tracking_number}`);
 
