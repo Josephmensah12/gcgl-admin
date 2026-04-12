@@ -1065,25 +1065,33 @@ function TrackingCard({ shipment, onUpdated }) {
             </div>
           ) : (
             <div className="relative pl-6 border-l-2 border-[#EEF0F6] space-y-4">
-              {events.map((ev) => (
-                <div key={ev.id} className="relative">
-                  <div className="absolute -left-[25px] w-4 h-4 rounded-full bg-white border-2 border-[#6366F1] flex items-center justify-center text-[8px]">
-                    {eventIcon(ev.eventType)}
-                  </div>
-                  <div className="pl-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[12.5px] font-semibold text-[#1A1D2B]">
-                        {ev.description || ev.eventType.replace(/\./g, ' → ')}
-                      </span>
-                      <span className="text-[10.5px] text-[#9CA3C0]">
-                        {new Date(ev.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
+              {events.map((ev) => {
+                const isFuture = new Date(ev.eventDate) > new Date();
+                return (
+                  <div key={ev.id} className={`relative ${isFuture ? 'opacity-40' : ''}`}>
+                    <div className={`absolute -left-[25px] w-4 h-4 rounded-full bg-white border-2 flex items-center justify-center text-[8px] ${isFuture ? 'border-[#C7CDDB]' : 'border-[#6366F1]'}`}>
+                      {eventIcon(ev.eventType)}
                     </div>
-                    {ev.location && <p className="text-[11.5px] text-[#6B7194] mt-0.5">📍 {ev.location}</p>}
-                    {ev.vessel && <p className="text-[11px] text-[#9CA3C0]">🚢 {ev.vessel}{ev.voyage ? ` · ${ev.voyage}` : ''}</p>}
+                    <div className="pl-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isFuture && (
+                          <span className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[9px] font-bold text-[#9CA3C0] uppercase tracking-wide">
+                            Estimated
+                          </span>
+                        )}
+                        <span className={`text-[12.5px] font-semibold ${isFuture ? 'text-[#9CA3C0]' : 'text-[#1A1D2B]'}`}>
+                          {ev.description || ev.eventType.replace(/\./g, ' → ')}
+                        </span>
+                        <span className="text-[10.5px] text-[#9CA3C0]">
+                          {isFuture ? 'ETA ' : ''}{new Date(ev.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                      {ev.location && <p className={`text-[11.5px] mt-0.5 ${isFuture ? 'text-[#C7CDDB]' : 'text-[#6B7194]'}`}>📍 {ev.location}</p>}
+                      {ev.vessel && <p className={`text-[11px] ${isFuture ? 'text-[#C7CDDB]' : 'text-[#9CA3C0]'}`}>🚢 {ev.vessel}{ev.voyage ? ` · ${ev.voyage}` : ''}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
