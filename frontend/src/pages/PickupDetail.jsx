@@ -310,9 +310,14 @@ export default function PickupDetail() {
                   onDiscountSave={async (payload) => {
                     try {
                       const res = await axios.patch(`/api/v1/pickups/${id}/items/${item.id}/discount`, payload);
-                      setPickup(res.data.data);
+                      // Merge instead of replacing so fields not returned by the discount
+                      // endpoint (like lineItem.photos and Customer.Recipients) stay intact
+                      setPickup((prev) => ({ ...prev, ...res.data.data }));
                     } catch (err) {
-                      alert(err.response?.data?.error?.message || 'Failed to apply discount');
+                      console.error('Line discount error:', err);
+                      const status = err.response?.status;
+                      const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
+                      alert(`Failed to apply line discount (HTTP ${status || 'net-err'}): ${msg}`);
                     }
                   }}
                 />
@@ -354,9 +359,12 @@ export default function PickupDetail() {
               onSave={async (payload) => {
                 try {
                   const res = await axios.patch(`/api/v1/pickups/${id}/discount`, payload);
-                  setPickup(res.data.data);
+                  setPickup((prev) => ({ ...prev, ...res.data.data }));
                 } catch (err) {
-                  alert(err.response?.data?.error?.message || 'Failed to apply discount');
+                  console.error('Invoice discount error:', err);
+                  const status = err.response?.status;
+                  const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
+                  alert(`Failed to apply invoice discount (HTTP ${status || 'net-err'}): ${msg}`);
                 }
               }}
             />
