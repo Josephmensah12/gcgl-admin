@@ -303,42 +303,63 @@ export default function PickupDetail() {
             <h3 className="font-semibold text-gray-900 mb-3">Line Items</h3>
             <div className="space-y-3">
               {pickup.lineItems?.map((item) => (
-                <div key={item.id} className="flex items-start gap-4 p-3 rounded-lg bg-gray-50">
-                  {item.photos?.length > 0 && (
-                    <img src={item.photos[0].data} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">
-                      {item.catalogName || item.description || 'Custom Item'}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {item.type === 'custom' && item.dimensionsL
-                        ? `${item.dimensionsL}" x ${item.dimensionsW}" x ${item.dimensionsH}"`
-                        : item.type}
-                      {' '} &middot; Qty: {item.quantity}
-                    </p>
-                  </div>
-                  <p className="font-semibold">{fmt(item.finalPrice)}</p>
-                </div>
+                <LineItemRow
+                  key={item.id}
+                  item={item}
+                  locked={pickup.paymentStatus === 'paid'}
+                  onDiscountSave={async (payload) => {
+                    try {
+                      const res = await axios.patch(`/api/v1/pickups/${id}/items/${item.id}/discount`, payload);
+                      setPickup(res.data.data);
+                    } catch (err) {
+                      alert(err.response?.data?.error?.message || 'Failed to apply discount');
+                    }
+                  }}
+                />
               ))}
             </div>
 
-            <div className="border-t border-gray-200 mt-4 pt-4">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-500">Total</span>
-                <span className="font-bold text-lg">{fmt(pickup.finalTotal)}</span>
+            {/* Totals */}
+            <div className="border-t border-gray-200 mt-4 pt-4 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Subtotal</span>
+                <span className="tabular-nums">{fmt(pickup.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm mb-1">
+              {parseFloat(pickup.totalDiscount) > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Discount</span>
+                  <span className="tabular-nums text-red-600">−{fmt(pickup.totalDiscount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 mt-1 border-t border-gray-100">
+                <span className="text-gray-700 font-medium">Total</span>
+                <span className="font-bold text-lg tabular-nums">{fmt(pickup.finalTotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
                 <span className="text-gray-500">Paid</span>
-                <span className="font-semibold text-green-600">{fmt(pickup.amountPaid)}</span>
+                <span className="font-semibold text-green-600 tabular-nums">{fmt(pickup.amountPaid)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Balance Due</span>
-                <span className={`font-bold ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <span className={`font-bold tabular-nums ${balanceDue > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {fmt(balanceDue)}
                 </span>
               </div>
             </div>
+
+            {/* Invoice-level discount editor */}
+            <InvoiceDiscountEditor
+              pickup={pickup}
+              locked={pickup.paymentStatus === 'paid'}
+              onSave={async (payload) => {
+                try {
+                  const res = await axios.patch(`/api/v1/pickups/${id}/discount`, payload);
+                  setPickup(res.data.data);
+                } catch (err) {
+                  alert(err.response?.data?.error?.message || 'Failed to apply discount');
+                }
+              }}
+            />
           </div>
 
           {/* Payment Actions */}
@@ -517,5 +538,225 @@ export default function PickupDetail() {
       </div>
       </div>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Line item row with inline discount editor                  */
+/* ─────────────────────────────────────────────────────────── */
+
+function LineItemRow({ item, onDiscountSave, locked }) {
+  const [editing, setEditing] = useState(false);
+  const [type, setType] = useState(item.discountType || 'none');
+  const [value, setValue] = useState(
+    item.discountValue != null ? String(item.discountValue) : '0'
+  );
+  const [saving, setSaving] = useState(false);
+
+  const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
+  const preDiscount = parseFloat(item.preDiscountTotal) ||
+                      (parseFloat(item.basePrice) || 0) * (parseInt(item.quantity) || 1);
+  const discountAmt = parseFloat(item.discountAmount) || 0;
+  const finalPrice = parseFloat(item.finalPrice) || 0;
+  const hasDiscount = discountAmt > 0.01;
+
+  const save = async () => {
+    setSaving(true);
+    await onDiscountSave({ discount_type: type, discount_value: parseFloat(value) || 0 });
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const clear = async () => {
+    setSaving(true);
+    setType('none');
+    setValue('0');
+    await onDiscountSave({ discount_type: 'none', discount_value: 0 });
+    setSaving(false);
+    setEditing(false);
+  };
+
+  return (
+    <div className="p-3 rounded-lg bg-gray-50">
+      <div className="flex items-start gap-4">
+        {item.photos?.length > 0 && (
+          <img src={item.photos[0].data} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-gray-900">
+            {item.catalogName || item.description || 'Custom Item'}
+          </p>
+          <p className="text-xs text-gray-500">
+            {item.type === 'custom' && item.dimensionsL
+              ? `${item.dimensionsL}" × ${item.dimensionsW}" × ${item.dimensionsH}"`
+              : item.type}
+            {' · '}Qty: {item.quantity}
+            {' · '}@ {fmt(item.basePrice)}
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          {hasDiscount && (
+            <p className="text-[11px] text-gray-400 line-through tabular-nums">{fmt(preDiscount)}</p>
+          )}
+          <p className="font-semibold tabular-nums">{fmt(finalPrice)}</p>
+          {hasDiscount && (
+            <p className="text-[10px] text-red-500 font-medium">−{fmt(discountAmt)}</p>
+          )}
+        </div>
+      </div>
+
+      {!editing ? (
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => setEditing(true)}
+          className="mt-2 text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {hasDiscount ? 'Edit discount' : 'Add discount'}
+        </button>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200">
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none"
+          >
+            <option value="none">No discount</option>
+            <option value="percentage">% off</option>
+            <option value="fixed">$ off</option>
+          </select>
+          {type !== 'none' && (
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              min="0"
+              step="0.01"
+              className="h-8 w-24 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none tabular-nums"
+              placeholder={type === 'percentage' ? '%' : '$'}
+            />
+          )}
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="h-8 px-3 rounded-[8px] bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
+          >
+            {saving ? '...' : 'Save'}
+          </button>
+          {hasDiscount && (
+            <button
+              type="button"
+              onClick={clear}
+              disabled={saving}
+              className="h-8 px-3 rounded-[8px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-medium hover:bg-[#E9EBF2]"
+            >
+              Clear
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false);
+              setType(item.discountType || 'none');
+              setValue(item.discountValue != null ? String(item.discountValue) : '0');
+            }}
+            className="h-8 px-3 rounded-[8px] text-[#9CA3C0] text-[12px] font-medium hover:text-[#1A1D2B]"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Invoice-level discount editor                              */
+/* ─────────────────────────────────────────────────────────── */
+
+function InvoiceDiscountEditor({ pickup, onSave, locked }) {
+  const [type, setType] = useState(pickup.discountType || 'none');
+  const [value, setValue] = useState(
+    pickup.discountValue != null ? String(pickup.discountValue) : '0'
+  );
+  const [saving, setSaving] = useState(false);
+
+  // Re-sync when parent updates
+  useEffect(() => {
+    setType(pickup.discountType || 'none');
+    setValue(pickup.discountValue != null ? String(pickup.discountValue) : '0');
+  }, [pickup.discountType, pickup.discountValue]);
+
+  const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
+  const appliedPercent = parseFloat(pickup.discountPercent) || 0;
+  const subtotal = parseFloat(pickup.subtotal) || 0;
+  const hasDiscount = type !== 'none' && parseFloat(value) > 0;
+
+  // Live preview of invoice-level discount amount (not applied until saved)
+  const previewAmount = (() => {
+    const v = parseFloat(value) || 0;
+    if (type === 'percentage') return (subtotal * v) / 100;
+    if (type === 'fixed') return Math.min(v, subtotal);
+    return 0;
+  })();
+
+  const save = async () => {
+    setSaving(true);
+    await onSave({ discount_type: type, discount_value: parseFloat(value) || 0 });
+    setSaving(false);
+  };
+
+  return (
+    <div className="mt-5 pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-[13px] font-bold text-[#1A1D2B]">Invoice Discount</h4>
+        {appliedPercent > 0 && (
+          <span className="px-2 py-0.5 rounded-md bg-[rgba(99,102,241,0.08)] text-[#6366F1] text-[11px] font-semibold">
+            {appliedPercent.toFixed(2)}% effective
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          disabled={locked}
+          className="h-9 px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] focus:border-[#6366F1] outline-none disabled:opacity-50"
+        >
+          <option value="none">No discount</option>
+          <option value="percentage">% off</option>
+          <option value="fixed">$ off</option>
+        </select>
+        {type !== 'none' && (
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            min="0"
+            step="0.01"
+            disabled={locked}
+            className="h-9 w-28 px-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] focus:border-[#6366F1] outline-none tabular-nums disabled:opacity-50"
+            placeholder={type === 'percentage' ? 'e.g. 10' : 'e.g. 25.00'}
+          />
+        )}
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || locked}
+          className="h-9 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Apply'}
+        </button>
+      </div>
+      {hasDiscount && previewAmount > 0 && (
+        <p className="mt-2 text-[11.5px] text-[#6B7194]">
+          Preview: subtotal {fmt(subtotal)} − {fmt(previewAmount)} = <span className="font-bold text-[#1A1D2B] tabular-nums">{fmt(Math.max(0, subtotal - previewAmount))}</span>
+        </p>
+      )}
+      {locked && (
+        <p className="mt-2 text-[11px] text-[#9CA3C0]">Invoice is paid — discounts locked.</p>
+      )}
+    </div>
   );
 }

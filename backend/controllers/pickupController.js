@@ -298,6 +298,82 @@ exports.getWarehouseSummary = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { aging, byPayment } });
 });
 
+/**
+ * PATCH /api/v1/pickups/:id/discount
+ * Update the invoice-level discount. Accepts discount_type ('none' | 'percentage' | 'fixed')
+ * and discount_value (number). Recomputes totals and returns the updated invoice.
+ */
+exports.updateInvoiceDiscount = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+
+  const discountType = req.body.discount_type ?? req.body.discountType ?? invoice.discountType;
+  let discountValue = req.body.discount_value ?? req.body.discountValue;
+  if (discountValue === undefined || discountValue === null) discountValue = invoice.discountValue;
+  discountValue = parseFloat(discountValue) || 0;
+
+  if (!['none', 'percentage', 'fixed'].includes(discountType)) {
+    throw new AppError("discount_type must be 'none', 'percentage', or 'fixed'", 400, 'INVALID_DISCOUNT_TYPE');
+  }
+  if (discountType === 'percentage' && (discountValue < 0 || discountValue > 100)) {
+    throw new AppError('Percentage discount must be between 0 and 100', 400, 'INVALID_DISCOUNT_VALUE');
+  }
+  if (discountType === 'fixed' && discountValue < 0) {
+    throw new AppError('Fixed discount cannot be negative', 400, 'INVALID_DISCOUNT_VALUE');
+  }
+
+  invoice.discountType = discountType;
+  invoice.discountValue = discountType === 'none' ? 0 : discountValue;
+  await invoice.recalculateTotals();
+
+  // Return the invoice with its lineItems so the UI can refresh totals
+  const fresh = await db.Invoice.findByPk(invoice.id, {
+    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+  });
+  res.json({ success: true, data: fresh });
+});
+
+/**
+ * PATCH /api/v1/pickups/:id/items/:itemId/discount
+ * Update a single line-item discount. Accepts discount_type and discount_value.
+ * Recalculates the line (via beforeSave hook) and the parent invoice.
+ */
+exports.updateLineItemDiscount = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+
+  const item = await db.LineItem.findOne({
+    where: { id: req.params.itemId, invoiceId: invoice.id },
+  });
+  if (!item) throw new AppError('Line item not found on this invoice', 404, 'NOT_FOUND');
+
+  const discountType = req.body.discount_type ?? req.body.discountType ?? item.discountType;
+  let discountValue = req.body.discount_value ?? req.body.discountValue;
+  if (discountValue === undefined || discountValue === null) discountValue = item.discountValue;
+  discountValue = parseFloat(discountValue) || 0;
+
+  if (!['none', 'percentage', 'fixed'].includes(discountType)) {
+    throw new AppError("discount_type must be 'none', 'percentage', or 'fixed'", 400, 'INVALID_DISCOUNT_TYPE');
+  }
+  if (discountType === 'percentage' && (discountValue < 0 || discountValue > 100)) {
+    throw new AppError('Percentage discount must be between 0 and 100', 400, 'INVALID_DISCOUNT_VALUE');
+  }
+  if (discountType === 'fixed' && discountValue < 0) {
+    throw new AppError('Fixed discount cannot be negative', 400, 'INVALID_DISCOUNT_VALUE');
+  }
+
+  item.discountType = discountType;
+  item.discountValue = discountType === 'none' ? 0 : discountValue;
+  await item.save(); // triggers calculateTotals via beforeSave
+
+  await invoice.recalculateTotals();
+
+  const fresh = await db.Invoice.findByPk(invoice.id, {
+    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+  });
+  res.json({ success: true, data: fresh });
+});
+
 exports.emailStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { configured: isEmailConfigured() } });
 });
