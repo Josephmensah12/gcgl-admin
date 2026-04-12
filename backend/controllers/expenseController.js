@@ -74,7 +74,9 @@ exports.detail = asyncHandler(async (req, res) => {
 });
 
 exports.create = asyncHandler(async (req, res) => {
-  const { expense_date, category_id, description, vendor_or_payee, amount, shipment_id, notes, is_fixed_cost } = req.body;
+  let { expense_date, category_id, description, vendor_or_payee, amount, shipment_id, notes, is_fixed_cost } = req.body;
+  // Empty string FK → null (same reason as update)
+  if (shipment_id === '') shipment_id = null;
 
   if (!expense_date || !category_id || !description || !amount) {
     throw new AppError('Date, category, description, and amount are required', 400, 'VALIDATION_ERROR');
@@ -131,7 +133,15 @@ exports.create = asyncHandler(async (req, res) => {
 exports.update = asyncHandler(async (req, res) => {
   const expense = await db.Expense.findByPk(req.params.id);
   if (!expense) throw new AppError('Expense not found', 404, 'NOT_FOUND');
-  await expense.update(req.body);
+
+  // Normalize nullable FK / optional string fields: the frontend sends empty
+  // string when a select is cleared, but Postgres rejects '' on a UUID FK.
+  const body = { ...req.body };
+  if (body.shipment_id === '') body.shipment_id = null;
+  if (body.vendor_or_payee === '') body.vendor_or_payee = null;
+  if (body.notes === '') body.notes = null;
+
+  await expense.update(body);
 
   const full = await db.Expense.findByPk(expense.id, {
     include: [
