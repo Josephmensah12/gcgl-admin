@@ -168,33 +168,9 @@ function ShipmentTrackerTile({ shipments }) {
       className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer"
       onClick={() => navigate(`/shipments/${primary.id}`)}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-[10px] bg-[rgba(59,130,246,0.08)] flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M4 19L7 11H17L20 19H4Z" fill="#3B82F6" opacity="0.2" />
-              <path d="M4 19L7 11H17L20 19" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M12 11V5" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
-              <path d="M9 5H15" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M2 22C4 20 7 20 9 22C11 20 14 20 16 22C18 20 21 20 22 22" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-[14px] font-bold text-[#1A1D2B]">{primary.vesselName || primary.name} · {primary.voyageNumber || ''}</p>
-            <p className="text-[11.5px] text-[#6B7194]">Houston → Tema</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${arrived ? 'bg-[rgba(16,185,129,0.08)] text-[#10B981]' : 'bg-[rgba(59,130,246,0.08)] text-[#3B82F6]'}`}>
-            {arrived ? 'Arrived' : 'In Transit'}
-          </span>
-        </div>
-      </div>
-
-      {/* Map */}
-      <div className="px-2 pb-1">
-        <svg viewBox="0 0 800 400" className="w-full" style={{ maxHeight: '280px' }}>
+      {/* Map fills the tile */}
+      <div className="relative">
+        <svg viewBox="0 0 800 400" className="w-full block rounded-t-[16px]">
           <defs>
             <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#D4EAFC" />
@@ -322,48 +298,31 @@ function ShipmentTrackerTile({ shipments }) {
             );
           })()}
         </svg>
-      </div>
 
-      {/* Status footer */}
-      <div className="px-6 py-4 border-t border-black/[0.03] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#3B82F6] animate-pulse-dot'}`} />
-          <span className="text-[13px] font-semibold text-[#1A1D2B]">
-            {arrived ? 'Arrived' : 'In Transit'}
-          </span>
-          <span className="text-[12px] text-[#6B7194]">· {shipLabel}</span>
-        </div>
-        <div className="flex items-center gap-4 text-[12px] text-[#6B7194]">
-          {etaText && <span className={`font-bold ${arrived ? 'text-[#10B981]' : 'text-[#3B82F6]'}`}>{etaText}</span>}
-          {primary.eta && (
-            <span>ETA {new Date(primary.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-          )}
-          <span>📍 Tema, Ghana</span>
-        </div>
-      </div>
-
-      {/* Additional shipments */}
-      {active.length > 1 && (
-        <div className="px-6 pb-4 pt-1 border-t border-black/[0.03]">
-          <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-2">Other Shipments</p>
-          <div className="flex flex-wrap gap-2">
-            {active.slice(1).map((s) => {
-              const p = s.transitPercent || 0;
-              const arr = p >= 100 || s.status === 'delivered';
-              return (
-                <button
-                  key={s.id}
-                  onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${s.id}`); }}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[8px] bg-[#F4F6FA] hover:bg-[#E9EBF2] text-[11.5px] font-medium text-[#1A1D2B] transition-colors"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${arr ? 'bg-[#10B981]' : 'bg-[#3B82F6]'}`} />
-                  {s.name} · {p}%
-                </button>
-              );
-            })}
+        {/* Overlay: vessel name + status (top-left) */}
+        <div className="absolute top-3 left-3 flex items-center gap-2">
+          <div className="px-3 py-1.5 rounded-[10px] bg-white/90 backdrop-blur-sm shadow-sm flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#3B82F6] animate-pulse-dot'}`} />
+            <span className="text-[12px] font-bold text-[#1A1D2B]">{primary.vesselName || primary.name}</span>
+            {primary.voyageNumber && <span className="text-[10px] text-[#9CA3C0]">· {primary.voyageNumber}</span>}
           </div>
         </div>
-      )}
+
+        {/* Overlay: ETA (top-right) */}
+        <div className="absolute top-3 right-3">
+          <div className={`px-3 py-1.5 rounded-[10px] backdrop-blur-sm shadow-sm text-[11px] font-bold ${arrived ? 'bg-[#10B981]/90 text-white' : 'bg-white/90 text-[#3B82F6]'}`}>
+            {etaText || (primary.eta ? `ETA ${new Date(primary.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Tracking')}
+          </div>
+        </div>
+      </div>
+
+      {/* Compact footer */}
+      <div className="px-4 py-2.5 flex items-center justify-between">
+        <span className="text-[11px] text-[#6B7194]">Houston → Tema · {shipLabel}</span>
+        {active.length > 1 && (
+          <span className="text-[10px] text-[#9CA3C0]">+{active.length - 1} more</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -706,13 +665,10 @@ export default function Dashboard() {
         onMenuClick={onMenuClick}
       />
 
-      {/* Shipment tracker — full width */}
-      <div className="mb-[18px]">
+      {/* Shipment tracker + KPI row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
         <ShipmentTrackerTile shipments={trackedShipments} />
-      </div>
-
-      {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[18px] mb-[18px]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px]">
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}
@@ -736,6 +692,7 @@ export default function Dashboard() {
           accent="red"
           icon="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
         />
+        </div>
       </div>
 
       {/* Charts row */}
