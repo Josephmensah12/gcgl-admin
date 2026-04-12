@@ -13,7 +13,7 @@ app.use(helmet());
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
 app.use(cors({
   origin: corsOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
 
