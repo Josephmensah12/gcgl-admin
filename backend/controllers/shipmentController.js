@@ -23,14 +23,14 @@ exports.list = asyncHandler(async (req, res) => {
     order: [[sortBy, sortOrder]],
   });
 
-  // Get invoice counts and stats per shipment
+  // Get invoice counts and payment stats per shipment
   const shipmentIds = rows.map((s) => s.id);
   const invoiceStats = await db.Invoice.findAll({
     where: { shipmentId: { [Op.in]: shipmentIds }, status: 'completed' },
     attributes: [
       'shipmentId',
-      [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'invoiceCount'],
-      [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue'],
+      [db.sequelize.fn('COUNT', db.sequelize.col('Invoice.id')), 'invoiceCount'],
+      [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'invoiceTotal'],
       [db.sequelize.fn('SUM', db.sequelize.literal("CASE WHEN payment_status = 'paid' THEN final_total ELSE 0 END")), 'paidValue'],
       [db.sequelize.fn('SUM', db.sequelize.literal("CASE WHEN payment_status = 'unpaid' THEN final_total ELSE 0 END")), 'unpaidValue'],
     ],
@@ -38,11 +38,26 @@ exports.list = asyncHandler(async (req, res) => {
     raw: true,
   });
 
+  // Goods-only value: sum line_items excluding type='service' — this drives container capacity
+  const goodsValueRows = shipmentIds.length > 0 ? await db.sequelize.query(`
+    SELECT i.shipment_id AS "shipmentId",
+           COALESCE(SUM(li.final_price), 0)::float AS "goodsValue"
+      FROM invoices i
+      JOIN line_items li ON li.invoice_id = i.id
+     WHERE i.shipment_id IN (:shipmentIds)
+       AND i.status = 'completed'
+       AND (li.type IS NULL OR li.type != 'service')
+     GROUP BY i.shipment_id
+  `, { replacements: { shipmentIds }, type: require('sequelize').QueryTypes.SELECT }) : [];
+  const goodsMap = {};
+  for (const g of goodsValueRows) goodsMap[g.shipmentId] = parseFloat(g.goodsValue) || 0;
+
   const statsMap = {};
   invoiceStats.forEach((s) => {
     statsMap[s.shipmentId] = {
       invoiceCount: parseInt(s.invoiceCount),
-      totalValue: parseFloat(s.totalValue) || 0,
+      totalValue: goodsMap[s.shipmentId] || 0, // goods only for capacity
+      invoiceTotal: parseFloat(s.invoiceTotal) || 0, // full total including services
       paidValue: parseFloat(s.paidValue) || 0,
       unpaidValue: parseFloat(s.unpaidValue) || 0,
     };
@@ -99,13 +114,15 @@ exports.getById = asyncHandler(async (req, res) => {
   const settings = await db.Setting.findByPk(1);
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
-  // Compute fresh totalValue from assigned invoices (cached column can drift)
-  const totals = await db.Invoice.findOne({
-    where: { shipmentId: shipment.id, status: 'completed' },
-    attributes: [[db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue']],
-    raw: true,
-  });
-  const totalValue = parseFloat(totals?.totalValue) || 0;
+  // Compute goods-only totalValue (excludes service items like packing/handling)
+  const [goodsRow] = await db.sequelize.query(`
+    SELECT COALESCE(SUM(li.final_price), 0)::float AS "goodsValue"
+      FROM invoices i
+      JOIN line_items li ON li.invoice_id = i.id
+     WHERE i.shipment_id = :sid AND i.status = 'completed'
+       AND (li.type IS NULL OR li.type != 'service')
+  `, { replacements: { sid: shipment.id }, type: require('sequelize').QueryTypes.SELECT });
+  const totalValue = parseFloat(goodsRow?.goodsValue) || 0;
 
   res.json({
     success: true,
@@ -177,19 +194,19 @@ exports.getActiveShipments = asyncHandler(async (req, res) => {
   const settings = await db.Setting.findByPk(1);
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
-  // Compute fresh totalValue per shipment (cached column can drift)
+  // Compute goods-only totalValue per shipment (excludes service items)
   const shipmentIds = shipments.map((s) => s.id);
-  const stats = await db.Invoice.findAll({
-    where: { shipmentId: { [Op.in]: shipmentIds }, status: 'completed' },
-    attributes: [
-      'shipmentId',
-      [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue'],
-    ],
-    group: ['shipmentId'],
-    raw: true,
-  });
+  const goodsStats = shipmentIds.length > 0 ? await db.sequelize.query(`
+    SELECT i.shipment_id AS "shipmentId",
+           COALESCE(SUM(li.final_price), 0)::float AS "goodsValue"
+      FROM invoices i
+      JOIN line_items li ON li.invoice_id = i.id
+     WHERE i.shipment_id IN (:shipmentIds) AND i.status = 'completed'
+       AND (li.type IS NULL OR li.type != 'service')
+     GROUP BY i.shipment_id
+  `, { replacements: { shipmentIds }, type: require('sequelize').QueryTypes.SELECT }) : [];
   const totalValueMap = {};
-  for (const s of stats) totalValueMap[s.shipmentId] = parseFloat(s.totalValue) || 0;
+  for (const s of goodsStats) totalValueMap[s.shipmentId] = parseFloat(s.goodsValue) || 0;
 
   const result = shipments.map((s) => {
     const totalValue = totalValueMap[s.id] || 0;
