@@ -125,7 +125,12 @@ function ShipmentTrackerTile({ shipments }) {
   // Show the primary (first) shipment on the map, others listed below
   const primary = active[0];
   const pct = primary.transitPercent || 0;
-  const arrived = pct >= 100 || primary.status === 'delivered';
+  // Derive arrived from tracking data (last event), not the shipment status field
+  // — status can be stale when a container is reused across shipments
+  const lastEvtType = primary.lastEvent?.type || '';
+  const lastEvtLoc = (primary.lastEvent?.location || '').toLowerCase();
+  const arrived = pct >= 97 || lastEvtType === 'EMRT' || lastEvtType === 'GTOT' ||
+    (lastEvtType === 'DISC' && (lastEvtLoc.includes('tema') || lastEvtLoc.includes('ghana')));
 
   // Geo points in SVG coords (viewBox 0 0 800 380)
   // Longitude: -100°W to 5°E mapped to x: 30 to 770
