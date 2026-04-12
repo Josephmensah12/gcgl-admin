@@ -479,12 +479,15 @@ export default function PickupDetail() {
           </div>
 
           {/* Payment Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             {balanceDue > 0 && (
               <button onClick={() => setModal('PAYMENT')}
                 className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors">
                 Receive Payment
               </button>
+            )}
+            {balanceDue > 0 && (
+              <SquarePayButton invoiceId={id} balanceDue={balanceDue} />
             )}
             {parseFloat(pickup.amountPaid) > 0 && (
               <button onClick={() => setModal('REFUND')}
@@ -654,6 +657,81 @@ export default function PickupDetail() {
       </div>
       </div>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Square Pay Now button                                      */
+/* ─────────────────────────────────────────────────────────── */
+
+function SquarePayButton({ invoiceId, balanceDue }) {
+  const [state, setState] = useState('idle'); // idle | loading | done | error
+  const [link, setLink] = useState(null);
+  const [error, setError] = useState(null);
+
+  const generate = async () => {
+    setState('loading');
+    setError(null);
+    try {
+      const res = await axios.post(`/api/v1/pickups/${invoiceId}/pay`);
+      setLink(res.data.data.url);
+      setState('done');
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || err.message;
+      const code = err.response?.data?.error?.code;
+      if (code === 'SQUARE_NOT_CONFIGURED') {
+        setError('Square not configured. Set SQUARE_ACCESS_TOKEN in Railway.');
+      } else {
+        setError(msg);
+      }
+      setState('error');
+    }
+  };
+
+  if (state === 'done' && link) {
+    return (
+      <div className="flex-1 flex flex-col gap-2">
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#1A1D2B] text-white rounded-xl text-sm font-semibold hover:bg-[#2D3142] transition-colors text-center"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4.01 2C2.9 2 2 2.9 2 4.01v15.98C2 21.1 2.9 22 4.01 22h15.98C21.1 22 22 21.1 22 19.99V4.01C22 2.9 21.1 2 19.99 2H4.01zm9.61 15.57c-.71.71-1.86.71-2.57 0l-4.62-4.62a1.82 1.82 0 010-2.57l4.62-4.62a1.82 1.82 0 012.57 0l4.62 4.62c.71.71.71 1.86 0 2.57l-4.62 4.62z" />
+          </svg>
+          Pay with Square
+        </a>
+        <button
+          onClick={() => { navigator.clipboard.writeText(link); }}
+          className="text-[11px] text-[#6366F1] font-semibold hover:text-[#4F46E5] text-center"
+        >
+          Copy payment link
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col gap-1">
+      <button
+        onClick={generate}
+        disabled={state === 'loading'}
+        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#1A1D2B] text-white rounded-xl text-sm font-semibold hover:bg-[#2D3142] disabled:opacity-50 transition-colors"
+      >
+        {state === 'loading' ? (
+          'Generating link...'
+        ) : (
+          <>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.01 2C2.9 2 2 2.9 2 4.01v15.98C2 21.1 2.9 22 4.01 22h15.98C21.1 22 22 21.1 22 19.99V4.01C22 2.9 21.1 2 19.99 2H4.01zm9.61 15.57c-.71.71-1.86.71-2.57 0l-4.62-4.62a1.82 1.82 0 010-2.57l4.62-4.62a1.82 1.82 0 012.57 0l4.62 4.62c.71.71.71 1.86 0 2.57l-4.62 4.62z" />
+            </svg>
+            Pay with Square (${balanceDue.toFixed(2)})
+          </>
+        )}
+      </button>
+      {error && <p className="text-[11px] text-[#EF4444] text-center">{error}</p>}
+    </div>
   );
 }
 

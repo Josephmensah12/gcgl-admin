@@ -15,5 +15,7 @@ router.post('/:id/email', pickupController.emailInvoice);
 router.get('/email/status', pickupController.emailStatus);
 router.patch('/:id/discount', pickupController.updateInvoiceDiscount);
 router.patch('/:id/items/:itemId/discount', pickupController.updateLineItemDiscount);
+router.post('/:id/pay', pickupController.createPaymentLink);
+router.get('/square/status', pickupController.squareStatus);
 
 module.exports = router;

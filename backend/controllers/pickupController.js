@@ -3,6 +3,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const { sendInvoiceEmail, isConfigured: isEmailConfigured } = require('../services/emailService');
+const { createPaymentLink, isConfigured: isSquareConfigured, verifyWebhookSignature } = require('../services/squareService');
 
 exports.list = asyncHandler(async (req, res) => {
   const {
@@ -378,6 +379,110 @@ exports.emailStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { configured: isEmailConfigured() } });
 });
 
+/* ─── Square payment link ───────────────────────────────── */
+
+exports.squareStatus = asyncHandler(async (req, res) => {
+  res.json({ success: true, data: { configured: isSquareConfigured() } });
+});
+
+exports.createPaymentLink = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+
+  try {
+    const link = await createPaymentLink(invoice);
+    res.json({ success: true, data: link });
+  } catch (e) {
+    if (e.code === 'SQUARE_NOT_CONFIGURED') {
+      throw new AppError(e.message, 503, 'SQUARE_NOT_CONFIGURED');
+    }
+    if (e.code === 'INVOICE_PAID') {
+      throw new AppError(e.message, 400, 'INVOICE_PAID');
+    }
+    throw new AppError(e.message || 'Failed to create payment link', 500, 'SQUARE_ERROR');
+  }
+});
+
+/* ─── Square webhook ────────────────────────────────────── */
+
+exports.squareWebhook = async (req, res) => {
+  // This handler is NOT wrapped in asyncHandler because it needs to
+  // always return 200 to Square (even on errors) to avoid retries.
+  try {
+    const event = req.body;
+    const eventType = event?.type;
+
+    // Only process completed payments
+    if (eventType !== 'payment.completed') {
+      return res.status(200).json({ received: true });
+    }
+
+    const payment = event.data?.object?.payment;
+    if (!payment) return res.status(200).json({ received: true });
+
+    // Extract the invoice number from the payment note: "GCGL Invoice #NNN"
+    const note = payment.note || payment.receipt_url || '';
+    const match = note.match(/Invoice #(\d+)/i);
+    if (!match) {
+      console.log('Square webhook: no invoice number in payment note:', note);
+      return res.status(200).json({ received: true, matched: false });
+    }
+
+    const invoiceNumber = parseInt(match[1]);
+    const invoice = await db.Invoice.findOne({ where: { invoiceNumber } });
+    if (!invoice) {
+      console.log('Square webhook: invoice #' + invoiceNumber + ' not found');
+      return res.status(200).json({ received: true, matched: false });
+    }
+
+    // Avoid duplicate payment records (idempotency by Square payment ID)
+    const squarePaymentId = payment.id;
+    const existing = await db.InvoicePayment.findOne({
+      where: { comment: { [Op.like]: '%' + squarePaymentId + '%' } },
+    });
+    if (existing) {
+      console.log('Square webhook: payment already recorded for ' + squarePaymentId);
+      return res.status(200).json({ received: true, duplicate: true });
+    }
+
+    // Amount is in cents
+    const amountCents = payment.amount_money?.amount || 0;
+    const amount = amountCents / 100;
+    const paymentDate = payment.created_at ? new Date(payment.created_at) : new Date();
+
+    // Create invoice_payment row
+    const crypto = require('crypto');
+    await db.InvoicePayment.create({
+      id: crypto.randomUUID(),
+      invoiceId: invoice.id,
+      transactionType: 'PAYMENT',
+      paymentDate: paymentDate,
+      amount: amount,
+      paymentMethod: 'Square',
+      comment: `Square online payment ${squarePaymentId}`,
+    });
+
+    // Update invoice amount_paid and payment_status
+    const newPaid = parseFloat(invoice.amountPaid || 0) + amount;
+    const total = parseFloat(invoice.finalTotal || 0);
+    let status = 'unpaid';
+    if (newPaid >= total - 0.01) status = 'paid';
+    else if (newPaid > 0.01) status = 'partial';
+
+    await invoice.update({
+      amountPaid: Math.round(newPaid * 100) / 100,
+      paymentStatus: status,
+      paymentMethod: 'Square',
+    });
+
+    console.log(`Square webhook: recorded $${amount} payment for invoice #${invoiceNumber} (${squarePaymentId})`);
+    return res.status(200).json({ received: true, invoiceNumber, amount });
+  } catch (err) {
+    console.error('Square webhook error:', err.message);
+    return res.status(200).json({ received: true, error: err.message });
+  }
+};
+
 exports.emailInvoice = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id, {
     include: [
@@ -399,6 +504,19 @@ exports.emailInvoice = asyncHandler(async (req, res) => {
     footerText: settings?.data?.branding?.footerText,
   };
 
+  // Auto-generate a Square payment link if Square is configured and balance > 0
+  let paymentUrl = null;
+  const total = parseFloat(invoice.finalTotal) || 0;
+  const paid = parseFloat(invoice.amountPaid) || 0;
+  if (isSquareConfigured() && total - paid > 0.01) {
+    try {
+      const link = await createPaymentLink(invoice.toJSON());
+      paymentUrl = link.url;
+    } catch (e) {
+      console.log('Square link skipped for email:', e.message);
+    }
+  }
+
   try {
     const result = await sendInvoiceEmail({
       to,
@@ -407,8 +525,9 @@ exports.emailInvoice = asyncHandler(async (req, res) => {
       extraMessage: req.body?.message,
       invoice: invoice.toJSON(),
       company,
+      paymentUrl,
     });
-    res.json({ success: true, data: { to, messageId: result.messageId } });
+    res.json({ success: true, data: { to, messageId: result.messageId, paymentUrl } });
   } catch (e) {
     if (e.code === 'SMTP_NOT_CONFIGURED') {
       throw new AppError(e.message, 503, 'SMTP_NOT_CONFIGURED');

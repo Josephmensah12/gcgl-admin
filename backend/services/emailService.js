@@ -63,7 +63,7 @@ function escapeHtml(str) {
 /**
  * Render an invoice as an HTML email body (inline styles so most clients render it).
  */
-function renderInvoiceEmail(invoice, company, extraMessage) {
+function renderInvoiceEmail(invoice, company, extraMessage, paymentUrl) {
   const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const subtotal = parseFloat(invoice.subtotal) || 0;
   const discount = parseFloat(invoice.totalDiscount) || 0;
@@ -243,6 +243,28 @@ function renderInvoiceEmail(invoice, company, extraMessage) {
             </td>
           </tr>
 
+          ${paymentUrl && balance > 0.01 ? `
+          <!-- Pay Now button -->
+          <tr>
+            <td style="padding:8px 32px 16px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="${paymentUrl}" target="_blank" style="display:inline-block;padding:14px 40px;background:#1A1D2B;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:700;border-radius:10px;letter-spacing:0.3px;">
+                      Pay Now — $${fmt(balance)}
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:10px;">
+                    <p style="margin:0;font-size:11px;color:#9CA3C0;">Secure payment via Square. Apple Pay, Google Pay, and cards accepted.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ''}
+
           ${termsAndConditions ? `
           <!-- Terms & Conditions -->
           <tr>
@@ -271,7 +293,7 @@ function renderInvoiceEmail(invoice, company, extraMessage) {
   `.trim();
 }
 
-async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage }) {
+async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage, paymentUrl }) {
   const transporter = getTransporter();
   if (!transporter) {
     const err = new Error('SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in Railway environment variables.');
@@ -281,7 +303,7 @@ async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage })
 
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const fromName = process.env.SMTP_FROM_NAME || 'Gold Coast Global Logistics';
-  const html = renderInvoiceEmail(invoice, company, extraMessage);
+  const html = renderInvoiceEmail(invoice, company, extraMessage, paymentUrl);
   const subject = `Invoice #${invoice.invoiceNumber} from ${company?.name || 'Gold Coast Global Logistics'}`;
 
   // Plain-text fallback: mirror the same message priority used in the HTML
