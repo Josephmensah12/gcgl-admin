@@ -110,8 +110,9 @@ function renderInvoiceEmail(invoice, company, extraMessage, paymentUrl) {
     `;
   }
 
+  // Use CID reference for email (data: URLs are blocked by Gmail/Outlook)
   const brandBlock = companyLogo
-    ? `<img src="${companyLogo}" alt="Logo" style="max-height:52px;max-width:180px;vertical-align:middle;" />`
+    ? `<img src="cid:company-logo" alt="Logo" style="max-height:52px;max-width:180px;vertical-align:middle;" />`
     : `<div style="display:inline-block;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#FFFFFF;font-size:16px;font-weight:800;line-height:48px;text-align:center;vertical-align:middle;">GC</div>`;
 
   const lineItemsHtml = (invoice.lineItems || []).map((li, idx) => {
