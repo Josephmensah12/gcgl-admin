@@ -412,9 +412,17 @@ exports.squareWebhook = async (req, res) => {
     const event = req.body;
     const eventType = event?.type;
 
-    // Only process completed payments
-    if (eventType !== 'payment.completed') {
+    // Accept both payment.created and payment.completed
+    if (eventType !== 'payment.completed' && eventType !== 'payment.created') {
       return res.status(200).json({ received: true });
+    }
+
+    // For payment.created, verify the payment status is actually COMPLETED
+    // (not PENDING or FAILED)
+    const paymentStatus = event.data?.object?.payment?.status;
+    if (eventType === 'payment.created' && paymentStatus !== 'COMPLETED') {
+      console.log('Square webhook: payment.created but status is', paymentStatus, '— skipping');
+      return res.status(200).json({ received: true, skipped: paymentStatus });
     }
 
     const payment = event.data?.object?.payment;
