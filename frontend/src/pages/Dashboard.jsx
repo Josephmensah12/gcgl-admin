@@ -188,97 +188,134 @@ function ShipmentTrackerTile({ shipments }) {
       </div>
 
       {/* Map */}
-      <div className="px-4">
-        <svg viewBox="0 0 800 380" className="w-full" style={{ maxHeight: '260px' }}>
-          {/* Ocean background */}
-          <rect x="0" y="0" width="800" height="380" fill="#F0F7FF" rx="8" />
-
-          {/* Simplified land masses */}
-          {/* US Gulf Coast */}
-          <path d="M20,30 L20,70 Q25,75 30,78 L50,82 Q55,78 58,70 L62,60 Q80,52 100,48 L120,55 Q115,70 100,85 L80,95 Q60,100 45,95 L30,100 Q20,98 15,90 L10,80 Q5,60 8,40 Z"
-            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          {/* Florida */}
-          <path d="M120,55 L135,60 Q145,65 150,80 L155,100 Q158,115 155,130 Q150,145 140,155 Q130,150 125,140 L118,120 Q112,100 115,85 Z"
-            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          {/* Cuba */}
-          <path d="M130,160 Q150,155 175,158 L200,162 Q215,165 220,170 Q215,175 200,178 L170,175 Q145,172 130,168 Z"
-            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          {/* Bahamas dots */}
-          <circle cx="185" cy="110" r="4" fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          <circle cx="195" cy="105" r="3" fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          <circle cx="190" cy="118" r="3" fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          {/* West Africa coast */}
-          <path d="M680,230 Q690,225 700,228 L710,235 Q720,245 725,260 L730,280 Q732,295 728,310 L720,325 Q715,335 710,340 L705,345 Q698,348 690,350 L680,348 Q675,342 678,330 L682,310 Q685,290 688,270 L690,250 Z"
-            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-          {/* More West Africa */}
-          <path d="M710,340 L720,345 Q735,350 745,360 L755,370 Q760,375 758,380 L680,380 Q685,370 690,360 L700,350 Z"
-            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
-
-          {/* Route path (dashed background) */}
-          <path
-            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
-            fill="none" stroke="#C7CDDB" strokeWidth="2" strokeDasharray="6 4"
-          />
-
-          {/* Route path (filled progress) */}
-          <path
-            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
-            fill="none"
-            stroke={arrived ? '#10B981' : 'url(#routeGrad)'}
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray="1000"
-            strokeDashoffset={1000 - (pct / 100) * 1000}
-            style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
-          />
-
+      <div className="px-2 pb-1">
+        <svg viewBox="0 0 800 400" className="w-full" style={{ maxHeight: '280px' }}>
           <defs>
+            <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#D4EAFC" />
+              <stop offset="100%" stopColor="#E8F4FD" />
+            </linearGradient>
             <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#6366F1" />
               <stop offset="100%" stopColor="#3B82F6" />
             </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            <filter id="shipShadow">
+              <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#3B82F6" floodOpacity="0.3" />
+            </filter>
+            <filter id="labelShadow">
+              <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="rgba(0,0,0,0.1)" />
             </filter>
           </defs>
 
-          {/* Port nodes */}
-          {[houston, freeport, tema].map((p, i) => (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y} r="6" fill="white" stroke={i === 2 && arrived ? '#10B981' : '#6366F1'} strokeWidth="2.5" />
-              <text x={p.x} y={p.y - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="#1A1D2B" fontFamily="Inter, sans-serif">
-                {p.label}
-              </text>
-              <text x={p.x} y={p.y - 3} textAnchor="middle" fontSize="8" fontWeight="500" fill="#9CA3C0" fontFamily="Inter, sans-serif" dy="-5">
-              </text>
-              <text x={p.x} y={p.y + 20} textAnchor="middle" fontSize="9" fontWeight="500" fill="#9CA3C0" fontFamily="Inter, sans-serif">
-                {p.sub}
-              </text>
-            </g>
+          {/* Ocean */}
+          <rect x="0" y="0" width="800" height="400" fill="url(#oceanGrad)" rx="12" />
+
+          {/* Subtle grid lines (ocean texture) */}
+          {[80, 160, 240, 320].map((y) => (
+            <line key={y} x1="0" y1={y} x2="800" y2={y} stroke="#C2DCF0" strokeWidth="0.3" strokeDasharray="4 8" />
+          ))}
+          {[160, 320, 480, 640].map((x) => (
+            <line key={x} x1={x} y1="0" x2={x} y2="400" stroke="#C2DCF0" strokeWidth="0.3" strokeDasharray="4 8" />
           ))}
 
-          {/* Ship icon */}
-          <g transform={`translate(${shipX - 14}, ${shipY - 18})`} filter="url(#glow)">
-            <circle cx="14" cy="14" r="16" fill={arrived ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)'} />
-            <circle cx="14" cy="14" r="12" fill="white" />
-            <g transform="translate(4, 4)">
-              <path d="M2 15L4.5 9H15.5L18 15H2Z" fill={arrived ? '#10B981' : '#3B82F6'} opacity="0.3" />
-              <path d="M2 15L4.5 9H15.5L18 15" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M10 9V4" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M7 4H13" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1" strokeLinecap="round" />
-              <path d="M0 18C1.5 16.5 4 16.5 5.5 18C7 16.5 9.5 16.5 11 18C12.5 16.5 15 16.5 16.5 18C18 16.5 19.5 16.5 20 18" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1" strokeLinecap="round" />
+          {/* Land: US Southeast */}
+          <path d="M10,10 L10,75 Q20,80 35,85 L55,88 Q65,82 70,72 L75,58 Q95,48 120,44 L140,50 Q135,68 120,85 L95,98 Q70,105 50,100 L35,108 Q15,105 10,92 Z"
+            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
+          {/* Florida */}
+          <path d="M140,50 L155,55 Q168,62 172,80 L176,102 Q180,120 176,138 Q170,155 158,168 Q148,162 142,148 L135,125 Q128,102 132,82 Z"
+            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
+          {/* Cuba */}
+          <path d="M148,175 Q170,168 198,172 L222,178 Q238,182 242,188 Q236,194 220,196 L188,192 Q160,188 148,182 Z"
+            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.6" />
+          {/* Bahamas */}
+          <ellipse cx="202" cy="118" rx="6" ry="4" fill="#C8D9B3" opacity="0.6" />
+          <ellipse cx="212" cy="112" rx="4" ry="3" fill="#C8D9B3" opacity="0.5" />
+          {/* West Africa */}
+          <path d="M695,225 Q708,218 718,225 L728,238 Q738,255 742,278 L745,300 Q746,318 740,335 L732,352 Q725,365 715,372 L705,378 Q695,382 685,380 L678,372 Q682,355 688,332 L692,305 Q696,278 698,255 Z"
+            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
+          <path d="M715,372 L728,378 Q742,385 752,392 L760,400 L675,400 Q682,388 692,378 Z"
+            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
+          {/* NW Africa (Senegal/Mauritania hint) */}
+          <path d="M660,120 Q670,115 680,118 L690,128 Q700,145 705,170 L708,195 Q710,210 705,225 L695,225 Q690,210 688,190 L685,165 Q680,140 675,128 Z"
+            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.5" />
+
+          {/* Route: dashed background */}
+          <path
+            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
+            fill="none" stroke="#A8C4E0" strokeWidth="2.5" strokeDasharray="8 6" opacity="0.5"
+          />
+          {/* Route: solid progress */}
+          <path
+            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
+            fill="none"
+            stroke={arrived ? '#10B981' : 'url(#routeGrad)'}
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeDasharray="1200"
+            strokeDashoffset={1200 - (pct / 100) * 1200}
+            style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
+          />
+
+          {/* Port labels — pill style like the globe image */}
+          {[houston, freeport, tema].map((p, i) => {
+            const isDestination = i === 2;
+            const pillW = p.label.length * 7.5 + (p.sub.length * 5) + 32;
+            const pillX = p.x - pillW / 2;
+            const pillY = i === 0 ? p.y - 32 : i === 1 ? p.y + 16 : p.y - 32;
+            const dotColor = isDestination && arrived ? '#10B981' : isDestination ? '#F59E0B' : '#6366F1';
+            return (
+              <g key={i} filter="url(#labelShadow)">
+                {/* Pill background */}
+                <rect x={pillX} y={pillY} width={pillW} height="24" rx="12" fill="#1A1D2B" opacity="0.85" />
+                {/* Dot */}
+                <circle cx={pillX + 14} cy={pillY + 12} r="4" fill={dotColor} />
+                {/* Label text */}
+                <text x={pillX + 24} y={pillY + 16} fontSize="11" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
+                  {p.label}
+                </text>
+                <text x={pillX + 24 + p.label.length * 7} y={pillY + 16} fontSize="10" fontWeight="400" fill="rgba(255,255,255,0.5)" fontFamily="Inter, sans-serif">
+                  {p.sub}
+                </text>
+                {/* Port dot on map */}
+                <circle cx={p.x} cy={p.y} r="5" fill="white" stroke={dotColor} strokeWidth="2.5" />
+              </g>
+            );
+          })}
+
+          {/* Ship */}
+          <g
+            transform={`translate(${shipX}, ${shipY})`}
+            filter="url(#shipShadow)"
+            style={{ transition: 'transform 1.5s ease-out' }}
+          >
+            {/* Glow ring */}
+            <circle cx="0" cy="0" r="22" fill={arrived ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)'} />
+            <circle cx="0" cy="0" r="16" fill="white" />
+            {/* Ship SVG centered */}
+            <g transform="translate(-10, -10)">
+              <path d="M2 14L5 7H15L18 14H2Z" fill={arrived ? '#10B981' : '#3B82F6'} opacity="0.25" />
+              <path d="M2 14L5 7H15L18 14" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 7V2" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M7 2H13" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.2" strokeLinecap="round" />
+              <path d="M0 17C2 15.5 4.5 15.5 6.5 17C8.5 15.5 11 15.5 13 17C15 15.5 17.5 15.5 20 17" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.2" strokeLinecap="round" />
             </g>
           </g>
 
-          {/* Ship label */}
-          <g transform={`translate(${shipX + 20}, ${shipY - 8})`}>
-            <rect x="0" y="-10" width={shipLabel.length * 6.5 + 16} height="20" rx="6"
-              fill={arrived ? '#10B981' : '#3B82F6'} opacity="0.9" />
-            <text x="8" y="4" fontSize="10" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
-              {shipLabel}
-            </text>
-          </g>
+          {/* Ship label pill */}
+          {(() => {
+            const lw = shipLabel.length * 6.8 + 20;
+            const lx = Math.min(Math.max(shipX + 28, 10), 800 - lw - 10);
+            const ly = shipY - 12;
+            return (
+              <g>
+                <rect x={lx} y={ly} width={lw} height="22" rx="11"
+                  fill={arrived ? '#10B981' : '#3B82F6'} />
+                <text x={lx + 10} y={ly + 15} fontSize="11" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
+                  {shipLabel}
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
 
