@@ -107,29 +107,6 @@ function KpiCard({ label, value, subtext, trend, accent, icon }) {
 /*  Shipment Tracker Tile                                      */
 /* ─────────────────────────────────────────────────────────── */
 
-function ShipIcon({ size = 24, color = '#3B82F6' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 17L5 21H19L21 17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5 17V9L12 3L19 9V17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 3V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <path d="M8 17V13H16V17" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M2 21C4 19.5 6 19.5 8 21C10 19.5 12 19.5 14 21C16 19.5 18 19.5 20 21C22 19.5 22 19.5 22 21" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function AnchorIcon({ size = 20, color = '#10B981' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="5" r="3" stroke={color} strokeWidth="2" />
-      <path d="M12 8V22" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <path d="M5 18C5 14.134 8.134 11 12 11C15.866 11 19 14.134 19 18" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <path d="M12 22L9 19M12 22L15 19" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function ShipmentTrackerTile({ shipments }) {
   const navigate = useNavigate();
   const active = shipments.filter(s => s.trackingNumber);
@@ -137,117 +114,209 @@ function ShipmentTrackerTile({ shipments }) {
   if (active.length === 0) {
     return (
       <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
-        <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }} />
-        <div className="flex items-center gap-2 mb-3">
-          <ShipIcon size={20} color="#9CA3C0" />
-          <p className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Shipments at Sea</p>
-        </div>
-        <div className="flex items-center justify-center py-6">
-          <p className="text-[13px] text-[#9CA3C0]">No tracked shipments — add a tracking number to a shipment to see it here</p>
+        <p className="text-[15px] font-bold text-[#1A1D2B] mb-3">Shipments at Sea</p>
+        <div className="flex items-center justify-center py-8">
+          <p className="text-[13px] text-[#9CA3C0]">No tracked shipments — add a tracking number to see it here</p>
         </div>
       </div>
     );
   }
 
+  // Show the primary (first) shipment on the map, others listed below
+  const primary = active[0];
+  const pct = primary.transitPercent || 0;
+  const arrived = pct >= 100 || primary.status === 'delivered';
+
+  // Geo points in SVG coords (viewBox 0 0 800 380)
+  // Longitude: -100°W to 5°E mapped to x: 30 to 770
+  // Latitude: 0°N to 35°N mapped to y: 350 to 30
+  const houston  = { x: 65,  y: 72,  label: 'Houston',  sub: 'USA' };
+  const freeport = { x: 195, y: 100, label: 'Freeport', sub: 'Bahamas' };
+  const tema     = { x: 735, y: 310, label: 'Tema',     sub: 'Ghana' };
+
+  // Ship position along the quadratic bezier: Houston → Freeport → Tema
+  // t parameter based on transit percentage
+  const t = Math.min(Math.max(pct / 100, 0), 1);
+  const shipX = (1-t)*(1-t)*houston.x + 2*(1-t)*t*freeport.x + t*t*tema.x;
+  const shipY = (1-t)*(1-t)*houston.y + 2*(1-t)*t*freeport.y + t*t*tema.y;
+
+  // Status label near the ship
+  let shipLabel = 'Departing Houston';
+  if (arrived) shipLabel = 'Arrived in Ghana';
+  else if (pct > 80) shipLabel = 'Approaching Ghana';
+  else if (pct > 50) shipLabel = 'Crossing Atlantic';
+  else if (pct > 20) shipLabel = 'Past Bahamas';
+  else if (pct > 5) shipLabel = 'In Caribbean';
+
+  const etaText = primary.etaDays != null
+    ? primary.etaDays > 0 ? `${primary.etaDays} day${primary.etaDays === 1 ? '' : 's'} away`
+    : primary.etaDays === 0 ? 'Arriving today' : 'Arrived'
+    : '';
+
   return (
-    <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
-      <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }} />
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <ShipIcon size={20} color="#3B82F6" />
-          <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Shipments at Sea</h3>
+    <div
+      className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer"
+      onClick={() => navigate(`/shipments/${primary.id}`)}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 pt-5 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-[10px] bg-[rgba(59,130,246,0.08)] flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M4 19L7 11H17L20 19H4Z" fill="#3B82F6" opacity="0.2" />
+              <path d="M4 19L7 11H17L20 19" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 11V5" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" />
+              <path d="M9 5H15" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M2 22C4 20 7 20 9 22C11 20 14 20 16 22C18 20 21 20 22 22" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[14px] font-bold text-[#1A1D2B]">{primary.vesselName || primary.name} · {primary.voyageNumber || ''}</p>
+            <p className="text-[11.5px] text-[#6B7194]">Houston → Tema</p>
+          </div>
         </div>
-        <span className="px-2.5 py-1 rounded-md bg-[rgba(59,130,246,0.08)] text-[#3B82F6] text-[11px] font-bold">
-          {active.length} active
-        </span>
+        <div className="text-right">
+          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${arrived ? 'bg-[rgba(16,185,129,0.08)] text-[#10B981]' : 'bg-[rgba(59,130,246,0.08)] text-[#3B82F6]'}`}>
+            {arrived ? 'Arrived' : 'In Transit'}
+          </span>
+        </div>
       </div>
 
-      <div className="space-y-5">
-        {active.map((s) => {
-          const pct = s.transitPercent || 0;
-          const arrived = pct >= 100 || s.status === 'delivered';
-          const etaText = s.etaDays != null
-            ? s.etaDays > 0 ? `${s.etaDays} day${s.etaDays === 1 ? '' : 's'} away`
-            : s.etaDays === 0 ? 'Arriving today'
-            : 'Arrived'
-            : '';
+      {/* Map */}
+      <div className="px-4">
+        <svg viewBox="0 0 800 380" className="w-full" style={{ maxHeight: '260px' }}>
+          {/* Ocean background */}
+          <rect x="0" y="0" width="800" height="380" fill="#F0F7FF" rx="8" />
 
-          return (
-            <div
-              key={s.id}
-              onClick={() => navigate(`/shipments/${s.id}`)}
-              className="cursor-pointer rounded-[12px] p-4 bg-[#F4F6FA] hover:bg-[#ECEEF5] transition-colors"
-            >
-              {/* Header row */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="w-8 h-8 rounded-[8px] flex items-center justify-center shrink-0"
-                    style={{ background: arrived ? 'rgba(16,185,129,0.08)' : 'rgba(59,130,246,0.08)' }}
-                  >
-                    {arrived ? <AnchorIcon size={18} color="#10B981" /> : <ShipIcon size={18} color="#3B82F6" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[14px] font-bold text-[#1A1D2B] truncate">{s.name}</p>
-                    <p className="text-[11px] text-[#9CA3C0]">
-                      {s.vesselName || s.trackingNumber}
-                      {s.carrier ? ` · ${s.carrier}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0 ml-3">
-                  <p className={`text-[13px] font-bold ${arrived ? 'text-[#10B981]' : 'text-[#3B82F6]'}`}>
-                    {etaText || `${pct}%`}
-                  </p>
-                  {s.eta && (
-                    <p className="text-[10.5px] text-[#9CA3C0]">
-                      ETA {new Date(s.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </p>
-                  )}
-                </div>
-              </div>
+          {/* Simplified land masses */}
+          {/* US Gulf Coast */}
+          <path d="M20,30 L20,70 Q25,75 30,78 L50,82 Q55,78 58,70 L62,60 Q80,52 100,48 L120,55 Q115,70 100,85 L80,95 Q60,100 45,95 L30,100 Q20,98 15,90 L10,80 Q5,60 8,40 Z"
+            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          {/* Florida */}
+          <path d="M120,55 L135,60 Q145,65 150,80 L155,100 Q158,115 155,130 Q150,145 140,155 Q130,150 125,140 L118,120 Q112,100 115,85 Z"
+            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          {/* Cuba */}
+          <path d="M130,160 Q150,155 175,158 L200,162 Q215,165 220,170 Q215,175 200,178 L170,175 Q145,172 130,168 Z"
+            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          {/* Bahamas dots */}
+          <circle cx="185" cy="110" r="4" fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          <circle cx="195" cy="105" r="3" fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          <circle cx="190" cy="118" r="3" fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          {/* West Africa coast */}
+          <path d="M680,230 Q690,225 700,228 L710,235 Q720,245 725,260 L730,280 Q732,295 728,310 L720,325 Q715,335 710,340 L705,345 Q698,348 690,350 L680,348 Q675,342 678,330 L682,310 Q685,290 688,270 L690,250 Z"
+            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
+          {/* More West Africa */}
+          <path d="M710,340 L720,345 Q735,350 745,360 L755,370 Q760,375 758,380 L680,380 Q685,370 690,360 L700,350 Z"
+            fill="#E8ECF2" stroke="#D5DAE4" strokeWidth="0.5" />
 
-              {/* Route visualization */}
-              <div className="relative h-[28px]">
-                {/* Water/wave background */}
-                <div className="absolute top-[12px] left-3 right-3 h-[4px] bg-[#DDE1EB] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-1000 ease-out"
-                    style={{
-                      width: `${pct}%`,
-                      background: arrived
-                        ? 'linear-gradient(90deg, #10B981, #059669)'
-                        : 'linear-gradient(90deg, #6366F1, #3B82F6)',
-                    }}
-                  />
-                </div>
-                {/* Origin marker */}
-                <div className="absolute top-[9px] left-0 w-[10px] h-[10px] rounded-full bg-[#6366F1] border-2 border-white shadow-sm" />
-                {/* Destination marker */}
-                <div className={`absolute top-[9px] right-0 w-[10px] h-[10px] rounded-full border-2 border-white shadow-sm ${arrived ? 'bg-[#10B981]' : 'bg-[#C7CDDB]'}`} />
-                {/* Ship */}
-                <div
-                  className="absolute transition-all duration-1000 ease-out"
-                  style={{ left: `calc(${Math.min(Math.max(pct, 5), 92)}% - 12px)`, top: '-1px' }}
-                  title={`${s.vesselName || s.trackingNumber} · ${pct}% transit`}
+          {/* Route path (dashed background) */}
+          <path
+            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
+            fill="none" stroke="#C7CDDB" strokeWidth="2" strokeDasharray="6 4"
+          />
+
+          {/* Route path (filled progress) */}
+          <path
+            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
+            fill="none"
+            stroke={arrived ? '#10B981' : 'url(#routeGrad)'}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="1000"
+            strokeDashoffset={1000 - (pct / 100) * 1000}
+            style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
+          />
+
+          <defs>
+            <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#6366F1" />
+              <stop offset="100%" stopColor="#3B82F6" />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+
+          {/* Port nodes */}
+          {[houston, freeport, tema].map((p, i) => (
+            <g key={i}>
+              <circle cx={p.x} cy={p.y} r="6" fill="white" stroke={i === 2 && arrived ? '#10B981' : '#6366F1'} strokeWidth="2.5" />
+              <text x={p.x} y={p.y - 14} textAnchor="middle" fontSize="11" fontWeight="700" fill="#1A1D2B" fontFamily="Inter, sans-serif">
+                {p.label}
+              </text>
+              <text x={p.x} y={p.y - 3} textAnchor="middle" fontSize="8" fontWeight="500" fill="#9CA3C0" fontFamily="Inter, sans-serif" dy="-5">
+              </text>
+              <text x={p.x} y={p.y + 20} textAnchor="middle" fontSize="9" fontWeight="500" fill="#9CA3C0" fontFamily="Inter, sans-serif">
+                {p.sub}
+              </text>
+            </g>
+          ))}
+
+          {/* Ship icon */}
+          <g transform={`translate(${shipX - 14}, ${shipY - 18})`} filter="url(#glow)">
+            <circle cx="14" cy="14" r="16" fill={arrived ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)'} />
+            <circle cx="14" cy="14" r="12" fill="white" />
+            <g transform="translate(4, 4)">
+              <path d="M2 15L4.5 9H15.5L18 15H2Z" fill={arrived ? '#10B981' : '#3B82F6'} opacity="0.3" />
+              <path d="M2 15L4.5 9H15.5L18 15" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 9V4" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M7 4H13" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1" strokeLinecap="round" />
+              <path d="M0 18C1.5 16.5 4 16.5 5.5 18C7 16.5 9.5 16.5 11 18C12.5 16.5 15 16.5 16.5 18C18 16.5 19.5 16.5 20 18" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1" strokeLinecap="round" />
+            </g>
+          </g>
+
+          {/* Ship label */}
+          <g transform={`translate(${shipX + 20}, ${shipY - 8})`}>
+            <rect x="0" y="-10" width={shipLabel.length * 6.5 + 16} height="20" rx="6"
+              fill={arrived ? '#10B981' : '#3B82F6'} opacity="0.9" />
+            <text x="8" y="4" fontSize="10" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
+              {shipLabel}
+            </text>
+          </g>
+        </svg>
+      </div>
+
+      {/* Status footer */}
+      <div className="px-6 py-4 border-t border-black/[0.03] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#3B82F6] animate-pulse-dot'}`} />
+          <span className="text-[13px] font-semibold text-[#1A1D2B]">
+            {arrived ? 'Arrived' : 'In Transit'}
+          </span>
+          <span className="text-[12px] text-[#6B7194]">· {shipLabel}</span>
+        </div>
+        <div className="flex items-center gap-4 text-[12px] text-[#6B7194]">
+          {etaText && <span className={`font-bold ${arrived ? 'text-[#10B981]' : 'text-[#3B82F6]'}`}>{etaText}</span>}
+          {primary.eta && (
+            <span>ETA {new Date(primary.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          )}
+          <span>📍 Tema, Ghana</span>
+        </div>
+      </div>
+
+      {/* Additional shipments */}
+      {active.length > 1 && (
+        <div className="px-6 pb-4 pt-1 border-t border-black/[0.03]">
+          <p className="text-[10px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-2">Other Shipments</p>
+          <div className="flex flex-wrap gap-2">
+            {active.slice(1).map((s) => {
+              const p = s.transitPercent || 0;
+              const arr = p >= 100 || s.status === 'delivered';
+              return (
+                <button
+                  key={s.id}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${s.id}`); }}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[8px] bg-[#F4F6FA] hover:bg-[#E9EBF2] text-[11.5px] font-medium text-[#1A1D2B] transition-colors"
                 >
-                  {arrived
-                    ? <AnchorIcon size={28} color="#10B981" />
-                    : <ShipIcon size={28} color="#3B82F6" />
-                  }
-                </div>
-              </div>
-
-              {/* Route labels */}
-              <div className="flex justify-between mt-1 px-0.5">
-                <span className="text-[10px] font-medium text-[#6B7194]">Houston</span>
-                <span className="text-[10px] font-medium text-[#6B7194]">{pct}%</span>
-                <span className={`text-[10px] font-medium ${arrived ? 'text-[#10B981]' : 'text-[#6B7194]'}`}>Tema</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                  <span className={`w-1.5 h-1.5 rounded-full ${arr ? 'bg-[#10B981]' : 'bg-[#3B82F6]'}`} />
+                  {s.name} · {p}%
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
