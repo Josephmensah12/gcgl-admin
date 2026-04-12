@@ -107,90 +107,147 @@ function KpiCard({ label, value, subtext, trend, accent, icon }) {
 /*  Shipment Tracker Tile                                      */
 /* ─────────────────────────────────────────────────────────── */
 
+function ShipIcon({ size = 24, color = '#3B82F6' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 17L5 21H19L21 17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 17V9L12 3L19 9V17" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 3V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 17V13H16V17" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 21C4 19.5 6 19.5 8 21C10 19.5 12 19.5 14 21C16 19.5 18 19.5 20 21C22 19.5 22 19.5 22 21" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AnchorIcon({ size = 20, color = '#10B981' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="5" r="3" stroke={color} strokeWidth="2" />
+      <path d="M12 8V22" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path d="M5 18C5 14.134 8.134 11 12 11C15.866 11 19 14.134 19 18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 22L9 19M12 22L15 19" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function ShipmentTrackerTile({ shipments }) {
+  const navigate = useNavigate();
   const active = shipments.filter(s => s.trackingNumber);
 
   if (active.length === 0) {
     return (
       <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }} />
-        <p className="text-[12.5px] font-medium text-[#6B7194] mb-2">Shipments at Sea</p>
-        <div className="flex items-center justify-center h-[60px]">
-          <p className="text-[12px] text-[#9CA3C0]">No tracked shipments</p>
+        <div className="flex items-center gap-2 mb-3">
+          <ShipIcon size={20} color="#9CA3C0" />
+          <p className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Shipments at Sea</p>
+        </div>
+        <div className="flex items-center justify-center py-6">
+          <p className="text-[13px] text-[#9CA3C0]">No tracked shipments — add a tracking number to a shipment to see it here</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative overflow-hidden bg-white rounded-[16px] p-5 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300">
+    <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
       <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]" style={{ background: 'linear-gradient(135deg, #3B82F6, #6366F1)' }} />
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[12.5px] font-medium text-[#6B7194]">Shipments at Sea</p>
-        <span className="px-1.5 py-0.5 rounded-md bg-[rgba(59,130,246,0.08)] text-[#3B82F6] text-[10px] font-bold">
-          {active.length}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <ShipIcon size={20} color="#3B82F6" />
+          <h3 className="text-[15px] font-bold text-[#1A1D2B] tracking-[-0.2px]">Shipments at Sea</h3>
+        </div>
+        <span className="px-2.5 py-1 rounded-md bg-[rgba(59,130,246,0.08)] text-[#3B82F6] text-[11px] font-bold">
+          {active.length} active
         </span>
       </div>
 
-      <div className="space-y-3">
-        {active.slice(0, 3).map((s) => {
+      <div className="space-y-5">
+        {active.map((s) => {
           const pct = s.transitPercent || 0;
           const arrived = pct >= 100 || s.status === 'delivered';
           const etaText = s.etaDays != null
-            ? s.etaDays > 0 ? `${s.etaDays}d` : s.etaDays === 0 ? 'Today' : 'Arrived'
+            ? s.etaDays > 0 ? `${s.etaDays} day${s.etaDays === 1 ? '' : 's'} away`
+            : s.etaDays === 0 ? 'Arriving today'
+            : 'Arrived'
             : '';
 
           return (
-            <div key={s.id}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-semibold text-[#1A1D2B] truncate flex-1">{s.name}</span>
-                {etaText && (
-                  <span className={`text-[10px] font-bold ml-2 ${arrived ? 'text-[#10B981]' : 'text-[#3B82F6]'}`}>
-                    {etaText}
-                  </span>
-                )}
-              </div>
-              {/* Route line with ship */}
-              <div className="relative h-[18px]">
-                {/* Water line */}
-                <div className="absolute top-[8px] left-0 right-0 h-[2px] bg-[#EEF0F6] rounded-full" />
-                <div
-                  className="absolute top-[8px] left-0 h-[2px] rounded-full transition-all duration-1000"
-                  style={{
-                    width: `${pct}%`,
-                    background: arrived
-                      ? 'linear-gradient(90deg, #10B981, #059669)'
-                      : 'linear-gradient(90deg, #6366F1, #3B82F6)',
-                  }}
-                />
-                {/* Origin dot */}
-                <div className="absolute top-[6px] left-0 w-[6px] h-[6px] rounded-full bg-[#6366F1]" />
-                {/* Destination dot */}
-                <div className={`absolute top-[6px] right-0 w-[6px] h-[6px] rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#C7CDDB]'}`} />
-                {/* Ship icon */}
-                <div
-                  className="absolute top-0 transition-all duration-1000"
-                  style={{ left: `calc(${Math.min(pct, 95)}% - 8px)` }}
-                >
-                  <span className="text-[16px]" title={`${s.vesselName || s.trackingNumber} · ${pct}%`}>
-                    {arrived ? '⚓' : '🚢'}
-                  </span>
+            <div
+              key={s.id}
+              onClick={() => navigate(`/shipments/${s.id}`)}
+              className="cursor-pointer rounded-[12px] p-4 bg-[#F4F6FA] hover:bg-[#ECEEF5] transition-colors"
+            >
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-[8px] flex items-center justify-center shrink-0"
+                    style={{ background: arrived ? 'rgba(16,185,129,0.08)' : 'rgba(59,130,246,0.08)' }}
+                  >
+                    {arrived ? <AnchorIcon size={18} color="#10B981" /> : <ShipIcon size={18} color="#3B82F6" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-bold text-[#1A1D2B] truncate">{s.name}</p>
+                    <p className="text-[11px] text-[#9CA3C0]">
+                      {s.vesselName || s.trackingNumber}
+                      {s.carrier ? ` · ${s.carrier}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <p className={`text-[13px] font-bold ${arrived ? 'text-[#10B981]' : 'text-[#3B82F6]'}`}>
+                    {etaText || `${pct}%`}
+                  </p>
+                  {s.eta && (
+                    <p className="text-[10.5px] text-[#9CA3C0]">
+                      ETA {new Date(s.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="flex justify-between mt-0.5">
-                <span className="text-[9px] text-[#9CA3C0]">{s.carrier || 'MSC'}</span>
-                <span className="text-[9px] text-[#9CA3C0]">
-                  {s.eta ? new Date(s.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
-                </span>
+
+              {/* Route visualization */}
+              <div className="relative h-[28px]">
+                {/* Water/wave background */}
+                <div className="absolute top-[12px] left-3 right-3 h-[4px] bg-[#DDE1EB] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{
+                      width: `${pct}%`,
+                      background: arrived
+                        ? 'linear-gradient(90deg, #10B981, #059669)'
+                        : 'linear-gradient(90deg, #6366F1, #3B82F6)',
+                    }}
+                  />
+                </div>
+                {/* Origin marker */}
+                <div className="absolute top-[9px] left-0 w-[10px] h-[10px] rounded-full bg-[#6366F1] border-2 border-white shadow-sm" />
+                {/* Destination marker */}
+                <div className={`absolute top-[9px] right-0 w-[10px] h-[10px] rounded-full border-2 border-white shadow-sm ${arrived ? 'bg-[#10B981]' : 'bg-[#C7CDDB]'}`} />
+                {/* Ship */}
+                <div
+                  className="absolute transition-all duration-1000 ease-out"
+                  style={{ left: `calc(${Math.min(Math.max(pct, 5), 92)}% - 12px)`, top: '-1px' }}
+                  title={`${s.vesselName || s.trackingNumber} · ${pct}% transit`}
+                >
+                  {arrived
+                    ? <AnchorIcon size={28} color="#10B981" />
+                    : <ShipIcon size={28} color="#3B82F6" />
+                  }
+                </div>
+              </div>
+
+              {/* Route labels */}
+              <div className="flex justify-between mt-1 px-0.5">
+                <span className="text-[10px] font-medium text-[#6B7194]">Houston</span>
+                <span className="text-[10px] font-medium text-[#6B7194]">{pct}%</span>
+                <span className={`text-[10px] font-medium ${arrived ? 'text-[#10B981]' : 'text-[#6B7194]'}`}>Tema</span>
               </div>
             </div>
           );
         })}
       </div>
-
-      {active.length > 3 && (
-        <p className="text-[10px] text-[#9CA3C0] text-center mt-2">+{active.length - 3} more</p>
-      )}
     </div>
   );
 }
@@ -533,9 +590,13 @@ export default function Dashboard() {
         onMenuClick={onMenuClick}
       />
 
-      {/* Shipment tracker + KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[18px] mb-[18px]">
+      {/* Shipment tracker — full width */}
+      <div className="mb-[18px]">
         <ShipmentTrackerTile shipments={trackedShipments} />
+      </div>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[18px] mb-[18px]">
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}
