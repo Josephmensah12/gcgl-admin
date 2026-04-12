@@ -151,7 +151,11 @@ exports.getTrackedShipments = asyncHandler(async (req, res) => {
         { updatedAt: { [Op.gte]: sevenDaysAgo } },
       ],
     },
-    order: [['createdAt', 'DESC']],
+    order: [
+      // Non-delivered first so the active shipment is primary on the map
+      [db.sequelize.literal("CASE WHEN status = 'delivered' THEN 1 ELSE 0 END"), 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
   });
 
   // For each shipment, find the last CONFIRMED tracking event (date <= now)
