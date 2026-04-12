@@ -268,6 +268,137 @@ exports.getProfitAndLoss = asyncHandler(async (req, res) => {
 /*  Cash Flow                                                  */
 /* ─────────────────────────────────────────────────────────── */
 
+/* ─────────────────────────────────────────────────────────── */
+/*  Customer Insights                                          */
+/* ─────────────────────────────────────────────────────────── */
+
+exports.getCustomerInsights = asyncHandler(async (req, res) => {
+  const range = parseDateRange(req);
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
+  const sortBy = req.query.sortBy || 'total_spent';
+  const validSorts = {
+    total_spent: 'total_spent',
+    collected: 'collected',
+    outstanding: 'outstanding',
+    invoice_count: 'invoice_count',
+    last_purchase: 'last_purchase',
+    avg_order: 'avg_order',
+  };
+  const orderCol = validSorts[sortBy] || 'total_spent';
+
+  // Per-customer aggregates within the period
+  const customers = await db.sequelize.query(
+    `WITH inv_agg AS (
+       SELECT i.customer_id,
+              COUNT(i.id)::int                          AS invoice_count,
+              COALESCE(SUM(i.final_total), 0)::float    AS total_spent,
+              COALESCE(AVG(i.final_total), 0)::float    AS avg_order,
+              MIN(i.created_at)                         AS first_purchase,
+              MAX(i.created_at)                         AS last_purchase
+         FROM invoices i
+        WHERE i.status = 'completed'
+          AND i.created_at BETWEEN :startStr AND :endStr
+          AND i.customer_id IS NOT NULL
+        GROUP BY i.customer_id
+     ),
+     pay_agg AS (
+       SELECT i.customer_id,
+              COALESCE(SUM(CASE WHEN p.transaction_type = 'PAYMENT' THEN p.amount ELSE 0 END), 0)::float -
+              COALESCE(SUM(CASE WHEN p.transaction_type = 'REFUND'  THEN p.amount ELSE 0 END), 0)::float AS collected
+         FROM invoice_payments p
+         JOIN invoices i ON i.id = p.invoice_id
+        WHERE p.voided_at IS NULL
+          AND i.status = 'completed'
+          AND i.created_at BETWEEN :startStr AND :endStr
+          AND i.customer_id IS NOT NULL
+        GROUP BY i.customer_id
+     )
+     SELECT c.id                                                AS customer_id,
+            COALESCE(c.full_name, 'Unknown')                    AS name,
+            c.phone                                             AS phone,
+            c.email                                             AS email,
+            inv_agg.invoice_count,
+            inv_agg.total_spent,
+            inv_agg.avg_order,
+            COALESCE(pay_agg.collected, 0)::float               AS collected,
+            (inv_agg.total_spent - COALESCE(pay_agg.collected, 0))::float AS outstanding,
+            inv_agg.first_purchase,
+            inv_agg.last_purchase
+       FROM inv_agg
+       JOIN customers c ON c.id = inv_agg.customer_id
+  LEFT JOIN pay_agg  ON pay_agg.customer_id = inv_agg.customer_id
+      ORDER BY ${orderCol} DESC NULLS LAST
+      LIMIT :limit`,
+    { replacements: { ...range, limit }, type: QueryTypes.SELECT }
+  );
+
+  // Summary: total customers, active in period, new (first-ever invoice in period),
+  // returning (had invoices before AND in period)
+  const [totalRow] = await db.sequelize.query(
+    `SELECT COUNT(*)::int AS total FROM customers`,
+    { type: QueryTypes.SELECT }
+  );
+
+  const [activeRow] = await db.sequelize.query(
+    `SELECT COUNT(DISTINCT i.customer_id)::int AS active
+       FROM invoices i
+      WHERE i.status = 'completed'
+        AND i.created_at BETWEEN :startStr AND :endStr
+        AND i.customer_id IS NOT NULL`,
+    { replacements: range, type: QueryTypes.SELECT }
+  );
+
+  const [newRow] = await db.sequelize.query(
+    `SELECT COUNT(*)::int AS new_customers
+       FROM (
+         SELECT i.customer_id, MIN(i.created_at) AS first_ever
+           FROM invoices i
+          WHERE i.status = 'completed'
+            AND i.customer_id IS NOT NULL
+          GROUP BY i.customer_id
+       ) f
+      WHERE f.first_ever BETWEEN :startStr AND :endStr`,
+    { replacements: range, type: QueryTypes.SELECT }
+  );
+
+  const activeInPeriod = Number(activeRow?.active) || 0;
+  const newInPeriod = Number(newRow?.new_customers) || 0;
+  const returningInPeriod = Math.max(0, activeInPeriod - newInPeriod);
+
+  // Revenue concentration (top 5 share) — quick insight for leadership
+  const totalPeriodRevenue = round2(customers.reduce((s, c) => s + (Number(c.total_spent) || 0), 0));
+  const top5Sum = round2(customers.slice(0, 5).reduce((s, c) => s + (Number(c.total_spent) || 0), 0));
+  const top5Share = totalPeriodRevenue > 0 ? round2((top5Sum / totalPeriodRevenue) * 100) : 0;
+
+  res.json({
+    success: true,
+    data: {
+      period: { from: range.startDate, to: range.endDate },
+      summary: {
+        totalCustomers: Number(totalRow?.total) || 0,
+        activeInPeriod,
+        newInPeriod,
+        returningInPeriod,
+        totalPeriodRevenue,
+        top5Share,
+      },
+      customers: customers.map((c) => ({
+        id: c.customer_id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        invoiceCount: Number(c.invoice_count) || 0,
+        totalSpent: round2(c.total_spent),
+        avgOrder: round2(c.avg_order),
+        collected: round2(c.collected),
+        outstanding: round2(c.outstanding),
+        firstPurchase: c.first_purchase,
+        lastPurchase: c.last_purchase,
+      })),
+    },
+  });
+});
+
 exports.getCashFlow = asyncHandler(async (req, res) => {
   const range = parseDateRange(req);
 

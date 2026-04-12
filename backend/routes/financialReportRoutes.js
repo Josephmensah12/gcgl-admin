@@ -8,5 +8,6 @@ router.use(authenticate);
 router.get('/summary',   financialReportController.getSummary);
 router.get('/pnl',       financialReportController.getProfitAndLoss);
 router.get('/cash-flow', financialReportController.getCashFlow);
+router.get('/customers', financialReportController.getCustomerInsights);
 
 module.exports = router;

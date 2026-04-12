@@ -83,12 +83,14 @@ function KpiCard({ label, value, change, subtext, accent = 'blue' }) {
 
 export default function FinancialReports() {
   const { onMenuClick } = useLayout();
-  const [tab, setTab] = useState('summary'); // summary | pnl | cashflow
+  const [tab, setTab] = useState('summary'); // summary | pnl | cashflow | customers
   const [preset, setPreset] = useState('month');
   const [customRange, setCustomRange] = useState({ dateFrom: '', dateTo: '' });
   const [summary, setSummary] = useState(null);
   const [pnl, setPnl] = useState(null);
   const [cashflow, setCashflow] = useState(null);
+  const [customers, setCustomers] = useState(null);
+  const [customerSort, setCustomerSort] = useState('total_spent');
   const [loading, setLoading] = useState(true);
 
   const activeRange = preset === 'custom' ? customRange : computePresetRange(preset);
@@ -100,20 +102,22 @@ export default function FinancialReports() {
         ? { dateFrom: customRange.dateFrom, dateTo: customRange.dateTo }
         : { period: preset };
 
-      const [sumRes, pnlRes, cfRes] = await Promise.all([
+      const [sumRes, pnlRes, cfRes, custRes] = await Promise.all([
         axios.get('/api/v1/financial-reports/summary', { params }),
         axios.get('/api/v1/financial-reports/pnl', { params }),
         axios.get('/api/v1/financial-reports/cash-flow', { params }),
+        axios.get('/api/v1/financial-reports/customers', { params: { ...params, sortBy: customerSort, limit: 50 } }),
       ]);
       setSummary(sumRes.data.data);
       setPnl(pnlRes.data.data);
       setCashflow(cfRes.data.data);
+      setCustomers(custRes.data.data);
     } catch (err) {
       console.error('Financial reports load error:', err);
     } finally {
       setLoading(false);
     }
-  }, [preset, customRange.dateFrom, customRange.dateTo]);
+  }, [preset, customRange.dateFrom, customRange.dateTo, customerSort]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -190,10 +194,11 @@ export default function FinancialReports() {
       </div>
 
       {/* Tabs */}
-      <div className="inline-flex p-1 bg-[#F4F6FA] rounded-[12px] mb-[18px] gap-1">
-        <TabButton k="summary"  label="Summary"      icon="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        <TabButton k="pnl"      label="Profit & Loss" icon="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        <TabButton k="cashflow" label="Cash Flow"     icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <div className="inline-flex p-1 bg-[#F4F6FA] rounded-[12px] mb-[18px] gap-1 flex-wrap">
+        <TabButton k="summary"   label="Summary"       icon="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <TabButton k="pnl"       label="Profit & Loss" icon="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        <TabButton k="cashflow"  label="Cash Flow"     icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <TabButton k="customers" label="Customers"     icon="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
       </div>
 
       {loading ? (
@@ -203,6 +208,9 @@ export default function FinancialReports() {
           {tab === 'summary' && summary && <SummaryTab data={summary} />}
           {tab === 'pnl' && pnl && <PnlTab data={pnl} />}
           {tab === 'cashflow' && cashflow && <CashFlowTab data={cashflow} />}
+          {tab === 'customers' && customers && (
+            <CustomersTab data={customers} sort={customerSort} onSortChange={setCustomerSort} />
+          )}
         </>
       )}
     </>
@@ -409,6 +417,168 @@ function CashFlowTab({ data }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Customers Tab                                              */
+/* ─────────────────────────────────────────────────────────── */
+
+const AVATAR_GRADIENTS = [
+  'linear-gradient(135deg, #6366F1, #3B82F6)',
+  'linear-gradient(135deg, #10B981, #059669)',
+  'linear-gradient(135deg, #F59E0B, #D97706)',
+  'linear-gradient(135deg, #EF4444, #DC2626)',
+  'linear-gradient(135deg, #8B5CF6, #6366F1)',
+  'linear-gradient(135deg, #EC4899, #DB2777)',
+];
+function gradientFor(name) {
+  const hash = (name || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
+}
+function initialsOf(name) {
+  return (name || '').split(' ').filter(Boolean).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+}
+
+function CustomersTab({ data, sort, onSortChange }) {
+  const s = data.summary;
+  const rows = data.customers;
+  const maxSpent = Math.max(...rows.map((r) => r.totalSpent), 1);
+
+  const SortButton = ({ k, label }) => (
+    <button
+      type="button"
+      onClick={() => onSortChange(k)}
+      className={`h-8 px-3 rounded-[8px] text-[11.5px] font-semibold transition-all ${
+        sort === k
+          ? 'bg-[#6366F1] text-white'
+          : 'bg-[#F4F6FA] text-[#6B7194] hover:bg-[#E9EBF2]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="space-y-[18px]">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-[18px]">
+        <KpiCard label="Total Customers"   value={`${s.totalCustomers.toLocaleString()}`} subtext="All time"        accent="blue" />
+        <KpiCard label="Active in Period"  value={`${s.activeInPeriod.toLocaleString()}`} subtext="Had invoices"    accent="green" />
+        <KpiCard label="New in Period"     value={`${s.newInPeriod.toLocaleString()}`}    subtext="First-ever invoice" accent="gold" />
+        <KpiCard label="Top 5 Revenue Share" value={`${s.top5Share.toFixed(1)}%`}         subtext={fmt(s.totalPeriodRevenue) + ' total'} accent="red" />
+      </div>
+
+      {rows.length > 0 && (
+        <div className="gc-card p-6">
+          <h3 className="text-[15px] font-bold text-[#1A1D2B] mb-4">Top customers by revenue</h3>
+          <div className="space-y-2">
+            {rows.slice(0, 8).map((c, idx) => {
+              const pct = maxSpent > 0 ? (c.totalSpent / maxSpent) * 100 : 0;
+              return (
+                <div key={c.id} className="flex items-center gap-3">
+                  <div
+                    className="w-[28px] h-[28px] rounded-[8px] shrink-0 flex items-center justify-center text-white text-[10.5px] font-bold"
+                    style={{ background: gradientFor(c.name) }}
+                  >
+                    {initialsOf(c.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[12.5px] font-medium text-[#1A1D2B] truncate">
+                        {idx + 1}. {c.name}
+                      </span>
+                      <span className="text-[12px] font-bold text-[#1A1D2B] tabular-nums shrink-0 ml-2">
+                        {fmt(c.totalSpent)}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-[#F4F6FA] rounded-full overflow-hidden">
+                      <div
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: gradientFor(c.name) }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="gc-card overflow-hidden">
+        <div className="flex items-center justify-between flex-wrap gap-3 px-6 py-5 border-b border-black/[0.04]">
+          <div>
+            <h3 className="text-[15px] font-bold text-[#1A1D2B]">Customer Ranking</h3>
+            <p className="text-[11.5px] text-[#9CA3C0] mt-0.5">{rows.length} customers with activity in this period</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mr-1">Sort by</span>
+            <SortButton k="total_spent"   label="Revenue" />
+            <SortButton k="collected"     label="Collected" />
+            <SortButton k="outstanding"   label="Outstanding" />
+            <SortButton k="invoice_count" label="Orders" />
+            <SortButton k="last_purchase" label="Recent" />
+          </div>
+        </div>
+
+        {rows.length === 0 ? (
+          <p className="text-center py-12 text-[#9CA3C0]">No customer activity in this period.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13.5px]">
+              <thead>
+                <tr className="bg-[#F4F6FA]">
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px] w-8">#</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Customer</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Orders</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Revenue</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Collected</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Outstanding</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Avg Order</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Last Purchase</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c, i) => (
+                  <tr key={c.id} className="border-b border-black/[0.03] last:border-0 hover:bg-[rgba(99,102,241,0.02)] transition-colors">
+                    <td className="px-6 py-3 text-[#9CA3C0] font-semibold">{i + 1}</td>
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-[30px] h-[30px] rounded-[8px] shrink-0 flex items-center justify-center text-white text-[11px] font-bold"
+                          style={{ background: gradientFor(c.name) }}
+                        >
+                          {initialsOf(c.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <a href={`/customers/${c.id}`} className="font-semibold text-[#1A1D2B] hover:text-[#6366F1] block truncate">
+                            {c.name}
+                          </a>
+                          <p className="text-[10.5px] text-[#9CA3C0] truncate">{c.phone || c.email || ''}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3 text-right text-[#6B7194] tabular-nums">{c.invoiceCount}</td>
+                    <td className="px-6 py-3 text-right font-bold text-[#1A1D2B] tabular-nums">{fmt(c.totalSpent)}</td>
+                    <td className="px-6 py-3 text-right text-[#10B981] font-semibold tabular-nums">{fmt(c.collected)}</td>
+                    <td
+                      className="px-6 py-3 text-right font-semibold tabular-nums"
+                      style={{ color: c.outstanding > 0.01 ? '#EF4444' : '#9CA3C0' }}
+                    >
+                      {fmt(c.outstanding)}
+                    </td>
+                    <td className="px-6 py-3 text-right text-[#6B7194] tabular-nums">{fmt(c.avgOrder)}</td>
+                    <td className="px-6 py-3 text-[#6B7194] text-[12px]">
+                      {c.lastPurchase ? new Date(c.lastPurchase).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
