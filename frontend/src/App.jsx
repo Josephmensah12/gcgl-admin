@@ -19,6 +19,7 @@ import Expenses from './pages/Expenses';
 import TransactionReview from './pages/TransactionReview';
 import BankSettings from './pages/BankSettings';
 import FixedCosts from './pages/FixedCosts';
+import FinancialReports from './pages/FinancialReports';
 import CompanySettings from './pages/admin/CompanySettings';
 import ShipmentSettings from './pages/admin/ShipmentSettings';
 import CatalogManager from './pages/admin/CatalogManager';
@@ -57,6 +58,7 @@ function AppRoutes() {
         <Route path="expenses" element={<Expenses />} />
         <Route path="bank/review" element={<TransactionReview />} />
         <Route path="fixed-costs" element={<FixedCosts />} />
+        <Route path="reports" element={<FinancialReports />} />
         <Route path="settings/bank" element={<BankSettings />} />
         <Route path="settings/company" element={<CompanySettings />} />
         <Route path="settings/shipments" element={<ShipmentSettings />} />
