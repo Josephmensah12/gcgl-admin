@@ -63,41 +63,43 @@ function KpiCard({ label, value, subtext, trend, accent, icon }) {
   const a = accents[accent] || accents.blue;
 
   return (
-    <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300">
+    <div className="relative overflow-hidden bg-white rounded-[14px] px-4 py-3 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
       <div
-        className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]"
+        className="absolute top-0 left-0 bottom-0 w-[3px] rounded-l-[14px]"
         style={{ background: a.gradient }}
       />
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-[12.5px] font-medium text-[#6B7194]">{label}</p>
+      <div className="flex items-center gap-3">
         <div
-          className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center"
+          className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center shrink-0"
           style={{ background: a.iconBg, color: a.iconColor }}
         >
-          <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
           </svg>
         </div>
-      </div>
-      <div className="text-[28px] font-extrabold text-[#1A1D2B] tracking-[-0.8px] leading-none mb-2">
-        {value}
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        {subtext && <span className="text-[12px] text-[#9CA3C0] truncate">{subtext}</span>}
-        {trend && (
-          <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-semibold ${
-              trend.variant === 'positive'
-                ? 'bg-[rgba(16,185,129,0.08)] text-[#10B981]'
-                : trend.variant === 'negative'
-                ? 'bg-[rgba(239,68,68,0.07)] text-[#EF4444]'
-                : 'bg-[rgba(99,102,241,0.08)] text-[#6366F1]'
-            }`}
-          >
-            {trend.arrow && <span>{trend.arrow}</span>}
-            {trend.label}
-          </span>
-        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-medium text-[#6B7194] leading-tight">{label}</p>
+          <div className="text-[20px] font-extrabold text-[#1A1D2B] tracking-[-0.6px] leading-tight">
+            {value}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          {subtext && <p className="text-[10px] text-[#9CA3C0] leading-tight">{subtext}</p>}
+          {trend && (
+            <span
+              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold mt-0.5 ${
+                trend.variant === 'positive'
+                  ? 'bg-[rgba(16,185,129,0.08)] text-[#10B981]'
+                  : trend.variant === 'negative'
+                  ? 'bg-[rgba(239,68,68,0.07)] text-[#EF4444]'
+                  : 'bg-[rgba(99,102,241,0.08)] text-[#6366F1]'
+              }`}
+            >
+              {trend.arrow && <span>{trend.arrow}</span>}
+              {trend.label}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -668,7 +670,7 @@ export default function Dashboard() {
       {/* Shipment tracker + KPI row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
         <ShipmentTrackerTile shipments={trackedShipments} />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px]">
+        <div className="flex flex-col gap-[10px]">
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}
