@@ -168,8 +168,7 @@ function ShipmentTrackerTile({ shipments }) {
 
   return (
     <div
-      className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer flex flex-col"
-      onClick={() => navigate(`/shipments/${primary.id}`)}
+      className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col"
     >
       {/* Globe background with SVG overlay */}
       <div className="relative flex-1 min-h-0">
@@ -273,21 +272,32 @@ function ShipmentTrackerTile({ shipments }) {
             );
           })()}
 
-          {/* Collecting shipments — loading indicators at origin */}
+          {/* Collecting shipments — loading indicators at origin (clickable) */}
           {collecting.map((cs, idx) => (
-            <g key={cs.id} transform={`translate(${houston.x - 30}, ${houston.y + 30 + idx * 26})`}>
+            <g key={cs.id}
+              transform={`translate(${houston.x - 30}, ${houston.y + 30 + idx * 26})`}
+              onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${cs.id}`); }}
+              className="cursor-pointer"
+              style={{ cursor: 'pointer' }}
+            >
               <rect x="0" y="-10" width={cs.name.length * 6 + 40} height="22" rx="11"
                 fill="#F59E0B" opacity="0.9" />
-              <text x="10" y="4" fontSize="10" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
+              <rect x="0" y="-10" width={cs.name.length * 6 + 40} height="22" rx="11"
+                fill="transparent" className="hover:fill-[rgba(255,255,255,0.15)]" />
+              <text x="10" y="4" fontSize="10" fontWeight="700" fill="white" fontFamily="Inter, sans-serif"
+                style={{ pointerEvents: 'none' }}>
                 📦 {cs.name}
               </text>
             </g>
           ))}
         </svg>
 
-        {/* Overlay: vessel name + status (top-left) */}
+        {/* Overlay: vessel name + status (top-left) — clickable */}
         <div className="absolute top-3 left-3 flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-[10px] bg-white/90 backdrop-blur-sm shadow-sm flex items-center gap-2">
+          <div
+            onClick={() => navigate(`/shipments/${primary.id}`)}
+            className="px-3 py-1.5 rounded-[10px] bg-white/90 backdrop-blur-sm shadow-sm flex items-center gap-2 cursor-pointer hover:bg-white transition-colors"
+          >
             <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#3B82F6] animate-pulse-dot'}`} />
             <span className="text-[12px] font-bold text-[#1A1D2B]">{primary.vesselName || primary.name}</span>
             {primary.voyageNumber && <span className="text-[10px] text-[#9CA3C0]">· {primary.voyageNumber}</span>}
