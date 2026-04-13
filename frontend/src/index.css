@@ -217,6 +217,12 @@ html.dark .bg-\[#0F1629\] {
 html.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
 html.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
+/* Globe images: light/dark swap */
+.globe-light { display: block; }
+.globe-dark { display: none; }
+html.dark .globe-light { display: none !important; }
+html.dark .globe-dark { display: block !important; }
+
 /* Globe background in dark mode — increase opacity */
 html.dark .globe-bg-img { opacity: 0.2 !important; }
 
