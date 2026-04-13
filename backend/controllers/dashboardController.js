@@ -30,9 +30,15 @@ exports.getMetrics = asyncHandler(async (req, res) => {
     },
   });
 
-  // Active shipments
+  // Active shipments (collecting/loading + en-route)
   const activeShipments = await db.Shipment.count({
+    where: { status: { [Op.in]: ['collecting', 'ready', 'shipped', 'transit'] } },
+  });
+  const collectingCount = await db.Shipment.count({
     where: { status: { [Op.in]: ['collecting', 'ready'] } },
+  });
+  const enRouteCount = await db.Shipment.count({
+    where: { status: { [Op.in]: ['shipped', 'transit'] } },
   });
 
   // Revenue this month
@@ -74,6 +80,8 @@ exports.getMetrics = asyncHandler(async (req, res) => {
       warehouseItems,
       warehouseValue: parseFloat(warehouseValue) || 0,
       activeShipments,
+      collectingCount,
+      enRouteCount,
       revenueThisMonth: parseFloat(revenueThisMonth) || 0,
       revenueLastMonth: parseFloat(revenueLastMonth) || 0,
       unpaidTotal: parseFloat(unpaidInvoices) || 0,
@@ -143,17 +151,25 @@ exports.getRecentPickups = asyncHandler(async (req, res) => {
 exports.getTrackedShipments = asyncHandler(async (req, res) => {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
+  // Include tracked shipments + collecting (loading) ones for the map viz
   const shipments = await db.Shipment.findAll({
     where: {
-      trackingNumber: { [Op.ne]: null },
       [Op.or]: [
-        { status: { [Op.notIn]: ['delivered'] } },
-        { updatedAt: { [Op.gte]: sevenDaysAgo } },
+        // Tracked shipments (have tracking number, not delivered or recently delivered)
+        {
+          trackingNumber: { [Op.ne]: null },
+          [Op.or]: [
+            { status: { [Op.notIn]: ['delivered'] } },
+            { updatedAt: { [Op.gte]: sevenDaysAgo } },
+          ],
+        },
+        // Collecting/loading shipments (show at origin on the map)
+        { status: { [Op.in]: ['collecting', 'ready'] } },
       ],
     },
     order: [
-      // Non-delivered first so the active shipment is primary on the map
-      [db.sequelize.literal("CASE WHEN status = 'delivered' THEN 1 ELSE 0 END"), 'ASC'],
+      // Collecting first (at origin), then in-transit, then delivered
+      [db.sequelize.literal("CASE WHEN status IN ('collecting','ready') THEN 0 WHEN status = 'delivered' THEN 2 ELSE 1 END"), 'ASC'],
       ['createdAt', 'DESC'],
     ],
   });

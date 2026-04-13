@@ -111,21 +111,23 @@ function KpiCard({ label, value, subtext, trend, accent, icon }) {
 
 function ShipmentTrackerTile({ shipments }) {
   const navigate = useNavigate();
-  const active = shipments.filter(s => s.trackingNumber);
+  const tracked = shipments.filter(s => s.trackingNumber);
+  const collecting = shipments.filter(s => !s.trackingNumber && ['collecting', 'ready'].includes(s.status));
+  const all = [...tracked, ...collecting];
 
-  if (active.length === 0) {
+  if (all.length === 0) {
     return (
       <div className="relative overflow-hidden bg-white rounded-[16px] p-6 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
         <p className="text-[15px] font-bold text-[#1A1D2B] mb-3">Shipments at Sea</p>
         <div className="flex items-center justify-center py-8">
-          <p className="text-[13px] text-[#9CA3C0]">No tracked shipments — add a tracking number to see it here</p>
+          <p className="text-[13px] text-[#9CA3C0]">No active shipments</p>
         </div>
       </div>
     );
   }
 
-  // Show the primary (first) shipment on the map, others listed below
-  const primary = active[0];
+  // Primary = first tracked en-route, fallback to first collecting
+  const primary = tracked[0] || collecting[0];
   const pct = primary.transitPercent || 0;
   // Derive arrived from tracking data (last event), not the shipment status field
   // — status can be stale when a container is reused across shipments
@@ -256,7 +258,7 @@ function ShipmentTrackerTile({ shipments }) {
           </g>
 
           {/* Ship label pill */}
-          {(() => {
+          {primary.trackingNumber && (() => {
             const lw = shipLabel.length * 6.8 + 20;
             const lx = Math.min(Math.max(shipX + 28, 10), 800 - lw - 10);
             const ly = shipY - 12;
@@ -270,6 +272,17 @@ function ShipmentTrackerTile({ shipments }) {
               </g>
             );
           })()}
+
+          {/* Collecting shipments — loading indicators at origin */}
+          {collecting.map((cs, idx) => (
+            <g key={cs.id} transform={`translate(${houston.x - 30}, ${houston.y + 30 + idx * 26})`}>
+              <rect x="0" y="-10" width={cs.name.length * 6 + 40} height="22" rx="11"
+                fill="#F59E0B" opacity="0.9" />
+              <text x="10" y="4" fontSize="10" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
+                📦 {cs.name}
+              </text>
+            </g>
+          ))}
         </svg>
 
         {/* Overlay: vessel name + status (top-left) */}
@@ -291,10 +304,23 @@ function ShipmentTrackerTile({ shipments }) {
 
       {/* Compact footer */}
       <div className="px-4 py-2.5 flex items-center justify-between">
-        <span className="text-[11px] text-[#6B7194]">Houston → Tema · {shipLabel}</span>
-        {active.length > 1 && (
-          <span className="text-[10px] text-[#9CA3C0]">+{active.length - 1} more</span>
-        )}
+        <span className="text-[11px] text-[#6B7194]">
+          {primary.trackingNumber ? `Houston → Tema · ${shipLabel}` : `${primary.name} · Loading in Houston`}
+        </span>
+        <div className="flex items-center gap-3">
+          {collecting.length > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-[#F59E0B] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+              {collecting.length} loading
+            </span>
+          )}
+          {tracked.length > 0 && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-[#3B82F6] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]" />
+              {tracked.length} en route
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -645,7 +671,7 @@ export default function Dashboard() {
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}
-          subtext="Collecting & ready"
+          subtext={`${metrics?.collectingCount || 0} loading · ${metrics?.enRouteCount || 0} en route`}
           accent="blue"
           icon="M8 17h8M8 17l-2 2m2-2l-2-2m10 2l2 2m-2-2l2-2M3 9h18M3 9a2 2 0 012-2h14a2 2 0 012 2M3 9v8a2 2 0 002 2h14a2 2 0 002-2V9"
         />
