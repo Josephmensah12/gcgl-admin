@@ -105,11 +105,27 @@ html.dark .text-gray-800 {
   color: #ffffff !important;
 }
 
-/* Catch Tailwind v4 arbitrary color: text-[#1A1D2B] compiles to inline --tw style */
+/* Catch Tailwind v4 arbitrary color classes */
 html.dark [class*="text-[#1A1D2B]"],
 html.dark [class*="text-[#1a1d2b]"] {
   color: #ffffff !important;
 }
+
+/* Nuclear: NO black text in dark mode — catch everything */
+html.dark * {
+  --tw-text-opacity: 1;
+}
+html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6,
+html.dark p, html.dark span, html.dark a, html.dark td, html.dark th,
+html.dark label, html.dark div, html.dark li, html.dark button {
+  color: inherit;
+}
+html.dark {
+  color: #ffffff;
+}
+html.dark .text-white { color: #ffffff !important; }
+html.dark .gc-muted { color: #b0b0c8 !important; }
+html.dark .gc-muted-strong { color: #8888a8 !important; }
 
 html.dark .text-\[#6B7194\],
 html.dark .text-gray-700,
