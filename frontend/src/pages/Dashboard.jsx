@@ -256,17 +256,25 @@ function ShipmentTrackerTile({ shipments }) {
             </g>
           </g>
 
-          {/* Ship label pill */}
+          {/* Ship label pill — shows shipment name */}
           {primary.trackingNumber && (() => {
-            const lw = shipLabel.length * 6.8 + 20;
+            const label = primary.name || shipLabel;
+            const lw = label.length * 6.8 + 20;
             const lx = Math.min(Math.max(shipX + 28, 10), 800 - lw - 10);
             const ly = shipY - 12;
             return (
-              <g>
+              <g
+                onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${primary.id}`); }}
+                className="cursor-pointer"
+                style={{ cursor: 'pointer' }}
+              >
                 <rect x={lx} y={ly} width={lw} height="22" rx="11"
                   fill={arrived ? '#10B981' : '#3B82F6'} />
-                <text x={lx + 10} y={ly + 15} fontSize="11" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
-                  {shipLabel}
+                <rect x={lx} y={ly} width={lw} height="22" rx="11"
+                  fill="transparent" className="hover:fill-[rgba(255,255,255,0.15)]" />
+                <text x={lx + 10} y={ly + 15} fontSize="11" fontWeight="700" fill="white" fontFamily="Inter, sans-serif"
+                  style={{ pointerEvents: 'none' }}>
+                  {label}
                 </text>
               </g>
             );
