@@ -172,7 +172,8 @@ function ShipmentTrackerTile({ shipments }) {
     >
       {/* Globe background with SVG overlay */}
       <div className="relative flex-1 min-h-0">
-        <img src="/globe-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover rounded-t-[16px]" />
+        <img src="/globe-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover rounded-t-[16px] dark:hidden" />
+        <img src="/globe-dark.png" alt="" className="absolute inset-0 w-full h-full object-cover rounded-t-[16px] hidden dark:block" />
         <svg viewBox="0 0 800 400" className="w-full block rounded-t-[16px] relative" style={{ maxHeight: '144px' }} preserveAspectRatio="xMidYMid slice">
           <defs>
             <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
