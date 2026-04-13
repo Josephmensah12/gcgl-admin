@@ -172,7 +172,7 @@ function ShipmentTrackerTile({ shipments }) {
     >
       {/* Map fills the tile */}
       <div className="relative flex-1 min-h-0">
-        <svg viewBox="0 0 800 400" className="w-full h-full block rounded-t-[16px]" preserveAspectRatio="xMidYMid slice">
+        <svg viewBox="0 0 800 400" className="w-full block rounded-t-[16px]" style={{ maxHeight: '160px' }} preserveAspectRatio="xMidYMid slice">
           <defs>
             <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#D4EAFC" />
