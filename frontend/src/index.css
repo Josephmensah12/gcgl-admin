@@ -102,7 +102,7 @@ html.dark .text-\[#1A1D2B\],
 html.dark .text-\[\#1A1D2B\],
 html.dark .text-gray-900,
 html.dark .text-gray-800 {
-  color: #ffffff !important;
+  color: #c8ccd4 !important;
 }
 
 /* Catch Tailwind v4 arbitrary color classes */
@@ -121,25 +121,25 @@ html.dark label, html.dark div, html.dark li, html.dark button {
   color: inherit;
 }
 html.dark {
-  color: #ffffff;
+  color: #c8ccd4;
 }
-html.dark .text-white { color: #ffffff !important; }
+html.dark .text-white { color: #c8ccd4 !important; }
 html.dark .gc-muted { color: #b0b0c8 !important; }
 html.dark .gc-muted-strong { color: #8888a8 !important; }
 
 html.dark .text-\[#6B7194\],
 html.dark .text-gray-700,
 html.dark .text-gray-600 {
-  color: #e8e8e8 !important;
+  color: #a0a4b8 !important;
 }
 
 html.dark .text-gray-500 {
-  color: #e0e0e0 !important;
+  color: #9498ac !important;
 }
 
 html.dark .text-\[#9CA3C0\],
 html.dark .text-gray-400 {
-  color: #b0b0c8 !important;
+  color: #7c8098 !important;
 }
 
 /* Borders */
@@ -163,7 +163,7 @@ html.dark input[type="password"],
 html.dark select,
 html.dark textarea {
   background-color: #1e1e30 !important;
-  color: #ffffff !important;
+  color: #c8ccd4 !important;
   border-color: #2a2a40 !important;
 }
 
