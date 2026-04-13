@@ -170,9 +170,10 @@ function ShipmentTrackerTile({ shipments }) {
       className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer flex flex-col"
       onClick={() => navigate(`/shipments/${primary.id}`)}
     >
-      {/* Map fills the tile */}
+      {/* Globe background with SVG overlay */}
       <div className="relative flex-1 min-h-0">
-        <svg viewBox="0 0 800 400" className="w-full h-full block rounded-t-[16px]" preserveAspectRatio="xMidYMid slice">
+        <img src="/globe-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover rounded-t-[16px] opacity-30" />
+        <svg viewBox="0 0 800 400" className="w-full h-full block rounded-t-[16px] relative" preserveAspectRatio="xMidYMid slice">
           <defs>
             <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#D4EAFC" />
@@ -190,37 +191,8 @@ function ShipmentTrackerTile({ shipments }) {
             </filter>
           </defs>
 
-          {/* Ocean */}
-          <rect x="0" y="0" width="800" height="400" fill="url(#oceanGrad)" rx="12" />
-
-          {/* Subtle grid lines (ocean texture) */}
-          {[80, 160, 240, 320].map((y) => (
-            <line key={y} x1="0" y1={y} x2="800" y2={y} stroke="#C2DCF0" strokeWidth="0.3" strokeDasharray="4 8" />
-          ))}
-          {[160, 320, 480, 640].map((x) => (
-            <line key={x} x1={x} y1="0" x2={x} y2="400" stroke="#C2DCF0" strokeWidth="0.3" strokeDasharray="4 8" />
-          ))}
-
-          {/* Land: US Southeast */}
-          <path d="M10,10 L10,75 Q20,80 35,85 L55,88 Q65,82 70,72 L75,58 Q95,48 120,44 L140,50 Q135,68 120,85 L95,98 Q70,105 50,100 L35,108 Q15,105 10,92 Z"
-            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
-          {/* Florida */}
-          <path d="M140,50 L155,55 Q168,62 172,80 L176,102 Q180,120 176,138 Q170,155 158,168 Q148,162 142,148 L135,125 Q128,102 132,82 Z"
-            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
-          {/* Cuba */}
-          <path d="M148,175 Q170,168 198,172 L222,178 Q238,182 242,188 Q236,194 220,196 L188,192 Q160,188 148,182 Z"
-            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.6" />
-          {/* Bahamas */}
-          <ellipse cx="202" cy="118" rx="6" ry="4" fill="#C8D9B3" opacity="0.6" />
-          <ellipse cx="212" cy="112" rx="4" ry="3" fill="#C8D9B3" opacity="0.5" />
-          {/* West Africa */}
-          <path d="M695,225 Q708,218 718,225 L728,238 Q738,255 742,278 L745,300 Q746,318 740,335 L732,352 Q725,365 715,372 L705,378 Q695,382 685,380 L678,372 Q682,355 688,332 L692,305 Q696,278 698,255 Z"
-            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
-          <path d="M715,372 L728,378 Q742,385 752,392 L760,400 L675,400 Q682,388 692,378 Z"
-            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.7" />
-          {/* NW Africa (Senegal/Mauritania hint) */}
-          <path d="M660,120 Q670,115 680,118 L690,128 Q700,145 705,170 L708,195 Q710,210 705,225 L695,225 Q690,210 688,190 L685,165 Q680,140 675,128 Z"
-            fill="#C8D9B3" stroke="#B5C9A0" strokeWidth="0.5" opacity="0.5" />
+          {/* Transparent background — globe image is behind */}
+          <rect x="0" y="0" width="800" height="400" fill="transparent" />
 
           {/* Route: dashed background */}
           <path
