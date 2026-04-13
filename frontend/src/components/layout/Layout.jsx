@@ -15,7 +15,7 @@ export default function Layout() {
 
   return (
     <LayoutContext.Provider value={{ onMenuClick: handleMenuClick }}>
-      <div className="min-h-screen bg-[#F4F6FA]">
+      <div className="min-h-screen bg-[#F4F6FA] dark:bg-[#0B0E18] transition-colors duration-300">
         <Sidebar
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
