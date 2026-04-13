@@ -76,22 +76,28 @@ function apiRequest(method, path, body) {
  * @param {object} invoice — the GCGL invoice (with invoiceNumber, finalTotal, amountPaid, customerName, customerEmail)
  * @returns {object} { url, orderId, paymentLinkId }
  */
-async function createPaymentLink(invoice) {
+async function createPaymentLink(invoice, customAmount = null) {
   if (!isConfigured()) {
     const err = new Error('Square is not configured. Set SQUARE_ACCESS_TOKEN and SQUARE_LOCATION_ID.');
     err.code = 'SQUARE_NOT_CONFIGURED';
     throw err;
   }
 
-  const balanceDue = Math.round(
-    (Math.max(0, (parseFloat(invoice.finalTotal) || 0) - (parseFloat(invoice.amountPaid) || 0))) * 100
-  );
+  const fullBalance = Math.max(0, (parseFloat(invoice.finalTotal) || 0) - (parseFloat(invoice.amountPaid) || 0));
 
-  if (balanceDue <= 0) {
+  if (fullBalance <= 0) {
     const err = new Error('Invoice is already paid in full.');
     err.code = 'INVOICE_PAID';
     throw err;
   }
+
+  // Use custom amount for partial payments, otherwise full balance
+  const paymentAmount = customAmount && customAmount > 0 && customAmount <= fullBalance
+    ? customAmount
+    : fullBalance;
+  const amountCents = Math.round(paymentAmount * 100);
+
+  const isPartial = paymentAmount < fullBalance - 0.01;
 
   const { locationId } = getConfig();
   const idempotencyKey = crypto.randomUUID();
@@ -99,9 +105,9 @@ async function createPaymentLink(invoice) {
   const body = {
     idempotency_key: idempotencyKey,
     quick_pay: {
-      name: `Invoice #${invoice.invoiceNumber} — ${invoice.customerName || 'GCGL'}`,
+      name: `Invoice #${invoice.invoiceNumber}${isPartial ? ' (partial)' : ''} — ${invoice.customerName || 'GCGL'}`,
       price_money: {
-        amount: balanceDue,
+        amount: amountCents,
         currency: 'USD',
       },
       location_id: locationId,
@@ -128,7 +134,10 @@ async function createPaymentLink(invoice) {
     url: result.payment_link?.url || result.payment_link?.long_url,
     orderId: result.payment_link?.order_id,
     paymentLinkId: result.payment_link?.id,
-    balanceDueCents: balanceDue,
+    amount: paymentAmount,
+    amountCents,
+    isPartial,
+    fullBalance,
   };
 }
 

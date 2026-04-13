@@ -687,16 +687,24 @@ export default function PickupDetail() {
 /* ─────────────────────────────────────────────────────────── */
 
 function SquarePayButton({ invoiceId, balanceDue }) {
-  const [state, setState] = useState('idle'); // idle | loading | done | error
+  const [state, setState] = useState('idle'); // idle | amount | loading | done | error
+  const [amount, setAmount] = useState(String(balanceDue.toFixed(2)));
   const [link, setLink] = useState(null);
+  const [linkAmount, setLinkAmount] = useState(0);
   const [error, setError] = useState(null);
 
   const generate = async () => {
+    const payAmount = parseFloat(amount) || 0;
+    if (payAmount <= 0 || payAmount > balanceDue) {
+      setError(`Amount must be between $0.01 and $${balanceDue.toFixed(2)}`);
+      return;
+    }
     setState('loading');
     setError(null);
     try {
-      const res = await axios.post(`/api/v1/pickups/${invoiceId}/pay`);
+      const res = await axios.post(`/api/v1/pickups/${invoiceId}/pay`, { amount: payAmount });
       setLink(res.data.data.url);
+      setLinkAmount(res.data.data.amount || payAmount);
       setState('done');
     } catch (err) {
       const msg = err.response?.data?.error?.message || err.message;
@@ -722,14 +730,55 @@ function SquarePayButton({ invoiceId, balanceDue }) {
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4.01 2C2.9 2 2 2.9 2 4.01v15.98C2 21.1 2.9 22 4.01 22h15.98C21.1 22 22 21.1 22 19.99V4.01C22 2.9 21.1 2 19.99 2H4.01zm9.61 15.57c-.71.71-1.86.71-2.57 0l-4.62-4.62a1.82 1.82 0 010-2.57l4.62-4.62a1.82 1.82 0 012.57 0l4.62 4.62c.71.71.71 1.86 0 2.57l-4.62 4.62z" />
           </svg>
-          Pay with Square
+          Pay ${linkAmount.toFixed(2)} with Square
         </a>
-        <button
-          onClick={() => { navigator.clipboard.writeText(link); }}
-          className="text-[11px] text-[#6366F1] font-semibold hover:text-[#4F46E5] text-center"
-        >
-          Copy payment link
-        </button>
+        <div className="flex justify-center gap-3">
+          <button
+            onClick={() => { navigator.clipboard.writeText(link); }}
+            className="text-[11px] text-[#6366F1] font-semibold hover:text-[#4F46E5]"
+          >
+            Copy link
+          </button>
+          <button
+            onClick={() => { setState('amount'); setAmount(String(balanceDue.toFixed(2))); setLink(null); }}
+            className="text-[11px] text-[#9CA3C0] font-medium hover:text-[#6B7194]"
+          >
+            Change amount
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === 'amount' || state === 'error') {
+    return (
+      <div className="flex-1 flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-2.5 text-[13px] text-[#9CA3C0]">$</span>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              min="0.01"
+              max={balanceDue}
+              step="0.01"
+              className="w-full h-10 pl-7 pr-3 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] focus:border-[#6366F1] outline-none tabular-nums"
+              placeholder={balanceDue.toFixed(2)}
+            />
+          </div>
+          <button
+            onClick={generate}
+            disabled={state === 'loading'}
+            className="h-10 px-4 rounded-[10px] bg-[#1A1D2B] text-white text-[12px] font-semibold hover:bg-[#2D3142] disabled:opacity-50 whitespace-nowrap"
+          >
+            Generate Link
+          </button>
+        </div>
+        <p className="text-[10px] text-[#9CA3C0] text-center">
+          Balance: ${balanceDue.toFixed(2)} · Enter partial or full amount
+        </p>
+        {error && <p className="text-[11px] text-[#EF4444] text-center">{error}</p>}
       </div>
     );
   }
@@ -737,22 +786,15 @@ function SquarePayButton({ invoiceId, balanceDue }) {
   return (
     <div className="flex-1 flex flex-col gap-1">
       <button
-        onClick={generate}
+        onClick={() => setState('amount')}
         disabled={state === 'loading'}
         className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#1A1D2B] text-white rounded-xl text-sm font-semibold hover:bg-[#2D3142] disabled:opacity-50 transition-colors"
       >
-        {state === 'loading' ? (
-          'Generating link...'
-        ) : (
-          <>
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4.01 2C2.9 2 2 2.9 2 4.01v15.98C2 21.1 2.9 22 4.01 22h15.98C21.1 22 22 21.1 22 19.99V4.01C22 2.9 21.1 2 19.99 2H4.01zm9.61 15.57c-.71.71-1.86.71-2.57 0l-4.62-4.62a1.82 1.82 0 010-2.57l4.62-4.62a1.82 1.82 0 012.57 0l4.62 4.62c.71.71.71 1.86 0 2.57l-4.62 4.62z" />
-            </svg>
-            Pay with Square (${balanceDue.toFixed(2)})
-          </>
-        )}
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4.01 2C2.9 2 2 2.9 2 4.01v15.98C2 21.1 2.9 22 4.01 22h15.98C21.1 22 22 21.1 22 19.99V4.01C22 2.9 21.1 2 19.99 2H4.01zm9.61 15.57c-.71.71-1.86.71-2.57 0l-4.62-4.62a1.82 1.82 0 010-2.57l4.62-4.62a1.82 1.82 0 012.57 0l4.62 4.62c.71.71.71 1.86 0 2.57l-4.62 4.62z" />
+        </svg>
+        Pay with Square (${balanceDue.toFixed(2)})
       </button>
-      {error && <p className="text-[11px] text-[#EF4444] text-center">{error}</p>}
     </div>
   );
 }

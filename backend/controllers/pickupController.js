@@ -451,8 +451,11 @@ exports.createPaymentLink = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id);
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
 
+  // Allow custom amount for partial payments
+  const customAmount = req.body?.amount ? parseFloat(req.body.amount) : null;
+
   try {
-    const link = await createPaymentLink(invoice);
+    const link = await createPaymentLink(invoice, customAmount);
     res.json({ success: true, data: link });
   } catch (e) {
     if (e.code === 'SQUARE_NOT_CONFIGURED') {
