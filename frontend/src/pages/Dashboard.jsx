@@ -665,13 +665,10 @@ export default function Dashboard() {
         onMenuClick={onMenuClick}
       />
 
-      {/* Shipment tracker */}
-      <div className="mb-[18px]">
+      {/* Shipment tracker + KPI row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
         <ShipmentTrackerTile shipments={trackedShipments} />
-      </div>
-
-      {/* KPI row — horizontal */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px] mb-[18px]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px]">
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}
@@ -695,6 +692,7 @@ export default function Dashboard() {
           accent="red"
           icon="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
         />
+        </div>
       </div>
 
       {/* Charts row */}
