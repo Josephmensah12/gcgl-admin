@@ -167,12 +167,12 @@ function ShipmentTrackerTile({ shipments }) {
 
   return (
     <div
-      className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer"
+      className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer flex flex-col"
       onClick={() => navigate(`/shipments/${primary.id}`)}
     >
       {/* Map fills the tile */}
-      <div className="relative">
-        <svg viewBox="0 0 800 400" className="w-full block rounded-t-[16px]">
+      <div className="relative flex-1 min-h-0">
+        <svg viewBox="0 0 800 400" className="w-full h-full block rounded-t-[16px]" preserveAspectRatio="xMidYMid slice">
           <defs>
             <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#D4EAFC" />
@@ -667,10 +667,10 @@ export default function Dashboard() {
         onMenuClick={onMenuClick}
       />
 
-      {/* Shipment tracker + KPI row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
+      {/* Shipment tracker + KPI row — matched heights */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]" style={{ alignItems: 'stretch' }}>
         <ShipmentTrackerTile shipments={trackedShipments} />
-        <div className="flex flex-col gap-[10px]">
+        <div className="flex flex-col gap-[10px] justify-between">
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}
