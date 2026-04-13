@@ -99,8 +99,15 @@ html.dark .bg-gray-50 {
 
 /* Text — much brighter than before */
 html.dark .text-\[#1A1D2B\],
+html.dark .text-\[\#1A1D2B\],
 html.dark .text-gray-900,
 html.dark .text-gray-800 {
+  color: #ffffff !important;
+}
+
+/* Catch Tailwind v4 arbitrary color: text-[#1A1D2B] compiles to inline --tw style */
+html.dark [class*="text-[#1A1D2B]"],
+html.dark [class*="text-[#1a1d2b]"] {
   color: #ffffff !important;
 }
 
