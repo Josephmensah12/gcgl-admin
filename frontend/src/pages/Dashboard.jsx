@@ -134,12 +134,11 @@ function ShipmentTrackerTile({ shipments }) {
   const arrived = pct >= 97 || lastEvtType === 'EMRT' || lastEvtType === 'GTOT' ||
     (lastEvtType === 'DISC' && (lastEvtLoc.includes('tema') || lastEvtLoc.includes('ghana')));
 
-  // Geo points in SVG coords (viewBox 0 0 800 380)
-  // Longitude: -100°W to 5°E mapped to x: 30 to 770
-  // Latitude: 0°N to 35°N mapped to y: 350 to 30
-  const houston  = { x: 65,  y: 72,  label: 'Houston',  sub: 'USA' };
-  const freeport = { x: 195, y: 100, label: 'Freeport', sub: 'Bahamas' };
-  const tema     = { x: 735, y: 310, label: 'Tema',     sub: 'Ghana' };
+  // Points aligned to where USA and Ghana appear on the globe image
+  // Globe shows USA upper-left (~25%, ~28%), Ghana center-right (~60%, ~48%)
+  const houston  = { x: 200, y: 110, label: 'Houston',  sub: 'USA' };
+  const freeport = { x: 310, y: 165, label: 'Freeport', sub: 'Bahamas' };
+  const tema     = { x: 500, y: 200, label: 'Tema',     sub: 'Ghana' };
 
   // Ship position along the quadratic bezier: Houston → Freeport → Tema
   // t parameter based on transit percentage
