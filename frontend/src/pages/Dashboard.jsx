@@ -212,29 +212,12 @@ function ShipmentTrackerTile({ shipments }) {
             style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
           />
 
-          {/* Port labels — pill style like the globe image */}
+          {/* Port dots only — labels removed, info in ship tooltip */}
           {[houston, freeport, tema].map((p, i) => {
             const isDestination = i === 2;
-            const pillW = p.label.length * 7.5 + (p.sub.length * 5) + 32;
-            const pillX = p.x - pillW / 2;
-            const pillY = i === 0 ? p.y - 32 : i === 1 ? p.y + 16 : p.y - 32;
             const dotColor = isDestination && arrived ? '#10B981' : isDestination ? '#F59E0B' : '#6366F1';
             return (
-              <g key={i} filter="url(#labelShadow)">
-                {/* Pill background */}
-                <rect x={pillX} y={pillY} width={pillW} height="24" rx="12" fill="#1A1D2B" opacity="0.85" />
-                {/* Dot */}
-                <circle cx={pillX + 14} cy={pillY + 12} r="4" fill={dotColor} />
-                {/* Label text */}
-                <text x={pillX + 24} y={pillY + 16} fontSize="11" fontWeight="700" fill="white" fontFamily="Inter, sans-serif">
-                  {p.label}
-                </text>
-                <text x={pillX + 24 + p.label.length * 7} y={pillY + 16} fontSize="10" fontWeight="400" fill="rgba(255,255,255,0.5)" fontFamily="Inter, sans-serif">
-                  {p.sub}
-                </text>
-                {/* Port dot on map */}
-                <circle cx={p.x} cy={p.y} r="5" fill="white" stroke={dotColor} strokeWidth="2.5" />
-              </g>
+              <circle key={i} cx={p.x} cy={p.y} r="5" fill="white" stroke={dotColor} strokeWidth="2.5" />
             );
           })}
 
@@ -244,6 +227,7 @@ function ShipmentTrackerTile({ shipments }) {
             filter="url(#shipShadow)"
             style={{ transition: 'transform 1.5s ease-out' }}
           >
+            <title>{`${primary.vesselName || primary.name} · ${primary.voyageNumber || ''}\nHouston (USA) → Freeport (Bahamas) → Tema (Ghana)\n${shipLabel} · ${pct}% transit${primary.eta ? '\nETA: ' + primary.eta : ''}`}</title>
             {/* Glow ring */}
             <circle cx="0" cy="0" r="22" fill={arrived ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)'} />
             <circle cx="0" cy="0" r="16" fill="white" />
