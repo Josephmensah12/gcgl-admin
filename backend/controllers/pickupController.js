@@ -477,31 +477,104 @@ exports.squareWebhook = async (req, res) => {
     const event = req.body;
     const eventType = event?.type;
 
-    // Accept both payment.created and payment.completed
-    if (eventType !== 'payment.completed' && eventType !== 'payment.created') {
+    console.log('Square webhook received:', eventType, JSON.stringify(event).substring(0, 1000));
+
+    // Accept payment.completed, payment.created, and order.fulfilled
+    const paymentEvents = ['payment.completed', 'payment.created'];
+    const orderEvents = ['order.fulfilled'];
+    if (!paymentEvents.includes(eventType) && !orderEvents.includes(eventType)) {
+      console.log('Square webhook: ignoring event type:', eventType);
       return res.status(200).json({ received: true });
     }
 
-    // For payment.created, verify the payment status is actually COMPLETED
-    // (not PENDING or FAILED)
-    const paymentStatus = event.data?.object?.payment?.status;
-    if (eventType === 'payment.created' && paymentStatus !== 'COMPLETED') {
-      console.log('Square webhook: payment.created but status is', paymentStatus, '— skipping');
-      return res.status(200).json({ received: true, skipped: paymentStatus });
+    // For order.fulfilled — extract payment info from the order
+    // For payment events — extract from payment object
+    let payment;
+    let invoiceNumber;
+
+    if (orderEvents.includes(eventType)) {
+      // order.fulfilled: data.object.order_fulfilled.order has line_items with name "Invoice #NNN ..."
+      const order = event.data?.object?.order_fulfilled?.order
+        || event.data?.object?.order
+        || event.data?.object;
+      if (!order) {
+        console.log('Square webhook: order.fulfilled but no order object found');
+        return res.status(200).json({ received: true });
+      }
+      // Try to extract invoice number from line item names
+      const lineItems = order.line_items || [];
+      for (const li of lineItems) {
+        const m = (li.name || '').match(/Invoice #(\d+)/i);
+        if (m) { invoiceNumber = parseInt(m[1]); break; }
+      }
+      if (!invoiceNumber) {
+        console.log('Square webhook: order.fulfilled but no invoice # in line items:', lineItems.map(l => l.name));
+        return res.status(200).json({ received: true, matched: false });
+      }
+      // Build a pseudo-payment from order tenders
+      const tenders = order.tenders || [];
+      const tender = tenders[0] || {};
+      payment = {
+        id: tender.id || order.id,
+        amount_money: tender.amount_money || order.total_money,
+        created_at: order.closed_at || order.updated_at || order.created_at,
+        status: 'COMPLETED',
+      };
+    } else {
+      // payment.completed / payment.created
+      payment = event.data?.object?.payment || event.data?.object;
+      if (!payment || !payment.id) {
+        console.log('Square webhook: no payment object in event');
+        return res.status(200).json({ received: true });
+      }
+
+      // For payment.created, verify status is COMPLETED
+      if (eventType === 'payment.created' && payment.status !== 'COMPLETED') {
+        console.log('Square webhook: payment.created but status is', payment.status, '— skipping');
+        return res.status(200).json({ received: true, skipped: payment.status });
+      }
+
+      // Extract invoice number from multiple possible locations:
+      // 1. payment.note (set by payment_note on checkout link)
+      // 2. payment.receipt_url (fallback, unlikely)
+      // 3. order line items via Square API (quick_pay.name contains "Invoice #NNN")
+      const note = payment.note || '';
+      const noteMatch = note.match(/Invoice #(\d+)/i);
+      if (noteMatch) {
+        invoiceNumber = parseInt(noteMatch[1]);
+      }
+
+      // If note didn't have it, try reference_id
+      if (!invoiceNumber && payment.reference_id) {
+        const refMatch = payment.reference_id.match(/(\d+)/);
+        if (refMatch) invoiceNumber = parseInt(refMatch[1]);
+      }
+
+      // If still no match, fetch the order from Square to get line item names
+      if (!invoiceNumber && payment.order_id) {
+        try {
+          const { apiRequest } = require('../services/squareService');
+          const orderResult = await apiRequest('GET', `/orders/${payment.order_id}`);
+          const order = orderResult.order || orderResult;
+          const lineItems = order.line_items || [];
+          for (const li of lineItems) {
+            const m = (li.name || '').match(/Invoice #(\d+)/i);
+            if (m) { invoiceNumber = parseInt(m[1]); break; }
+          }
+          if (!invoiceNumber) {
+            console.log('Square webhook: no invoice # in order line items:', lineItems.map(l => l.name));
+          }
+        } catch (orderErr) {
+          console.log('Square webhook: could not fetch order', payment.order_id, orderErr.message);
+        }
+      }
     }
 
-    const payment = event.data?.object?.payment;
-    if (!payment) return res.status(200).json({ received: true });
-
-    // Extract the invoice number from the payment note: "GCGL Invoice #NNN"
-    const note = payment.note || payment.receipt_url || '';
-    const match = note.match(/Invoice #(\d+)/i);
-    if (!match) {
-      console.log('Square webhook: no invoice number in payment note:', note);
+    if (!invoiceNumber) {
+      console.log('Square webhook: could not extract invoice number from event');
       return res.status(200).json({ received: true, matched: false });
     }
 
-    const invoiceNumber = parseInt(match[1]);
     const invoice = await db.Invoice.findOne({ where: { invoiceNumber } });
     if (!invoice) {
       console.log('Square webhook: invoice #' + invoiceNumber + ' not found');
@@ -536,22 +609,25 @@ exports.squareWebhook = async (req, res) => {
     });
 
     // Update invoice amount_paid and payment_status
-    const newPaid = parseFloat(invoice.amountPaid || 0) + amount;
+    const allPayments = await db.InvoicePayment.findAll({
+      where: { invoiceId: invoice.id, transactionType: 'PAYMENT', voidedAt: null },
+    });
+    const totalPaid = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
     const total = parseFloat(invoice.finalTotal || 0);
     let status = 'unpaid';
-    if (newPaid >= total - 0.01) status = 'paid';
-    else if (newPaid > 0.01) status = 'partial';
+    if (totalPaid >= total - 0.01) status = 'paid';
+    else if (totalPaid > 0.01) status = 'partial';
 
     await invoice.update({
-      amountPaid: Math.round(newPaid * 100) / 100,
+      amountPaid: Math.round(totalPaid * 100) / 100,
       paymentStatus: status,
       paymentMethod: 'Square',
     });
 
-    console.log(`Square webhook: recorded $${amount} payment for invoice #${invoiceNumber} (${squarePaymentId})`);
-    return res.status(200).json({ received: true, invoiceNumber, amount });
+    console.log(`Square webhook: recorded $${amount} payment for invoice #${invoiceNumber} (${squarePaymentId}) — status now: ${status}`);
+    return res.status(200).json({ received: true, invoiceNumber, amount, status });
   } catch (err) {
-    console.error('Square webhook error:', err.message);
+    console.error('Square webhook error:', err.message, err.stack);
     return res.status(200).json({ received: true, error: err.message });
   }
 };
