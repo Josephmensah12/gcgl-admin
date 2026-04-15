@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TransactionModal from '../components/TransactionModal';
@@ -10,6 +10,9 @@ import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 export default function PickupDetail() {
   const { onMenuClick } = useLayout();
   const { id } = useParams();
+  const location = useLocation();
+  const fromShipment = location.state?.fromShipment;
+  const shipmentName = location.state?.shipmentName;
   const [pickup, setPickup] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [txSummary, setTxSummary] = useState(null);
@@ -218,9 +221,9 @@ export default function PickupDetail() {
         hideSearch
       />
 
-      <Link to="/pickups" className="inline-flex items-center text-[13px] text-[#6366F1] hover:text-[#4F46E5] gap-1 mb-4 font-medium">
+      <Link to={fromShipment ? `/shipments/${fromShipment}` : '/pickups'} className="inline-flex items-center text-[13px] text-[#6366F1] hover:text-[#4F46E5] gap-1 mb-4 font-medium">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        Back to Invoices
+        {fromShipment ? `Back to ${shipmentName || 'Shipment'}` : 'Back to Invoices'}
       </Link>
 
       {/* Sticky dirty banner — appears when drafts exist */}

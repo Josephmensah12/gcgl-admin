@@ -422,7 +422,7 @@ export default function ShipmentDetail() {
                     <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-500 text-xs">{new Date(inv.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
-                        <Link to={`/pickups/${inv.id}`} className="font-medium text-primary-600 hover:text-primary-700">
+                        <Link to={`/pickups/${inv.id}`} state={{ fromShipment: shipment.id, shipmentName: shipment.name }} className="font-medium text-primary-600 hover:text-primary-700">
                           #{inv.invoiceNumber}
                         </Link>
                       </td>
@@ -495,7 +495,7 @@ export default function ShipmentDetail() {
                       <tr key={tx.id} className={`hover:bg-gray-50 ${isVoided ? 'opacity-50' : ''}`}>
                         <td className="px-4 py-3 text-gray-600">{new Date(tx.paymentDate).toLocaleDateString()}</td>
                         <td className="px-4 py-3">
-                          <Link to={`/pickups/${tx.invoice?.id}`} className="font-medium text-primary-600">
+                          <Link to={`/pickups/${tx.invoice?.id}`} state={{ fromShipment: shipment.id, shipmentName: shipment.name }} className="font-medium text-primary-600">
                             #{tx.invoice?.invoiceNumber}
                           </Link>
                         </td>
