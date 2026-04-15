@@ -231,18 +231,24 @@ export default function CreateInvoice() {
         </div>
       )}
       {/* Progress */}
-      <div className="flex items-center gap-2">
-        {['Customer', 'Recipient', 'Items', 'Review'].map((label, i) => (
-          <div key={label} className="flex items-center">
-            <button onClick={() => { if (i + 1 < step) setStep(i + 1); }}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
-                ${step > i + 1 ? 'bg-green-500 text-white' : step === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
-              {step > i + 1 ? '\u2713' : i + 1}
-            </button>
-            <span className={`ml-1 text-xs font-medium ${step === i + 1 ? 'text-primary-600' : 'text-gray-400'}`}>{label}</span>
-            {i < 3 && <div className={`w-8 h-0.5 mx-1 ${step > i + 1 ? 'bg-green-500' : 'bg-gray-200'}`} />}
-          </div>
-        ))}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {['Customer', 'Recipient', 'Items', 'Review'].map((label, i) => (
+            <div key={label} className="flex items-center">
+              <button onClick={() => { if (i + 1 < step) setStep(i + 1); }}
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                  ${step > i + 1 ? 'bg-green-500 text-white' : step === i + 1 ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                {step > i + 1 ? '\u2713' : i + 1}
+              </button>
+              <span className={`ml-1 text-xs font-medium ${step === i + 1 ? 'text-primary-600' : 'text-gray-400'}`}>{label}</span>
+              {i < 3 && <div className={`w-8 h-0.5 mx-1 ${step > i + 1 ? 'bg-green-500' : 'bg-gray-200'}`} />}
+            </div>
+          ))}
+        </div>
+        <button onClick={() => navigate('/pickups')}
+          className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 font-medium">
+          Cancel
+        </button>
       </div>
 
       {/* Step 1: Customer */}
