@@ -31,6 +31,7 @@ export default function CreateInvoice() {
   const [lineItems, setLineItems] = useState([]);
   const [itemType, setItemType] = useState('fixed');
   const [customForm, setCustomForm] = useState({ length: '', width: '', height: '', quantity: '1', description: '' });
+  const [manualForm, setManualForm] = useState({ description: '', price: '', quantity: '1' });
   const [catFilter, setCatFilter] = useState('');
 
   // Shipment
@@ -144,6 +145,19 @@ export default function CreateInvoice() {
     }]);
     showToast('Custom item added');
     setCustomForm({ length: '', width: '', height: '', quantity: '1', description: '' });
+  };
+
+  const addManualItem = () => {
+    const price = parseFloat(manualForm.price) || 0;
+    const qty = parseInt(manualForm.quantity) || 1;
+    if (price <= 0 || !manualForm.description.trim()) return;
+    setLineItems((prev) => [...prev, {
+      id: crypto.randomUUID(), type: 'manual', quantity: qty,
+      basePrice: price, finalPrice: price,
+      description: manualForm.description.trim(), photos: [],
+    }]);
+    showToast('Item added');
+    setManualForm({ description: '', price: '', quantity: '1' });
   };
 
   const addPhotoToItem = (itemId, file) => {
@@ -367,15 +381,19 @@ export default function CreateInvoice() {
             <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4">
               <button onClick={() => setItemType('fixed')}
                 className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${itemType === 'fixed' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
-                Catalog Items
+                Catalog
               </button>
               <button onClick={() => setItemType('custom')}
                 className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${itemType === 'custom' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
-                Custom (Dimensions)
+                Dimensions
+              </button>
+              <button onClick={() => setItemType('manual')}
+                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${itemType === 'manual' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
+                Manual Price
               </button>
             </div>
 
-            {itemType === 'fixed' ? (
+            {itemType === 'fixed' && (
               <>
                 {/* Category filter */}
                 <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
@@ -416,7 +434,9 @@ export default function CreateInvoice() {
                   ))}
                 </div>
               </>
-            ) : (
+            )}
+
+            {itemType === 'custom' && (
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
                   <div>
@@ -455,6 +475,42 @@ export default function CreateInvoice() {
                 <button onClick={addCustomItem}
                   className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
                   + Add Custom Item
+                </button>
+              </div>
+            )}
+
+            {itemType === 'manual' && (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">For items that don't fit a catalog or standard dimensions — describe it and set your price.</p>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Description</label>
+                  <input type="text" placeholder="e.g. Oversized barrel, Assorted goods" value={manualForm.description}
+                    onChange={(e) => setManualForm((p) => ({ ...p, description: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Price ($)</label>
+                    <input type="number" min="0" step="0.01" placeholder="0.00" value={manualForm.price}
+                      onChange={(e) => setManualForm((p) => ({ ...p, price: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Quantity</label>
+                    <input type="number" min="1" value={manualForm.quantity}
+                      onChange={(e) => setManualForm((p) => ({ ...p, quantity: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+                  </div>
+                </div>
+                {manualForm.price && (
+                  <p className="text-sm text-gray-600">
+                    Total: <span className="font-bold text-green-600">{fmt((parseFloat(manualForm.price) || 0) * (parseInt(manualForm.quantity) || 1))}</span>
+                  </p>
+                )}
+                <button onClick={addManualItem}
+                  disabled={!manualForm.description.trim() || !(parseFloat(manualForm.price) > 0)}
+                  className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  + Add Item
                 </button>
               </div>
             )}
