@@ -220,7 +220,8 @@ export default function CreateInvoice() {
         shipmentId: selectedShipment || null,
         lineItems: lineItems.map((li) => ({
           id: li.id, type: li.type, catalogItemId: li.catalogItemId,
-          catalogName: li.catalogName, description: li.description,
+          catalogName: li.catalogName,
+          description: [li.description, li.notes].filter(Boolean).join(' — '),
           quantity: li.quantity, basePrice: li.basePrice, finalPrice: li.finalPrice,
           dimensions: li.dimensions, discount: null,
           photos: li.photos || [],
@@ -539,6 +540,11 @@ export default function CreateInvoice() {
                       </div>
                       <button onClick={() => removeItem(li.id)} className="w-7 h-7 rounded-full bg-red-100 text-red-500 text-sm">x</button>
                     </div>
+                    {/* Notes */}
+                    <input type="text" placeholder="Add notes..."
+                      value={li.notes || ''}
+                      onChange={(e) => setLineItems((prev) => prev.map((item) => item.id === li.id ? { ...item, notes: e.target.value } : item))}
+                      className="w-full mt-2 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-600 placeholder-gray-400 focus:ring-1 focus:ring-primary-400 outline-none" />
                     {/* Photos */}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       {(li.photos || []).map((photo, pi) => (
@@ -599,12 +605,15 @@ export default function CreateInvoice() {
             <h3 className="font-semibold text-gray-900 mb-2">Items</h3>
             <div className="space-y-2 mb-4">
               {lineItems.map((li) => (
-                <div key={li.id} className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <div>
-                    <span className="font-medium text-sm">{li.catalogName || li.description}</span>
-                    <span className="text-xs text-gray-500 ml-2">x{li.quantity}</span>
+                <div key={li.id} className="py-2 border-b border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-medium text-sm">{li.catalogName || li.description}</span>
+                      <span className="text-xs text-gray-500 ml-2">x{li.quantity}</span>
+                    </div>
+                    <span className="font-semibold">{fmt(li.finalPrice * li.quantity)}</span>
                   </div>
-                  <span className="font-semibold">{fmt(li.finalPrice * li.quantity)}</span>
+                  {li.notes && <p className="text-xs text-gray-500 mt-0.5">{li.notes}</p>}
                 </div>
               ))}
             </div>
