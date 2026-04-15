@@ -51,7 +51,10 @@ export default function CreateInvoice() {
     axios.get('/api/v1/create-invoice/catalog').then((res) => setCatalog(res.data.data)).catch(() => {});
     axios.get('/api/v1/shipments/active').then((res) => {
       setShipments(res.data.data);
-      if (res.data.data.length > 0) setSelectedShipment(res.data.data[0].id);
+      // Default to the current collecting shipment, fall back to first
+      const collecting = res.data.data.find((s) => s.status === 'collecting');
+      if (collecting) setSelectedShipment(collecting.id);
+      else if (res.data.data.length > 0) setSelectedShipment(res.data.data[0].id);
     }).catch(() => {});
   }, []);
 
