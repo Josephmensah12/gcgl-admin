@@ -340,6 +340,44 @@ exports.addLineItem = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /api/v1/pickups/:id/cancel
+ * Cancel an invoice. Voids all active payments, unassigns from shipment,
+ * and sets status to 'cancelled'.
+ */
+exports.cancelInvoice = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+  if (invoice.status === 'cancelled') throw new AppError('Invoice is already cancelled', 400, 'ALREADY_CANCELLED');
+
+  const reason = req.body.reason || 'Invoice cancelled';
+
+  // Void all active payments
+  const activePayments = await db.InvoicePayment.findAll({
+    where: { invoiceId: invoice.id, voidedAt: null },
+  });
+  for (const payment of activePayments) {
+    await payment.update({
+      voidedAt: new Date(),
+      voidedByUserId: req.user?.userId || null,
+      voidReason: reason,
+    });
+  }
+
+  // Update invoice
+  await invoice.update({
+    status: 'cancelled',
+    amountPaid: 0,
+    paymentStatus: 'unpaid',
+    shipmentId: null,
+  });
+
+  const fresh = await db.Invoice.findByPk(invoice.id, {
+    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+  });
+  res.json({ success: true, data: fresh });
+});
+
+/**
  * DELETE /api/v1/pickups/:id/items/:itemId
  * Remove a line item from an invoice.
  */

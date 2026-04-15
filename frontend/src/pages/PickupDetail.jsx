@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import TransactionModal from '../components/TransactionModal';
@@ -11,9 +11,13 @@ export default function PickupDetail() {
   const { onMenuClick } = useLayout();
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const fromShipment = location.state?.fromShipment;
   const shipmentName = location.state?.shipmentName;
   const [pickup, setPickup] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [txSummary, setTxSummary] = useState(null);
   const [showVoided, setShowVoided] = useState(false);
@@ -199,6 +203,20 @@ export default function PickupDetail() {
     }
   };
 
+  const handleCancelInvoice = async () => {
+    setCancelling(true);
+    try {
+      await axios.post(`/api/v1/pickups/${id}/cancel`, { reason: cancelReason.trim() || 'Invoice cancelled' });
+      setShowCancelConfirm(false);
+      setCancelReason('');
+      navigate(fromShipment ? `/shipments/${fromShipment}` : '/pickups');
+    } catch (err) {
+      alert(err.response?.data?.error?.message || 'Cancel failed');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
 
   if (loading) return <LoadingSpinner />;
@@ -271,6 +289,36 @@ export default function PickupDetail() {
           onClose={() => setModal(null)}
           onSuccess={handleTransactionSuccess}
         />
+      )}
+
+      {/* Cancel Invoice Confirmation */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => !cancelling && setShowCancelConfirm(false)}>
+          <div className="bg-white rounded-[16px] p-6 w-full max-w-sm mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.12)]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-red-600 mb-2">Cancel Invoice #{pickup.invoiceNumber}?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This will void all active payments, unassign from any shipment, and mark the invoice as cancelled. This cannot be undone.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
+              <input type="text" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Customer withdrew, duplicate entry"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => { setShowCancelConfirm(false); setCancelReason(''); }}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+                Keep Invoice
+              </button>
+              <button onClick={handleCancelInvoice}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50">
+                {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {emailModal && (
@@ -394,6 +442,12 @@ export default function PickupDetail() {
                       className="px-3 py-1 rounded-lg text-xs font-medium bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
                       Edit
                     </button>
+                    {pickup.status !== 'cancelled' && (
+                      <button onClick={() => setShowCancelConfirm(true)}
+                        className="px-3 py-1 rounded-lg text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                        Cancel Invoice
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -408,10 +462,11 @@ export default function PickupDetail() {
                   </>
                 )}
                 <span className={`px-3 py-1 rounded-full text-xs font-medium
-                  ${pickup.paymentStatus === 'paid' ? 'bg-green-100 text-green-700'
+                  ${pickup.status === 'cancelled' ? 'bg-red-100 text-red-700'
+                    : pickup.paymentStatus === 'paid' ? 'bg-green-100 text-green-700'
                     : pickup.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-700'
                     : 'bg-amber-100 text-amber-700'}`}>
-                  {pickup.paymentStatus}
+                  {pickup.status === 'cancelled' ? 'cancelled' : pickup.paymentStatus}
                 </span>
                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                   {pickup.warehouseDays}d in warehouse

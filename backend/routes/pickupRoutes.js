@@ -17,6 +17,7 @@ router.post('/:id/items', pickupController.addLineItem);
 router.delete('/:id/items/:itemId', pickupController.removeLineItem);
 router.patch('/:id/discount', pickupController.updateInvoiceDiscount);
 router.patch('/:id/items/:itemId/discount', pickupController.updateLineItemDiscount);
+router.post('/:id/cancel', pickupController.cancelInvoice);
 router.post('/:id/pay', pickupController.createPaymentLink);
 router.get('/square/status', pickupController.squareStatus);
 
