@@ -311,8 +311,8 @@ export default function ShipmentDetail() {
           <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
             <div className={`h-2 rounded-full ${getCapacityColor(shipment.capacityPercent)}`} style={{ width: `${shipment.capacityPercent}%` }} />
           </div>
-          <p className="text-sm font-semibold">{fmt(shipment.totalValue)} / {fmt(shipment.maxCapacity)}</p>
-          <p className="text-xs text-gray-400">{shipment.capacityPercent}%</p>
+          <p className="text-sm font-semibold">{fmt(shipment.weightedValue != null ? shipment.weightedValue : shipment.totalValue)} / {fmt(shipment.maxCapacity)}</p>
+          <p className="text-xs text-gray-400">{shipment.capacityPercent}%{shipment.weightedValue != null && Math.abs(shipment.totalValue - shipment.weightedValue) > 0.01 ? ` (retail ${fmt(shipment.totalValue)})` : ''}</p>
         </div>
         <div className="gc-card p-5">
           <p className="text-sm text-gray-500">Revenue</p>

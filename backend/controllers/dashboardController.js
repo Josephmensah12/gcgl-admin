@@ -293,23 +293,45 @@ exports.getAlerts = asyncHandler(async (req, res) => {
     });
   }
 
-  // Shipments near capacity (compute totalValue on the fly)
+  // Shipments near capacity — use weighted value for accurate capacity tracking
   const settings = await db.Setting.findByPk(1);
   const threshold = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
   const collecting = await db.Shipment.findAll({ where: { status: 'collecting' } });
   if (collecting.length > 0) {
-    const totals = await db.Invoice.findAll({
-      where: { shipmentId: { [Op.in]: collecting.map((s) => s.id) }, status: 'completed' },
-      attributes: [
-        'shipmentId',
-        [db.sequelize.fn('SUM', db.sequelize.col('final_total')), 'totalValue'],
-      ],
-      group: ['shipmentId'],
-      raw: true,
-    });
+    // Use the same weighted capacity logic as the shipment controller
+    const weights = settings?.data?.shipmentSettings?.capacityWeights || [];
+    const collectingIds = collecting.map((s) => s.id);
+
+    let query, replacements;
+    if (weights.length === 0) {
+      query = `
+        SELECT i.shipment_id AS "shipmentId",
+               COALESCE(SUM(li.final_price), 0)::float AS "weightedValue"
+          FROM invoices i
+          JOIN line_items li ON li.invoice_id = i.id
+         WHERE i.shipment_id IN (:shipmentIds) AND i.status = 'completed'
+           AND (li.type IS NULL OR li.type != 'service')
+         GROUP BY i.shipment_id`;
+      replacements = { shipmentIds: collectingIds };
+    } else {
+      const whens = weights.map((w, i) => `WHEN li.description ILIKE :kw${i} OR li.catalog_name ILIKE :kw${i} THEN li.final_price * :wt${i}`);
+      const caseExpr = 'CASE ' + whens.join(' ') + ' ELSE li.final_price END';
+      replacements = { shipmentIds: collectingIds };
+      weights.forEach((w, i) => { replacements[`kw${i}`] = `%${w.match}%`; replacements[`wt${i}`] = parseFloat(w.weight) || 1.0; });
+      query = `
+        SELECT i.shipment_id AS "shipmentId",
+               COALESCE(SUM(${caseExpr}), 0)::float AS "weightedValue"
+          FROM invoices i
+          JOIN line_items li ON li.invoice_id = i.id
+         WHERE i.shipment_id IN (:shipmentIds) AND i.status = 'completed'
+           AND (li.type IS NULL OR li.type != 'service')
+         GROUP BY i.shipment_id`;
+    }
+
+    const totals = await db.sequelize.query(query, { replacements, type: require('sequelize').QueryTypes.SELECT });
     const totalMap = {};
-    for (const t of totals) totalMap[t.shipmentId] = parseFloat(t.totalValue) || 0;
+    for (const t of totals) totalMap[t.shipmentId] = parseFloat(t.weightedValue) || 0;
 
     for (const s of collecting) {
       const tv = totalMap[s.id] || 0;
@@ -317,7 +339,7 @@ exports.getAlerts = asyncHandler(async (req, res) => {
         alerts.push({
           type: 'info',
           title: 'Shipment Near Capacity',
-          message: `${s.name} is at $${tv.toLocaleString()} / $${threshold.toLocaleString()}`,
+          message: `${s.name} is at $${tv.toLocaleString()} / $${threshold.toLocaleString()} (weighted)`,
           link: `/shipments/${s.id}`,
         });
       }

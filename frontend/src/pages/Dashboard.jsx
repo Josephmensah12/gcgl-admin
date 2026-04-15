@@ -343,9 +343,11 @@ function ContainerProgress({ shipment }) {
     );
   }
 
-  const current = parseFloat(shipment.totalValue) || 0;
+  const retailValue = parseFloat(shipment.totalValue) || 0;
+  const weightedValue = parseFloat(shipment.weightedValue) || retailValue;
+  const hasWeights = Math.abs(retailValue - weightedValue) > 0.01;
   const max = shipment.maxCapacity || 30000;
-  const pct = Math.min(Math.round((current / max) * 100), 100);
+  const pct = Math.min(Math.round((weightedValue / max) * 100), 100);
   const circumference = 2 * Math.PI * 50;
   const dashOffset = circumference * (1 - pct / 100);
 
@@ -394,7 +396,8 @@ function ContainerProgress({ shipment }) {
               <span className="text-[32px] font-extrabold text-[#1A1D2B] tracking-[-1px]">{pct}</span>
               <span className="text-[18px] font-semibold text-[#9CA3C0] ml-0.5">%</span>
             </div>
-            <p className="text-[11px] text-[#6B7194] mt-1">${fmtCurrency(current)}</p>
+            <p className="text-[11px] text-[#6B7194] mt-1">${fmtCurrency(weightedValue)}</p>
+            {hasWeights && <p className="text-[9px] text-[#9CA3C0] mt-0.5">retail ${fmtCurrency(retailValue)}</p>}
           </div>
         </div>
 

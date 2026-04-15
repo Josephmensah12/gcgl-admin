@@ -108,6 +108,59 @@ export default function ShipmentSettings() {
             </div>
           )}
 
+          {/* Capacity Weight Factors */}
+          <div>
+            <h3 className="font-medium text-gray-900 mb-1">Capacity Weight Factors</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              Reduce the capacity impact of high-value items (like TVs). A weight of 0.15 means a $1,000 TV counts as $150 toward container capacity.
+              Keywords are matched against line item descriptions.
+            </p>
+            <div className="space-y-2">
+              {(settings?.capacityWeights || []).map((rule, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Keyword (e.g. TV)"
+                    value={rule.match || ''}
+                    onChange={(e) => {
+                      const updated = [...(settings.capacityWeights || [])];
+                      updated[idx] = { ...updated[idx], match: e.target.value };
+                      setSettings((s) => ({ ...s, capacityWeights: updated }));
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="2"
+                    placeholder="Weight"
+                    value={rule.weight ?? ''}
+                    onChange={(e) => {
+                      const updated = [...(settings.capacityWeights || [])];
+                      updated[idx] = { ...updated[idx], weight: parseFloat(e.target.value) || 0 };
+                      setSettings((s) => ({ ...s, capacityWeights: updated }));
+                    }}
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={() => {
+                      const updated = (settings.capacityWeights || []).filter((_, i) => i !== idx);
+                      setSettings((s) => ({ ...s, capacityWeights: updated }));
+                    }}
+                    className="w-8 h-8 rounded-full bg-red-100 text-red-500 text-sm flex items-center justify-center hover:bg-red-200"
+                  >x</button>
+                </div>
+              ))}
+              <button
+                onClick={() => setSettings((s) => ({ ...s, capacityWeights: [...(s.capacityWeights || []), { match: '', weight: 0.15 }] }))}
+                className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-primary-400 hover:text-primary-600"
+              >
+                + Add Weight Rule
+              </button>
+            </div>
+          </div>
+
           {/* Alert Thresholds */}
           <div>
             <h3 className="font-medium text-gray-900 mb-3">Alert Thresholds</h3>
