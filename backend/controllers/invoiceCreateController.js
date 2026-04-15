@@ -91,6 +91,14 @@ exports.createInvoice = asyncHandler(async (req, res) => {
 
     for (let i = 0; i < lineItems.length; i++) {
       const { photos, dimensions, discount, ...itemData } = lineItems[i];
+
+      // Look up capacity weight from catalog item, default 1.0
+      let capacityWeight = 1.0;
+      if (itemData.catalogItemId) {
+        const catItem = await db.CatalogItem.findByPk(itemData.catalogItemId, { transaction: t });
+        if (catItem) capacityWeight = parseFloat(catItem.capacityWeight) || 1.0;
+      }
+
       const li = await db.LineItem.create({
         id: itemData.id || uuidv4(),
         invoiceId: inv.id,
@@ -106,6 +114,7 @@ exports.createInvoice = asyncHandler(async (req, res) => {
         dimensionsL: dimensions?.length || null,
         dimensionsW: dimensions?.width || null,
         dimensionsH: dimensions?.height || null,
+        capacityWeight,
         sortOrder: i,
       }, { transaction: t });
 

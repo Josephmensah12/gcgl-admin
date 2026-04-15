@@ -13,7 +13,7 @@ export default function CatalogManager() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [form, setForm] = useState({ name: '', description: '', category: '', price: '', image: '' });
+  const [form, setForm] = useState({ name: '', description: '', category: '', price: '', image: '', capacityWeight: '1' });
 
   const loadItems = async () => {
     try {
@@ -31,13 +31,13 @@ export default function CatalogManager() {
 
   const openCreate = () => {
     setEditingItem(null);
-    setForm({ name: '', description: '', category: '', price: '', image: '' });
+    setForm({ name: '', description: '', category: '', price: '', image: '', capacityWeight: '1' });
     setShowForm(true);
   };
 
   const openEdit = (item) => {
     setEditingItem(item);
-    setForm({ name: item.name, description: item.description || '', category: item.category, price: item.price, image: item.image || '' });
+    setForm({ name: item.name, description: item.description || '', category: item.category, price: item.price, image: item.image || '', capacityWeight: item.capacityWeight ?? '1' });
     setShowForm(true);
   };
 
@@ -139,10 +139,19 @@ export default function CatalogManager() {
                   {categories.map((c) => <option key={c} value={c} />)}
                 </datalist>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
-                <input type="number" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+                  <input type="number" step="0.01" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacity Weight</label>
+                  <input type="number" step="0.01" min="0" max="2" value={form.capacityWeight}
+                    onChange={(e) => setForm((f) => ({ ...f, capacityWeight: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  <p className="text-[10px] text-gray-400 mt-0.5">1.0 = normal, 0.15 = reduced (e.g. TVs)</p>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -203,7 +212,12 @@ export default function CatalogManager() {
                   {item.description && <p className="text-xs text-gray-500 truncate">{item.description}</p>}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-gray-900">${parseFloat(item.price).toFixed(2)}</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">${parseFloat(item.price).toFixed(2)}</span>
+                    {parseFloat(item.capacityWeight || 1) !== 1 && (
+                      <p className="text-[10px] text-amber-600 font-medium">{item.capacityWeight}x wt</p>
+                    )}
+                  </div>
                   <button onClick={() => openEdit(item)} className="text-primary-600 hover:text-primary-700">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                   </button>

@@ -20,6 +20,7 @@ module.exports = (sequelize) => {
     dimensionsL: DataTypes.DECIMAL(8, 2),
     dimensionsW: DataTypes.DECIMAL(8, 2),
     dimensionsH: DataTypes.DECIMAL(8, 2),
+    capacityWeight: { type: DataTypes.DECIMAL(5, 2), defaultValue: 1.0 },
     sortOrder: { type: DataTypes.INTEGER, defaultValue: 0 },
   }, {
     tableName: 'line_items',

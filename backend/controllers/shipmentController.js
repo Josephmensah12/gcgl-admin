@@ -5,69 +5,23 @@ const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 
 /**
- * Build a SQL CASE expression that applies capacity weight factors to line item
- * prices based on keyword matches in description/catalogName.
- *
- * Settings format (in settings.data.shipmentSettings.capacityWeights):
- *   [ { match: "TV", weight: 0.15 }, { match: "OLED", weight: 0.15 }, ... ]
- *
- * Unmatched items use weight 1.0 (full retail value).
- */
-function buildWeightedSumSQL(weights) {
-  if (!weights || weights.length === 0) {
-    return 'li.final_price';
-  }
-  // Build CASE WHEN ... for each keyword
-  const whens = weights.map((w, i) => {
-    const param = `kw${i}`;
-    return { clause: `WHEN li.description ILIKE :${param} OR li.catalog_name ILIKE :${param} THEN li.final_price * :wt${i}`, param, pattern: `%${w.match}%`, weight: parseFloat(w.weight) || 1.0 };
-  });
-  const caseExpr = 'CASE ' + whens.map((w) => w.clause).join(' ') + ' ELSE li.final_price END';
-  const replacements = {};
-  whens.forEach((w) => { replacements[w.param] = w.pattern; replacements[`wt${w.param.replace('kw', '')}`] = w.weight; });
-  return { expr: caseExpr, replacements };
-}
-
-/**
  * Compute weighted goods value for one or more shipments.
- * Returns a map of shipmentId -> { goodsValue (retail), weightedValue (for capacity) }
+ * Uses li.capacity_weight (stored per line item, copied from catalog at creation).
+ * Returns a map of shipmentId -> { goodsValue (actual), weightedValue (for capacity) }
  */
-async function computeShipmentValues(shipmentIds, settings) {
+async function computeShipmentValues(shipmentIds) {
   if (!shipmentIds || shipmentIds.length === 0) return {};
 
-  const weights = settings?.data?.shipmentSettings?.capacityWeights || [];
-  const weighted = buildWeightedSumSQL(weights);
-
-  let query, replacements;
-  if (typeof weighted === 'string') {
-    // No weights configured — retail = weighted
-    query = `
-      SELECT i.shipment_id AS "shipmentId",
-             COALESCE(SUM(li.final_price), 0)::float AS "goodsValue",
-             COALESCE(SUM(li.final_price), 0)::float AS "weightedValue"
-        FROM invoices i
-        JOIN line_items li ON li.invoice_id = i.id
-       WHERE i.shipment_id IN (:shipmentIds) AND i.status = 'completed'
-         AND (li.type IS NULL OR li.type != 'service')
-       GROUP BY i.shipment_id`;
-    replacements = { shipmentIds };
-  } else {
-    query = `
-      SELECT i.shipment_id AS "shipmentId",
-             COALESCE(SUM(li.final_price), 0)::float AS "goodsValue",
-             COALESCE(SUM(${weighted.expr}), 0)::float AS "weightedValue"
-        FROM invoices i
-        JOIN line_items li ON li.invoice_id = i.id
-       WHERE i.shipment_id IN (:shipmentIds) AND i.status = 'completed'
-         AND (li.type IS NULL OR li.type != 'service')
-       GROUP BY i.shipment_id`;
-    replacements = { shipmentIds, ...weighted.replacements };
-  }
-
-  const rows = await db.sequelize.query(query, {
-    replacements,
-    type: require('sequelize').QueryTypes.SELECT,
-  });
+  const rows = await db.sequelize.query(`
+    SELECT i.shipment_id AS "shipmentId",
+           COALESCE(SUM(li.final_price), 0)::float AS "goodsValue",
+           COALESCE(SUM(li.final_price * COALESCE(li.capacity_weight, 1.0)), 0)::float AS "weightedValue"
+      FROM invoices i
+      JOIN line_items li ON li.invoice_id = i.id
+     WHERE i.shipment_id IN (:shipmentIds) AND i.status = 'completed'
+       AND (li.type IS NULL OR li.type != 'service')
+     GROUP BY i.shipment_id
+  `, { replacements: { shipmentIds }, type: require('sequelize').QueryTypes.SELECT });
 
   const map = {};
   for (const r of rows) {
@@ -118,7 +72,7 @@ exports.list = asyncHandler(async (req, res) => {
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
   // Goods-only value with capacity weight factors applied
-  const valuesMap = await computeShipmentValues(shipmentIds, settings);
+  const valuesMap = await computeShipmentValues(shipmentIds);
 
   const statsMap = {};
   invoiceStats.forEach((s) => {
@@ -181,7 +135,7 @@ exports.getById = asyncHandler(async (req, res) => {
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
   // Compute goods-only totalValue with capacity weight factors
-  const valuesMap = await computeShipmentValues([shipment.id], settings);
+  const valuesMap = await computeShipmentValues([shipment.id]);
   const vals = valuesMap[shipment.id] || { goodsValue: 0, weightedValue: 0 };
 
   res.json({
@@ -256,7 +210,7 @@ exports.getActiveShipments = asyncHandler(async (req, res) => {
   const maxCapacity = settings?.data?.shipmentSettings?.moneyThresholds?.max || 30000;
 
   const shipmentIds = shipments.map((s) => s.id);
-  const valuesMap = await computeShipmentValues(shipmentIds, settings);
+  const valuesMap = await computeShipmentValues(shipmentIds);
 
   const result = shipments.map((s) => {
     const vals = valuesMap[s.id] || { goodsValue: 0, weightedValue: 0 };

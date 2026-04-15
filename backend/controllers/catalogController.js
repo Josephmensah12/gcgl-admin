@@ -38,7 +38,7 @@ exports.list = asyncHandler(async (req, res) => {
 });
 
 exports.create = asyncHandler(async (req, res) => {
-  const { name, description, category, price, image } = req.body;
+  const { name, description, category, price, image, capacityWeight } = req.body;
   if (!name || !price) {
     throw new AppError('Name and price required', 400, 'VALIDATION_ERROR');
   }
@@ -50,6 +50,7 @@ exports.create = asyncHandler(async (req, res) => {
     category: category || 'Uncategorized',
     price,
     image: image || null,
+    capacityWeight: capacityWeight != null ? capacityWeight : 1.0,
   });
 
   res.status(201).json({ success: true, data: item });
