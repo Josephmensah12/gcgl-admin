@@ -51,10 +51,9 @@ export default function CreateInvoice() {
     axios.get('/api/v1/create-invoice/catalog').then((res) => setCatalog(res.data.data)).catch(() => {});
     axios.get('/api/v1/shipments/active').then((res) => {
       setShipments(res.data.data);
-      // Default to the current collecting shipment, fall back to first
-      const collecting = res.data.data.find((s) => s.status === 'collecting');
-      if (collecting) setSelectedShipment(collecting.id);
-      else if (res.data.data.length > 0) setSelectedShipment(res.data.data[0].id);
+      // Auto-select only if there's exactly one collecting shipment
+      const collecting = res.data.data.filter((s) => s.status === 'collecting');
+      if (collecting.length === 1) setSelectedShipment(collecting[0].id);
     }).catch(() => {});
   }, []);
 
@@ -623,9 +622,14 @@ export default function CreateInvoice() {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm">
                 <option value="">-- Unassigned --</option>
                 {shipments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({shipmentDateRange(s)}) — {s.status}
+                  </option>
                 ))}
               </select>
+              {!selectedShipment && shipments.filter((s) => s.status === 'collecting').length > 1 && (
+                <p className="text-xs text-amber-600 mt-1">Multiple shipments are collecting — please select one.</p>
+              )}
             </div>
           )}
 
