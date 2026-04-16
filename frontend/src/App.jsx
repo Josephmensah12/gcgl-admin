@@ -24,6 +24,7 @@ import CompanySettings from './pages/admin/CompanySettings';
 import ShipmentSettings from './pages/admin/ShipmentSettings';
 import CatalogManager from './pages/admin/CatalogManager';
 import PaymentSettings from './pages/admin/PaymentSettings';
+import PublicTracking from './pages/PublicTracking';
 import LoadingSpinner from './components/LoadingSpinner';
 
 function ProtectedRoute({ children }) {
@@ -40,6 +41,7 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/track" element={<PublicTracking />} />
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
