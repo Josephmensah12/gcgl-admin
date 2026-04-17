@@ -134,6 +134,12 @@ export default function ShipmentDetail() {
   const [allShipments, setAllShipments] = useState([]);
   const [expSortBy, setExpSortBy] = useState('expense_date');
   const [expSortOrder, setExpSortOrder] = useState('ASC');
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyPreview, setNotifyPreview] = useState(null);
+  const [notifyMessage, setNotifyMessage] = useState('');
+  const [notifySending, setNotifySending] = useState(false);
+  const [notifyResult, setNotifyResult] = useState(null);
+  const [notifyLoading, setNotifyLoading] = useState(false);
 
   const toggleExpSort = (field) => {
     if (expSortBy === field) { setExpSortOrder((o) => o === 'ASC' ? 'DESC' : 'ASC'); }
@@ -221,7 +227,7 @@ export default function ShipmentDetail() {
     }
   };
 
-  const statusPipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivered'];
+  const statusPipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivery', 'delivered'];
 
   const getCapacityColor = (pct) => {
     if (pct >= 90) return 'bg-red-500';
@@ -276,6 +282,25 @@ export default function ShipmentDetail() {
               </svg>
               Packing Lists
             </Link>
+            <button
+              onClick={async () => {
+                setNotifyOpen(true);
+                setNotifyResult(null);
+                setNotifyLoading(true);
+                try {
+                  const res = await axios.get(`/api/v1/shipments/${id}/notify/preview`);
+                  setNotifyPreview(res.data.data);
+                  setNotifyMessage(res.data.data.defaultMessage);
+                } catch (err) { alert(err.response?.data?.error?.message || 'Failed to load preview'); setNotifyOpen(false); }
+                finally { setNotifyLoading(false); }
+              }}
+              className="px-4 py-2 rounded-[10px] bg-[#F4F6FA] text-[#1A1D2B] text-[13px] font-semibold hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Notify Customers
+            </button>
             {currentIndex < statusPipeline.length - 1 && (
               <button
                 onClick={() => updateStatus(statusPipeline[currentIndex + 1])}
@@ -374,6 +399,129 @@ export default function ShipmentDetail() {
           onClose={() => setEditingExp(null)}
           onSaved={() => { setEditingExp(null); loadExpenses(); }}
         />
+      )}
+
+      {/* Notify Customers Modal */}
+      {notifyOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !notifySending && setNotifyOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold">Notify Customers</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Send shipment update emails to all customers in this shipment</p>
+            </div>
+            <div className="p-6 space-y-4">
+              {notifyLoading ? (
+                <div className="text-center py-8 text-gray-400">Loading customer list...</div>
+              ) : notifyResult ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-2xl">✉️</span>
+                    <div>
+                      <p className="font-semibold text-green-800">{notifyResult.sent} email{notifyResult.sent !== 1 ? 's' : ''} sent</p>
+                      {notifyResult.skipped > 0 && <p className="text-sm text-gray-500">{notifyResult.skipped} skipped (no email)</p>}
+                      {notifyResult.failed > 0 && <p className="text-sm text-red-600">{notifyResult.failed} failed</p>}
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-gray-50">
+                        {notifyResult.details.map((d, i) => (
+                          <tr key={i}>
+                            <td className="py-2 font-medium">#{d.invoiceNumber}</td>
+                            <td className="py-2 text-gray-500">{d.email || '—'}</td>
+                            <td className="py-2 text-right">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                d.status === 'sent' ? 'bg-green-100 text-green-700' :
+                                d.status === 'skipped' ? 'bg-gray-100 text-gray-500' :
+                                'bg-red-100 text-red-700'}`}>{d.status}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button onClick={() => setNotifyOpen(false)} className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">
+                    Done
+                  </button>
+                </div>
+              ) : notifyPreview && (
+                <>
+                  <div className="flex gap-3 text-sm">
+                    <div className="flex-1 p-3 bg-blue-50 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-blue-700">{notifyPreview.withEmail}</p>
+                      <p className="text-blue-600 text-xs">Will receive email</p>
+                    </div>
+                    {notifyPreview.withoutEmail > 0 && (
+                      <div className="flex-1 p-3 bg-gray-50 rounded-lg text-center">
+                        <p className="text-2xl font-bold text-gray-400">{notifyPreview.withoutEmail}</p>
+                        <p className="text-gray-400 text-xs">No email on file</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                    <textarea
+                      value={notifyMessage}
+                      onChange={(e) => setNotifyMessage(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-primary-500 outline-none"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">This message will appear in the email body. Each customer gets their invoice number and balance.</p>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50">
+                        <tr className="text-left text-gray-500">
+                          <th className="px-3 py-2">Invoice</th>
+                          <th className="px-3 py-2">Customer</th>
+                          <th className="px-3 py-2">Email</th>
+                          <th className="px-3 py-2 text-right">Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {notifyPreview.customers.map((c) => (
+                          <tr key={c.invoiceNumber} className={!c.hasEmail ? 'opacity-40' : ''}>
+                            <td className="px-3 py-2 font-medium">#{c.invoiceNumber}</td>
+                            <td className="px-3 py-2">{c.customerName}</td>
+                            <td className="px-3 py-2 text-gray-500">{c.email || '—'}</td>
+                            <td className={`px-3 py-2 text-right font-medium ${c.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              ${(c.balance).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => setNotifyOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                      Cancel
+                    </button>
+                    <button
+                      disabled={notifySending || notifyPreview.withEmail === 0}
+                      onClick={async () => {
+                        setNotifySending(true);
+                        try {
+                          const res = await axios.post(`/api/v1/shipments/${id}/notify`, {
+                            message: notifyMessage || undefined,
+                          });
+                          setNotifyResult(res.data.data);
+                        } catch (err) {
+                          alert(err.response?.data?.error?.message || 'Send failed');
+                        } finally { setNotifySending(false); }
+                      }}
+                      className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      {notifySending ? 'Sending...' : `Send to ${notifyPreview.withEmail} customer${notifyPreview.withEmail !== 1 ? 's' : ''}`}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Invoices Tab */}

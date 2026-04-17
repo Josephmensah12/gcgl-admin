@@ -226,6 +226,124 @@ exports.getActiveShipments = asyncHandler(async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+/**
+ * POST /api/v1/shipments/:id/notify
+ * Send batch shipment update emails to all customers in this shipment.
+ *
+ * Body: { message?: string }   — optional custom message overriding the status default
+ */
+exports.notifyCustomers = asyncHandler(async (req, res) => {
+  const shipment = await db.Shipment.findByPk(req.params.id);
+  if (!shipment) throw new AppError('Shipment not found', 404, 'NOT_FOUND');
+
+  const { isConfigured, sendShipmentUpdateEmail, STATUS_MESSAGES } = require('../services/emailService');
+  if (!isConfigured()) throw new AppError('SMTP not configured', 503, 'SMTP_NOT_CONFIGURED');
+
+  const customMessage = req.body.message || null;
+
+  // Load invoices with customer details
+  const invoices = await db.Invoice.findAll({
+    where: { shipmentId: shipment.id, status: { [Op.ne]: 'cancelled' } },
+    attributes: ['id', 'invoiceNumber', 'customerName', 'customerEmail', 'finalTotal', 'amountPaid', 'paymentStatus'],
+  });
+
+  if (invoices.length === 0) throw new AppError('No invoices in this shipment', 400, 'NO_INVOICES');
+
+  // Load company settings
+  const settings = await db.Setting.findOne({ where: { id: 1 } });
+  const company = settings?.data?.companyInfo || {};
+
+  // Optionally generate Square payment links
+  let squareConfigured = false;
+  try {
+    const sq = require('../services/squareService');
+    squareConfigured = sq.isConfigured();
+  } catch {}
+
+  // Deduplicate by email, but send per-invoice (each customer gets one email per invoice)
+  const results = { sent: 0, skipped: 0, failed: 0, details: [] };
+
+  for (const inv of invoices) {
+    const email = inv.customerEmail;
+    if (!email || email === 'noemail@gcgl.com') {
+      results.skipped++;
+      results.details.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'no email' });
+      continue;
+    }
+
+    const balance = Math.max(0, (parseFloat(inv.finalTotal) || 0) - (parseFloat(inv.amountPaid) || 0));
+
+    // Generate payment link if there's a balance
+    let paymentUrl = null;
+    if (squareConfigured && balance > 0.01) {
+      try {
+        const sq = require('../services/squareService');
+        const link = await sq.createPaymentLink(inv);
+        paymentUrl = link.url;
+      } catch {}
+    }
+
+    try {
+      await sendShipmentUpdateEmail({
+        to: email,
+        customerName: inv.customerName,
+        invoiceNumber: inv.invoiceNumber,
+        shipmentStatus: shipment.status,
+        eta: shipment.eta,
+        balance,
+        paymentUrl,
+        customMessage,
+        company,
+      });
+      results.sent++;
+      results.details.push({ invoiceNumber: inv.invoiceNumber, email, status: 'sent' });
+    } catch (err) {
+      results.failed++;
+      results.details.push({ invoiceNumber: inv.invoiceNumber, email, status: 'failed', error: err.message });
+    }
+  }
+
+  res.json({ success: true, data: results });
+});
+
+/**
+ * GET /api/v1/shipments/:id/notify/preview
+ * Preview the list of customers who will be notified.
+ */
+exports.notifyPreview = asyncHandler(async (req, res) => {
+  const shipment = await db.Shipment.findByPk(req.params.id);
+  if (!shipment) throw new AppError('Shipment not found', 404, 'NOT_FOUND');
+
+  const { STATUS_MESSAGES } = require('../services/emailService');
+
+  const invoices = await db.Invoice.findAll({
+    where: { shipmentId: shipment.id, status: { [Op.ne]: 'cancelled' } },
+    attributes: ['id', 'invoiceNumber', 'customerName', 'customerEmail', 'finalTotal', 'amountPaid', 'paymentStatus'],
+  });
+
+  const customers = invoices.map((inv) => ({
+    invoiceNumber: inv.invoiceNumber,
+    customerName: inv.customerName,
+    email: inv.customerEmail,
+    hasEmail: Boolean(inv.customerEmail && inv.customerEmail !== 'noemail@gcgl.com'),
+    balance: Math.max(0, (parseFloat(inv.finalTotal) || 0) - (parseFloat(inv.amountPaid) || 0)),
+    paymentStatus: inv.paymentStatus,
+  }));
+
+  res.json({
+    success: true,
+    data: {
+      shipmentName: shipment.name,
+      shipmentStatus: shipment.status,
+      defaultMessage: STATUS_MESSAGES[shipment.status] || STATUS_MESSAGES.collecting,
+      totalCustomers: customers.length,
+      withEmail: customers.filter((c) => c.hasEmail).length,
+      withoutEmail: customers.filter((c) => !c.hasEmail).length,
+      customers,
+    },
+  });
+});
+
 function generateShipmentName() {
   const now = new Date();
   const y = now.getFullYear();

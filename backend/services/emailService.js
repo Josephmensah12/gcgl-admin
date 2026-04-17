@@ -357,9 +357,197 @@ async function sendInvoiceEmail({ to, invoice, company, cc, bcc, extraMessage, p
   return { messageId: info.messageId };
 }
 
+/* ── Shipment update email ── */
+
+const STATUS_MESSAGES = {
+  collecting: 'Your items have been received at our warehouse in Houston and are being prepared for shipment.',
+  ready: 'Your shipment is packed and ready to be loaded onto the vessel.',
+  shipped: 'Your shipment has left the USA and is on its way to Ghana!',
+  transit: 'Your shipment is currently on the ocean heading to Ghana.',
+  customs: 'Your shipment has arrived in Ghana and is being cleared through customs.',
+  delivery: 'Your shipment has cleared the port and delivery is in progress.',
+  delivered: 'Your shipment has been delivered. Thank you for choosing Gold Coast Global Logistics!',
+};
+
+function renderShipmentUpdateEmail({ customerName, invoiceNumber, shipmentStatus, eta, balance, paymentUrl, customMessage, company }) {
+  const companyName = company?.name || 'Gold Coast Global Logistics';
+  const companyPhone = company?.phone || '(832) 295-9347';
+  const companyEmail = company?.email || 'info@goldcoastlogistics.com';
+  const companyLogo = company?.logo || null;
+  const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const statusLabel = (shipmentStatus || 'collecting').charAt(0).toUpperCase() + (shipmentStatus || 'collecting').slice(1);
+  const statusMessage = customMessage || STATUS_MESSAGES[shipmentStatus] || STATUS_MESSAGES.collecting;
+
+  let etaHtml = '';
+  if (eta) {
+    const etaDate = new Date(eta + 'T12:00:00');
+    const days = Math.ceil((etaDate - new Date()) / 86400000);
+    const etaFormatted = etaDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const countdown = days > 0 ? ` (${days} day${days === 1 ? '' : 's'} away)` : days === 0 ? ' (today)' : '';
+    etaHtml = `
+      <tr>
+        <td style="padding:16px 32px;">
+          <div style="padding:14px 16px;background:#EEF2FF;border-radius:8px;">
+            <p style="margin:0;font-size:12px;font-weight:700;color:#4F46E5;text-transform:uppercase;letter-spacing:1px;">Estimated Arrival</p>
+            <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#1A1D2B;">${etaFormatted}${countdown}</p>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  let balanceHtml = '';
+  if (balance > 0.01) {
+    balanceHtml = `
+      <tr>
+        <td style="padding:8px 32px 16px;">
+          <div style="padding:14px 16px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;">
+            <p style="margin:0;font-size:13px;font-weight:700;color:#92400E;">Outstanding Balance: $${fmt(balance)}</p>
+            <p style="margin:6px 0 0;font-size:12px;color:#92400E;line-height:1.5;">
+              Please make payment as soon as possible to avoid any delays in delivery.
+              Contact us at ${companyPhone} or reply to this email to arrange payment.
+            </p>
+          </div>
+        </td>
+      </tr>
+      ${paymentUrl ? `
+      <tr>
+        <td style="padding:4px 32px 16px;" align="center">
+          <a href="${paymentUrl}" target="_blank" style="display:inline-block;padding:12px 36px;background:#1A1D2B;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;">
+            Pay Now — $${fmt(balance)}
+          </a>
+          <p style="margin:8px 0 0;font-size:10px;color:#9CA3C0;">Secure payment via Square. Apple Pay, Google Pay, and cards accepted.</p>
+        </td>
+      </tr>
+      ` : ''}
+    `;
+  }
+
+  const trackingUrl = `https://www.goldcoastgloballogistics.com/track`;
+  const brandBlock = companyLogo
+    ? `<img src="cid:company-logo" alt="Logo" style="max-height:52px;max-width:180px;vertical-align:middle;" />`
+    : `<div style="display:inline-block;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#FFFFFF;font-size:16px;font-weight:800;line-height:48px;text-align:center;vertical-align:middle;">GC</div>`;
+
+  return `
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
+<body style="margin:0;padding:0;background:#F4F6FA;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:30px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.06);overflow:hidden;">
+          <!-- Header -->
+          <tr>
+            <td style="padding:28px 32px;border-bottom:2px solid #1A1D2B;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    ${brandBlock}
+                    <span style="display:inline-block;margin-left:12px;vertical-align:middle;">
+                      <span style="display:block;font-size:16px;font-weight:800;color:#1A1D2B;">${companyName}</span>
+                      <span style="display:block;font-size:10px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;">Shipment Update</span>
+                    </span>
+                  </td>
+                  <td align="right">
+                    <span style="display:block;font-size:10px;font-weight:700;color:#9CA3C0;text-transform:uppercase;">Invoice #</span>
+                    <span style="display:block;font-size:22px;font-weight:800;color:#1A1D2B;margin-top:2px;">#${invoiceNumber}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Greeting + status -->
+          <tr>
+            <td style="padding:24px 32px 8px;">
+              <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:#1A1D2B;">Hi ${escapeHtml(customerName || '')},</p>
+              <p style="margin:0;font-size:13.5px;line-height:1.6;color:#4B5163;">${escapeHtml(statusMessage)}</p>
+            </td>
+          </tr>
+
+          <!-- Status badge -->
+          <tr>
+            <td style="padding:16px 32px;">
+              <div style="display:inline-block;padding:8px 18px;background:#EEF2FF;border-radius:20px;">
+                <span style="font-size:12px;font-weight:700;color:#4F46E5;text-transform:uppercase;letter-spacing:1px;">Status: ${statusLabel}</span>
+              </div>
+            </td>
+          </tr>
+
+          ${etaHtml}
+          ${balanceHtml}
+
+          <!-- Track link -->
+          <tr>
+            <td style="padding:8px 32px 24px;" align="center">
+              <a href="${trackingUrl}" target="_blank" style="display:inline-block;padding:12px 36px;background:#6366F1;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;">
+                Track Your Shipment
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 32px;background:#F4F6FA;border-top:1px solid #E5E7EB;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#6B7194;">${companyName}${companyPhone ? ' · ' + companyPhone : ''}${companyEmail ? ' · ' + companyEmail : ''}</p>
+              <p style="margin:4px 0 0;font-size:10px;color:#9CA3C0;">This is an automated shipment update. Reply to this email with any questions.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+async function sendShipmentUpdateEmail({ to, customerName, invoiceNumber, shipmentStatus, eta, balance, paymentUrl, customMessage, company }) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    const err = new Error('SMTP not configured.');
+    err.code = 'SMTP_NOT_CONFIGURED';
+    throw err;
+  }
+
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const fromName = process.env.SMTP_FROM_NAME || 'Gold Coast Global Logistics';
+  const html = renderShipmentUpdateEmail({ customerName, invoiceNumber, shipmentStatus, eta, balance, paymentUrl, customMessage, company });
+  const subject = `Shipment Update — Invoice #${invoiceNumber} | ${(company?.name || 'Gold Coast Global Logistics')}`;
+
+  const attachments = [];
+  if (company?.logo && company.logo.startsWith('data:')) {
+    const match = company.logo.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (match) {
+      attachments.push({
+        filename: `logo.${match[1] === 'svg+xml' ? 'svg' : match[1]}`,
+        content: Buffer.from(match[2], 'base64'),
+        cid: 'company-logo',
+        contentDisposition: 'inline',
+      });
+    }
+  }
+
+  const info = await transporter.sendMail({
+    from: `"${fromName}" <${fromAddress}>`,
+    to,
+    subject,
+    html,
+    text: `Hi ${customerName}, ${customMessage || STATUS_MESSAGES[shipmentStatus] || ''} Invoice #${invoiceNumber}. Track at https://www.goldcoastgloballogistics.com/track`,
+    attachments,
+  });
+
+  return { messageId: info.messageId };
+}
+
 module.exports = {
   getTransporter,
   isConfigured,
   renderInvoiceEmail,
   sendInvoiceEmail,
+  renderShipmentUpdateEmail,
+  sendShipmentUpdateEmail,
+  STATUS_MESSAGES,
 };
