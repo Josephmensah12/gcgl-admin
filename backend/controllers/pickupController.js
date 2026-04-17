@@ -517,8 +517,8 @@ exports.squareWebhook = async (req, res) => {
 
     console.log('Square webhook received:', eventType, JSON.stringify(event).substring(0, 1000));
 
-    // Accept payment.completed, payment.created, and order.fulfilled
-    const paymentEvents = ['payment.completed', 'payment.created'];
+    // Accept payment.completed, payment.created, payment.updated, and order.fulfilled
+    const paymentEvents = ['payment.completed', 'payment.created', 'payment.updated'];
     const orderEvents = ['order.fulfilled'];
     if (!paymentEvents.includes(eventType) && !orderEvents.includes(eventType)) {
       console.log('Square webhook: ignoring event type:', eventType);
@@ -566,9 +566,9 @@ exports.squareWebhook = async (req, res) => {
         return res.status(200).json({ received: true });
       }
 
-      // For payment.created, verify status is COMPLETED
-      if (eventType === 'payment.created' && payment.status !== 'COMPLETED') {
-        console.log('Square webhook: payment.created but status is', payment.status, '— skipping');
+      // Only process payments that have reached COMPLETED status
+      if (payment.status !== 'COMPLETED') {
+        console.log(`Square webhook: ${eventType} but status is ${payment.status} — skipping`);
         return res.status(200).json({ received: true, skipped: payment.status });
       }
 
