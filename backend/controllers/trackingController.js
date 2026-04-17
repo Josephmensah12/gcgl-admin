@@ -185,8 +185,8 @@ async function syncSingleShipment(shipment, shipsgoId) {
   const confirmedEvents = events.filter(ev => new Date(ev.eventDate) <= now);
   if (confirmedEvents.length > 0) {
     // Find the most advanced confirmed event
-    const eventPriority = { 'EMSH': 0, 'GTIN': 0, 'LOAD': 1, 'DEPA': 1, 'ARRV': 2, 'TSLO': 1, 'TSDI': 2, 'DISC': 3, 'GTOT': 4, 'EMRT': 4 };
-    const statusByPriority = ['collecting', 'shipped', 'shipped', 'customs', 'delivered'];
+    const eventPriority = { 'EMSH': 0, 'GTIN': 0, 'LOAD': 1, 'DEPA': 1, 'ARRV': 2, 'TSLO': 1, 'TSDI': 2, 'DISC': 3, 'GTOT': 3, 'EMRT': 3 };
+    const statusByPriority = ['collecting', 'shipped', 'shipped', 'customs'];
     let maxPriority = -1;
     for (const ev of confirmedEvents) {
       const p = eventPriority[ev.eventType] ?? -1;

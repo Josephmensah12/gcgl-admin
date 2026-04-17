@@ -131,9 +131,9 @@ const STATUS_MAP = {
   'TRANSSHIPMENT': 'shipped',
   'ARRIVED': 'customs',
   'DISCHARGED': 'customs',
-  'GATE_OUT': 'delivered',
-  'DELIVERED': 'delivered',
-  'COMPLETED': 'delivered',
+  'GATE_OUT': 'customs',
+  'DELIVERED': 'customs',
+  'COMPLETED': 'customs',
 };
 
 function mapStatusToGCGL(shipsgoStatus) {
