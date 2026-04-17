@@ -63,7 +63,11 @@ exports.track = async (req, res) => {
       });
     }
 
-    // Build sanitized response — no financials
+    // Build sanitized response — limited financials (balance only)
+    const totalOwed = parseFloat(inv.finalTotal || 0);
+    const totalPaid = parseFloat(inv.amountPaid || 0);
+    const outstandingBalance = Math.max(0, Math.round((totalOwed - totalPaid) * 100) / 100);
+
     const response = {
       invoiceNumber: inv.invoiceNumber,
       customerName: inv.customerName,
@@ -72,6 +76,8 @@ exports.track = async (req, res) => {
       status: inv.status,
       createdAt: inv.createdAt,
       itemCount: inv.lineItems.length,
+      outstandingBalance,
+      paymentStatus: inv.paymentStatus,
       items: inv.lineItems.map((li) => ({
         name: li.catalogName || li.description,
         quantity: li.quantity,
