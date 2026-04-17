@@ -185,8 +185,8 @@ async function syncSingleShipment(shipment, shipsgoId) {
   const confirmedEvents = events.filter(ev => new Date(ev.eventDate) <= now);
   if (confirmedEvents.length > 0) {
     // Find the most advanced confirmed event
-    const eventPriority = { 'EMSH': 0, 'GTIN': 0, 'LOAD': 1, 'DEPA': 1, 'ARRV': 2, 'TSLO': 1, 'TSDI': 2, 'DISC': 3, 'GTOT': 3, 'EMRT': 3 };
-    const statusByPriority = ['collecting', 'shipped', 'shipped', 'customs'];
+    const eventPriority = { 'EMSH': 0, 'GTIN': 0, 'LOAD': 1, 'DEPA': 1, 'ARRV': 2, 'TSLO': 1, 'TSDI': 2, 'DISC': 3, 'GTOT': 4, 'EMRT': 4 };
+    const statusByPriority = ['collecting', 'shipped', 'shipped', 'customs', 'delivery'];
     let maxPriority = -1;
     for (const ev of confirmedEvents) {
       const p = eventPriority[ev.eventType] ?? -1;
@@ -195,7 +195,7 @@ async function syncSingleShipment(shipment, shipsgoId) {
     if (maxPriority >= 0) {
       const derivedStatus = statusByPriority[maxPriority] || null;
       if (derivedStatus) {
-        const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivered'];
+        const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivery', 'delivered'];
         const currentIdx = pipeline.indexOf(shipment.status);
         const newIdx = pipeline.indexOf(derivedStatus);
         if (newIdx > currentIdx) updates.status = derivedStatus;
@@ -306,7 +306,7 @@ exports.shipsgoWebhook = async (req, res) => {
 
     const gcglStatus = mapStatusToGCGL(info.status);
     if (gcglStatus) {
-      const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivered'];
+      const pipeline = ['collecting', 'ready', 'shipped', 'transit', 'customs', 'delivery', 'delivered'];
       if (pipeline.indexOf(gcglStatus) > pipeline.indexOf(shipment.status)) {
         updates.status = gcglStatus;
       }
