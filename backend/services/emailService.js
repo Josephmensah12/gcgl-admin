@@ -377,7 +377,12 @@ function renderShipmentUpdateEmail({ customerName, invoiceNumber, shipmentStatus
   const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const statusLabel = (shipmentStatus || 'collecting').charAt(0).toUpperCase() + (shipmentStatus || 'collecting').slice(1);
-  const statusMessage = customMessage || STATUS_MESSAGES[shipmentStatus] || STATUS_MESSAGES.collecting;
+  const rawMessage = customMessage || STATUS_MESSAGES[shipmentStatus] || STATUS_MESSAGES.collecting;
+  const statusMessage = applyMessagePlaceholders(rawMessage, {
+    customer_name: customerName || 'there',
+    invoice_number: String(invoiceNumber),
+    company_name: companyName,
+  });
 
   let etaHtml = '';
   if (eta) {

@@ -230,6 +230,50 @@ Let us know if you have any questions.`}
           </p>
         </div>
 
+        {/* Shipment Update Email Messages */}
+        <div className="gc-card p-6">
+          <h2 className="text-lg font-bold text-[#1A1D2B] mb-2">Shipment Update Email</h2>
+          <p className="text-[13px] text-[#6B7194] mb-4">
+            Customize the messages customers receive when you send batch shipment update notifications.
+            Each status has a default message that you can override. Leave blank to use the built-in default.
+          </p>
+          <p className="text-[13px] text-[#6B7194] mb-4">
+            Placeholders: <code className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[11px] text-[#6366F1] font-mono">{'{customer_name}'}</code>{' '}
+            <code className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[11px] text-[#6366F1] font-mono">{'{invoice_number}'}</code>{' '}
+            <code className="px-1.5 py-0.5 rounded bg-[#F4F6FA] text-[11px] text-[#6366F1] font-mono">{'{company_name}'}</code>
+          </p>
+          <div className="space-y-4">
+            {[
+              { key: 'collecting', label: 'Received / Collecting', defaultMsg: 'Your items have been received at our warehouse in Houston and are being prepared for shipment.' },
+              { key: 'ready', label: 'Ready to Ship', defaultMsg: 'Your shipment is packed and ready to be loaded onto the vessel.' },
+              { key: 'shipped', label: 'Shipped from USA', defaultMsg: 'Your shipment has left the USA and is on its way to Ghana!' },
+              { key: 'customs', label: 'Arrived Ghana / Customs', defaultMsg: 'Your shipment has arrived in Ghana and is being cleared through customs.' },
+              { key: 'delivery', label: 'Delivery Ongoing', defaultMsg: 'Your shipment has cleared the port and delivery is in progress.' },
+              { key: 'delivered', label: 'Delivered', defaultMsg: 'Your shipment has been delivered. Thank you for choosing Gold Coast Global Logistics!' },
+            ].map(({ key, label, defaultMsg }) => (
+              <div key={key}>
+                <label className="block text-[12.5px] font-semibold text-[#1A1D2B] mb-1">
+                  {label}
+                  <span className="ml-2 text-[10.5px] font-normal text-[#9CA3C0] capitalize">{key}</span>
+                </label>
+                <textarea
+                  value={(form.shipmentUpdateMessages || {})[key] || ''}
+                  onChange={(e) => setForm((f) => ({
+                    ...f,
+                    shipmentUpdateMessages: {
+                      ...(f.shipmentUpdateMessages || {}),
+                      [key]: e.target.value,
+                    },
+                  }))}
+                  placeholder={defaultMsg}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all leading-relaxed"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Save */}
         <button
           onClick={handleSave}

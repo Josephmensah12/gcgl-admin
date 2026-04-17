@@ -239,7 +239,15 @@ exports.notifyCustomers = asyncHandler(async (req, res) => {
   const { isConfigured, sendShipmentUpdateEmail, STATUS_MESSAGES } = require('../services/emailService');
   if (!isConfigured()) throw new AppError('SMTP not configured', 503, 'SMTP_NOT_CONFIGURED');
 
-  const customMessage = req.body.message || null;
+  // Load company settings (needed for logo, contact info, and custom status messages)
+  const settings = await db.Setting.findOne({ where: { id: 1 } });
+  const company = settings?.data?.companyInfo || {};
+
+  // Resolve message: request body > settings per-status > built-in default
+  const savedMessages = company.shipmentUpdateMessages || {};
+  const customMessage = req.body.message
+    || savedMessages[shipment.status]
+    || null;
 
   // Load invoices with customer details
   const invoices = await db.Invoice.findAll({
@@ -248,10 +256,6 @@ exports.notifyCustomers = asyncHandler(async (req, res) => {
   });
 
   if (invoices.length === 0) throw new AppError('No invoices in this shipment', 400, 'NO_INVOICES');
-
-  // Load company settings
-  const settings = await db.Setting.findOne({ where: { id: 1 } });
-  const company = settings?.data?.companyInfo || {};
 
   // Optionally generate Square payment links
   let squareConfigured = false;
@@ -316,6 +320,10 @@ exports.notifyPreview = asyncHandler(async (req, res) => {
 
   const { STATUS_MESSAGES } = require('../services/emailService');
 
+  // Load settings for custom per-status messages
+  const settings = await db.Setting.findOne({ where: { id: 1 } });
+  const savedMessages = settings?.data?.companyInfo?.shipmentUpdateMessages || {};
+
   const invoices = await db.Invoice.findAll({
     where: { shipmentId: shipment.id, status: { [Op.ne]: 'cancelled' } },
     attributes: ['id', 'invoiceNumber', 'customerName', 'customerEmail', 'finalTotal', 'amountPaid', 'paymentStatus'],
@@ -335,7 +343,7 @@ exports.notifyPreview = asyncHandler(async (req, res) => {
     data: {
       shipmentName: shipment.name,
       shipmentStatus: shipment.status,
-      defaultMessage: STATUS_MESSAGES[shipment.status] || STATUS_MESSAGES.collecting,
+      defaultMessage: savedMessages[shipment.status] || STATUS_MESSAGES[shipment.status] || STATUS_MESSAGES.collecting,
       totalCustomers: customers.length,
       withEmail: customers.filter((c) => c.hasEmail).length,
       withoutEmail: customers.filter((c) => !c.hasEmail).length,
