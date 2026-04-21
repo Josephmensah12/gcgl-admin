@@ -566,6 +566,21 @@ exports.squareWebhook = async (req, res) => {
         return res.status(200).json({ received: true });
       }
 
+      // If payment is APPROVED (not yet captured), auto-complete it via Square API
+      if (payment.status === 'APPROVED') {
+        console.log(`Square webhook: ${eventType} status APPROVED — auto-completing payment ${payment.id}`);
+        try {
+          const { apiRequest } = require('../services/squareService');
+          await apiRequest('POST', `/payments/${payment.id}/complete`, {});
+          console.log(`Square webhook: payment ${payment.id} completed successfully`);
+          // Square will send payment.updated with COMPLETED — that event will record the payment
+          return res.status(200).json({ received: true, autoCompleted: true });
+        } catch (completeErr) {
+          console.error(`Square webhook: failed to auto-complete payment ${payment.id}:`, completeErr.message);
+          return res.status(200).json({ received: true, error: 'auto-complete failed' });
+        }
+      }
+
       // Only process payments that have reached COMPLETED status
       if (payment.status !== 'COMPLETED') {
         console.log(`Square webhook: ${eventType} but status is ${payment.status} — skipping`);
