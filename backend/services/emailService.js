@@ -423,6 +423,11 @@ function renderShipmentUpdateEmail({ customerName, invoiceNumber, shipmentStatus
             Pay Now — $${fmt(balance)}
           </a>
           <p style="margin:8px 0 0;font-size:10px;color:#9CA3C0;">Secure payment via Square. Apple Pay, Google Pay, and cards accepted.</p>
+          <p style="margin:8px 0 0;">
+            <a href="https://www.goldcoastgloballogistics.com/track" target="_blank" style="font-size:12px;color:#6366F1;text-decoration:underline;">
+              Want to pay a different amount?
+            </a>
+          </p>
         </td>
       </tr>
       ` : ''}
@@ -431,7 +436,7 @@ function renderShipmentUpdateEmail({ customerName, invoiceNumber, shipmentStatus
 
   const trackingUrl = `https://www.goldcoastgloballogistics.com/track`;
   const brandBlock = companyLogo
-    ? `<img src="cid:company-logo" alt="Logo" style="max-height:52px;max-width:180px;vertical-align:middle;" />`
+    ? `<img src="cid:company-logo" alt="Logo" style="max-height:82px;max-width:260px;vertical-align:middle;" />`
     : `<div style="display:inline-block;width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);color:#FFFFFF;font-size:16px;font-weight:800;line-height:48px;text-align:center;vertical-align:middle;">GC</div>`;
 
   return `

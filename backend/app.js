@@ -45,6 +45,7 @@ app.use(`${API_BASE}/financial-reports`, require('./routes/financialReportRoutes
 // Public tracking — no auth, open CORS for customer-facing website
 const publicTrackingController = require('./controllers/publicTrackingController');
 app.get(`/api/public/track`, cors({ origin: '*', methods: ['GET'] }), publicTrackingController.track);
+app.post(`/api/public/pay`, cors({ origin: '*', methods: ['POST'] }), publicTrackingController.pay);
 
 // Square webhook — no auth middleware (Square's servers call this directly)
 const pickupController = require('./controllers/pickupController');
