@@ -352,6 +352,19 @@ exports.notifyPreview = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /api/v1/shipments/:id/volume?container=40hc&llm=true
+ * Analyze volume usage for a shipment with the 4-step dimension resolution chain.
+ */
+exports.volumeAnalysis = asyncHandler(async (req, res) => {
+  const { analyzeVolume } = require('../services/volumeService');
+  const containerType = req.query.container || '40hc';
+  const useLLM = req.query.llm !== 'false';
+
+  const result = await analyzeVolume(req.params.id, { containerType, useLLM });
+  res.json({ success: true, data: result });
+});
+
 function generateShipmentName() {
   const now = new Date();
   const y = now.getFullYear();

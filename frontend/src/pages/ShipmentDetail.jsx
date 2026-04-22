@@ -261,6 +261,9 @@ export default function ShipmentDetail() {
       {/* Tracking card */}
       <TrackingCard shipment={shipment} onUpdated={(s) => setShipment((prev) => ({ ...prev, ...s }))} />
 
+      {/* Volume analysis card */}
+      <VolumeCard shipmentId={id} />
+
       {/* Header */}
       <div className="gc-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -938,6 +941,220 @@ export default function ShipmentDetail() {
 /* ─────────────────────────────────────────────────────────── */
 /*  Tracking card with container # input + event timeline      */
 /* ─────────────────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────────────── */
+/*  Volume analysis card                                       */
+/* ─────────────────────────────────────────────────────────── */
+
+function VolumeCard({ shipmentId }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [container, setContainer] = useState('40hc');
+  const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadVolume = async (ct) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get(`/api/v1/shipments/${shipmentId}/volume?container=${ct || container}`);
+      setData(res.data.data);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Failed to load volume analysis');
+    } finally { setLoading(false); }
+  };
+
+  const getBarColor = (pct) => {
+    if (pct >= 90) return '#EF4444';
+    if (pct >= 70) return '#F59E0B';
+    return '#6366F1';
+  };
+
+  const fmt = (n) => n?.toLocaleString('en-US') || '0';
+
+  return (
+    <div className="gc-card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-[#6366F1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+          <h3 className="text-[15px] font-bold text-[#1A1D2B]">Container Volume</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={container}
+            onChange={(e) => { setContainer(e.target.value); if (data) loadVolume(e.target.value); }}
+            className="h-8 px-2 rounded-lg border border-black/[0.06] bg-white text-[12px]"
+          >
+            <option value="20ft">20' Standard</option>
+            <option value="40ft">40' Standard</option>
+            <option value="40hc">40' High Cube</option>
+          </select>
+          <button
+            onClick={() => loadVolume()}
+            disabled={loading}
+            className="h-8 px-3 rounded-lg bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
+          >
+            {loading ? 'Analyzing...' : data ? 'Refresh' : 'Calculate Volume'}
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="text-[12px] text-[#EF4444] mb-3">{error}</p>}
+
+      {!data && !loading && (
+        <div className="px-4 py-8 rounded-[10px] bg-[#F4F6FA] text-center">
+          <p className="text-[13px] text-[#6B7194]">Click "Calculate Volume" to analyze container space usage.</p>
+          <p className="text-[11px] text-[#9CA3C0] mt-1">Uses item dimensions, description parsing, catalog defaults, and AI estimation.</p>
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="px-4 py-8 rounded-[10px] bg-[#F4F6FA] text-center">
+          <p className="text-[13px] text-[#6B7194]">Analyzing volumes — estimating unknown dimensions with AI...</p>
+        </div>
+      )}
+
+      {data && (
+        <div>
+          {/* Progress bar */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[13px] font-semibold text-[#1A1D2B]">
+                {data.summary.totalCuFt} / {data.containerCuFt} cu.ft.
+              </span>
+              <span className="text-[13px] font-bold" style={{ color: getBarColor(data.summary.usedPct) }}>
+                {data.summary.usedPct}%
+              </span>
+            </div>
+            <div className="w-full h-4 bg-[#F4F6FA] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${Math.min(data.summary.usedPct, 100)}%`,
+                  background: getBarColor(data.summary.usedPct),
+                }}
+              />
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10.5px] text-[#9CA3C0]">{data.containerLabel}</span>
+              <span className="text-[10.5px] text-[#9CA3C0]">{data.summary.totalQty} items</span>
+            </div>
+          </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-[#F4F6FA] rounded-lg p-3 text-center">
+              <p className="text-[18px] font-bold text-[#1A1D2B]">{data.summary.remainingCuFt}</p>
+              <p className="text-[10.5px] text-[#6B7194]">cu.ft. remaining</p>
+            </div>
+            <div className="bg-[#F4F6FA] rounded-lg p-3 text-center">
+              <p className="text-[18px] font-bold text-[#10B981]">${fmt(data.summary.remainingRevenue)}</p>
+              <p className="text-[10.5px] text-[#6B7194]">revenue capacity</p>
+            </div>
+            <div className="bg-[#F4F6FA] rounded-lg p-3 text-center">
+              <p className="text-[18px] font-bold text-[#1A1D2B]">{data.summary.unmeasuredQty}</p>
+              <p className="text-[10.5px] text-[#6B7194]">unmeasured items</p>
+            </div>
+          </div>
+
+          {/* Source breakdown */}
+          <div className="flex flex-wrap gap-3 mb-3">
+            {data.breakdown.measured.qty > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px]">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#6366F1]" />
+                Measured: {data.breakdown.measured.cuFt} cu.ft. ({data.breakdown.measured.qty} items)
+              </span>
+            )}
+            {data.breakdown.parsed.qty > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px]">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#0EA5E9]" />
+                Parsed: {data.breakdown.parsed.cuFt} cu.ft. ({data.breakdown.parsed.qty} items)
+              </span>
+            )}
+            {data.breakdown.catalog.qty > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px]">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#10B981]" />
+                Catalog: {data.breakdown.catalog.cuFt} cu.ft. ({data.breakdown.catalog.qty} items)
+              </span>
+            )}
+            {data.breakdown.llm.qty > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px]">
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#F59E0B]" />
+                AI Estimated: {data.breakdown.llm.cuFt} cu.ft. ({data.breakdown.llm.qty} items)
+              </span>
+            )}
+          </div>
+
+          {/* Expandable detail */}
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-2 w-full text-left group"
+          >
+            <svg
+              className={`w-4 h-4 text-[#6B7194] transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="text-[12.5px] font-semibold text-[#1A1D2B] group-hover:text-[#6366F1] transition-colors">
+              Item Details
+            </span>
+          </button>
+
+          {expanded && (
+            <div className="mt-3 max-h-64 overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead className="bg-[#F4F6FA] sticky top-0">
+                  <tr className="text-left text-[#6B7194]">
+                    <th className="px-2 py-1.5 font-medium">Inv</th>
+                    <th className="px-2 py-1.5 font-medium">Item</th>
+                    <th className="px-2 py-1.5 font-medium text-center">Qty</th>
+                    <th className="px-2 py-1.5 font-medium">Dims</th>
+                    <th className="px-2 py-1.5 font-medium text-right">Volume</th>
+                    <th className="px-2 py-1.5 font-medium">Source</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F4F6FA]">
+                  {data.items.map((it, i) => {
+                    const sourceColors = {
+                      measured: 'bg-[#6366F1] text-white',
+                      parsed: 'bg-[#0EA5E9] text-white',
+                      catalog: 'bg-[#10B981] text-white',
+                      llm: 'bg-[#F59E0B] text-white',
+                      'llm-cached': 'bg-[#F59E0B] text-white',
+                      unmeasured: 'bg-[#EF4444] text-white',
+                    };
+                    return (
+                      <tr key={i} className={it.source === 'unmeasured' ? 'bg-red-50/50' : ''}>
+                        <td className="px-2 py-1.5 text-[#6B7194]">#{it.invoiceNumber}</td>
+                        <td className="px-2 py-1.5 text-[#1A1D2B] max-w-[180px] truncate" title={it.name}>{it.name}</td>
+                        <td className="px-2 py-1.5 text-center">{it.quantity}</td>
+                        <td className="px-2 py-1.5 text-[#6B7194] font-mono">
+                          {it.dims ? `${it.dims.l}×${it.dims.w}×${it.dims.h}` : '—'}
+                        </td>
+                        <td className="px-2 py-1.5 text-right font-medium">
+                          {it.volumeCuIn > 0 ? `${fmt(Math.round(it.volumeCuIn / 1728 * 10) / 10)} ft³` : '—'}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${sourceColors[it.source] || 'bg-gray-200 text-gray-600'}`}>
+                            {it.source === 'llm-cached' ? 'AI' : it.source}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TrackingCard({ shipment, onUpdated }) {
   const [trackingInput, setTrackingInput] = useState(shipment.trackingNumber || '');

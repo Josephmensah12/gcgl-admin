@@ -10,6 +10,9 @@ module.exports = (sequelize) => {
     active: { type: DataTypes.BOOLEAN, defaultValue: true },
     image: DataTypes.TEXT,
     capacityWeight: { type: DataTypes.DECIMAL(5, 2), defaultValue: 1.0 },
+    dimensionsL: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    dimensionsW: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
+    dimensionsH: { type: DataTypes.DECIMAL(8, 2), allowNull: true },
   }, { tableName: 'catalog_items', underscored: true });
 
   return CatalogItem;
