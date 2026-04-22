@@ -99,7 +99,7 @@ Return ONLY the JSON array, no explanation.`,
  * @returns {object} analysis result
  */
 async function analyzeVolume(shipmentId, options = {}) {
-  const { useLLM = true, containerType = '40hc' } = options;
+  const { useLLM = true, containerType = '40hc', packingEfficiency = 0.75 } = options;
 
   const shipment = await db.Shipment.findByPk(shipmentId);
   if (!shipment) throw new Error('Shipment not found');
@@ -253,11 +253,16 @@ async function analyzeVolume(shipmentId, options = {}) {
   const unmeasuredQty = unmeasured.reduce((s, i) => s + i.quantity, 0);
 
   const container = CONTAINER_SPECS[containerType] || CONTAINER_SPECS['40hc'];
-  const usedCuFt = totalKnownCuIn / 1728;
+  const rawCuFt = totalKnownCuIn / 1728;
+
+  // Apply packing efficiency — dead space from irregular items, gaps, stacking inefficiency
+  const effPct = Math.max(0.5, Math.min(1, packingEfficiency));
+  const usableCuFt = Math.round(container.cuFt * effPct * 10) / 10;
+  const usedCuFt = rawCuFt;
   const containerCuFt = container.cuFt;
-  const remainingCuFt = Math.max(0, containerCuFt - usedCuFt);
+  const remainingCuFt = Math.max(0, Math.round((usableCuFt - usedCuFt) * 10) / 10);
   const remainingCuIn = remainingCuFt * 1728;
-  const usedPct = Math.min(100, Math.round((usedCuFt / containerCuFt) * 1000) / 10);
+  const usedPct = Math.min(100, Math.round((usedCuFt / usableCuFt) * 1000) / 10);
   const remainingRevenue = Math.round(remainingCuIn * CUBIC_RATE * 100) / 100;
 
   return {
@@ -266,6 +271,8 @@ async function analyzeVolume(shipmentId, options = {}) {
     containerType,
     containerLabel: container.label,
     containerCuFt,
+    usableCuFt,
+    packingEfficiency: effPct,
     summary: {
       totalItems: items.length,
       totalQty,

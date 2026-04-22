@@ -360,8 +360,9 @@ exports.volumeAnalysis = asyncHandler(async (req, res) => {
   const { analyzeVolume } = require('../services/volumeService');
   const containerType = req.query.container || '40hc';
   const useLLM = req.query.llm !== 'false';
+  const packingEfficiency = req.query.efficiency ? parseFloat(req.query.efficiency) : 0.75;
 
-  const result = await analyzeVolume(req.params.id, { containerType, useLLM });
+  const result = await analyzeVolume(req.params.id, { containerType, useLLM, packingEfficiency });
   res.json({ success: true, data: result });
 });
 

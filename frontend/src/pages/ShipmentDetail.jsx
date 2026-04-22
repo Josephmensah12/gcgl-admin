@@ -950,14 +950,15 @@ function VolumeCard({ shipmentId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [container, setContainer] = useState('40hc');
+  const [efficiency, setEfficiency] = useState(0.75);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadVolume = async (ct) => {
+  const loadVolume = async (ct, eff) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`/api/v1/shipments/${shipmentId}/volume?container=${ct || container}`);
+      const res = await axios.get(`/api/v1/shipments/${shipmentId}/volume?container=${ct || container}&efficiency=${eff || efficiency}`);
       setData(res.data.data);
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Failed to load volume analysis');
@@ -991,6 +992,18 @@ function VolumeCard({ shipmentId }) {
             <option value="40ft">40' Standard</option>
             <option value="40hc">40' High Cube</option>
           </select>
+          <select
+            value={efficiency}
+            onChange={(e) => { const v = parseFloat(e.target.value); setEfficiency(v); if (data) loadVolume(null, v); }}
+            className="h-8 px-2 rounded-lg border border-black/[0.06] bg-white text-[12px]"
+            title="Packing efficiency — accounts for dead space from irregular items"
+          >
+            <option value="0.90">90% tight pack</option>
+            <option value="0.80">80% good pack</option>
+            <option value="0.75">75% mixed cargo</option>
+            <option value="0.70">70% irregular</option>
+            <option value="0.65">65% bulky items</option>
+          </select>
           <button
             onClick={() => loadVolume()}
             disabled={loading}
@@ -1022,7 +1035,10 @@ function VolumeCard({ shipmentId }) {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[13px] font-semibold text-[#1A1D2B]">
-                {data.summary.totalCuFt} / {data.containerCuFt} cu.ft.
+                {data.summary.totalCuFt} / {data.usableCuFt} cu.ft.
+                <span className="text-[10.5px] font-normal text-[#9CA3C0] ml-1">
+                  ({data.containerCuFt} × {Math.round(data.packingEfficiency * 100)}% packing)
+                </span>
               </span>
               <span className="text-[13px] font-bold" style={{ color: getBarColor(data.summary.usedPct) }}>
                 {data.summary.usedPct}%
