@@ -3,6 +3,7 @@ import axios from 'axios';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import { useLayout } from '../../components/layout/Layout';
+import toast from 'react-hot-toast';
 
 const MAX_LOGO_BYTES = 500 * 1024; // 500 KB cap to keep settings JSONB tidy
 
@@ -56,9 +57,9 @@ export default function CompanySettings() {
     setSaving(true);
     try {
       await axios.put('/api/v1/settings/companyInfo', form);
-      alert('Company settings saved');
+      toast.success('Company settings saved');
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Save failed');
+      toast.error(err.response?.data?.error?.message || 'Save failed');
     } finally {
       setSaving(false);
     }

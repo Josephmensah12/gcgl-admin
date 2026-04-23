@@ -3,6 +3,7 @@ import axios from 'axios';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import { useLayout } from '../../components/layout/Layout';
+import toast from 'react-hot-toast';
 
 export default function PaymentSettings() {
   const { onMenuClick } = useLayout();
@@ -21,9 +22,9 @@ export default function PaymentSettings() {
     setSaving(true);
     try {
       await axios.put('/api/v1/settings/paymentMethods', methods);
-      alert('Payment settings saved');
+      toast.success('Payment settings saved');
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Save failed');
+      toast.error(err.response?.data?.error?.message || 'Save failed');
     } finally {
       setSaving(false);
     }

@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import toast from 'react-hot-toast';
 
 const CUBIC_RATE = 0.0105;
 
@@ -97,7 +98,7 @@ export default function CreateInvoice() {
       setShowNewCustomer(false);
       setStep(2);
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to create customer');
+      toast.error(err.response?.data?.error?.message || 'Failed to create customer');
     }
   };
 
@@ -110,7 +111,7 @@ export default function CreateInvoice() {
       setShowNewRecipient(false);
       setStep(3);
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to create recipient');
+      toast.error(err.response?.data?.error?.message || 'Failed to create recipient');
     }
   };
 
@@ -229,7 +230,7 @@ export default function CreateInvoice() {
       });
       navigate(`/pickups/${res.data.data.id}`);
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to create invoice');
+      toast.error(err.response?.data?.error?.message || 'Failed to create invoice');
     } finally {
       setSubmitting(false);
     }

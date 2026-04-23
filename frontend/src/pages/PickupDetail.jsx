@@ -6,6 +6,7 @@ import TransactionModal from '../components/TransactionModal';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import toast from 'react-hot-toast';
 
 export default function PickupDetail() {
   const { onMenuClick } = useLayout();
@@ -67,7 +68,7 @@ export default function PickupDetail() {
       console.error('Save drafts error:', err);
       const status = err.response?.status;
       const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
-      alert(`Failed to save changes (HTTP ${status || 'net-err'}): ${msg}`);
+      toast.success(`Failed to save changes (HTTP ${status || 'net-err'}): ${msg}`);
     } finally {
       setSavingDrafts(false);
     }
@@ -180,7 +181,7 @@ export default function PickupDetail() {
       setPickup(res.data.data);
       setEditing(false);
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Save failed');
+      toast.error(err.response?.data?.error?.message || 'Save failed');
     } finally { setSaving(false); }
   };
 
@@ -199,7 +200,7 @@ export default function PickupDetail() {
       setVoidingId(null);
       setVoidReason('');
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Void failed');
+      toast.error(err.response?.data?.error?.message || 'Void failed');
     }
   };
 
@@ -211,7 +212,7 @@ export default function PickupDetail() {
       setCancelReason('');
       navigate(fromShipment ? `/shipments/${fromShipment}` : '/pickups');
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Cancel failed');
+      toast.error(err.response?.data?.error?.message || 'Cancel failed');
     } finally {
       setCancelling(false);
     }
@@ -499,7 +500,7 @@ export default function PickupDetail() {
                       const res = await axios.delete(`/api/v1/pickups/${id}/items/${item.id}`);
                       setPickup((prev) => ({ ...prev, ...res.data.data }));
                     } catch (err) {
-                      alert(err.response?.data?.error?.message || 'Failed to remove');
+                      toast.error(err.response?.data?.error?.message || 'Failed to remove');
                     }
                   } : null}
                 />
@@ -514,7 +515,7 @@ export default function PickupDetail() {
                   const res = await axios.post(`/api/v1/pickups/${id}/items`, payload);
                   setPickup((prev) => ({ ...prev, ...res.data.data }));
                 } catch (err) {
-                  alert(err.response?.data?.error?.message || 'Failed to add item');
+                  toast.error(err.response?.data?.error?.message || 'Failed to add item');
                 }
               }}
             />

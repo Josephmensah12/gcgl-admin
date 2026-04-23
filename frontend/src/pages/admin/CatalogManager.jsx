@@ -3,6 +3,7 @@ import axios from 'axios';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import PageHeader from '../../components/layout/PageHeader';
 import { useLayout } from '../../components/layout/Layout';
+import toast from 'react-hot-toast';
 
 export default function CatalogManager() {
   const { onMenuClick } = useLayout();
@@ -71,7 +72,7 @@ export default function CatalogManager() {
       setShowForm(false);
       loadItems();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Save failed');
+      toast.error(err.response?.data?.error?.message || 'Save failed');
     }
   };
 
@@ -81,7 +82,7 @@ export default function CatalogManager() {
       await axios.delete(`/api/v1/catalog/${id}`);
       loadItems();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Delete failed');
+      toast.error(err.response?.data?.error?.message || 'Delete failed');
     }
   };
 

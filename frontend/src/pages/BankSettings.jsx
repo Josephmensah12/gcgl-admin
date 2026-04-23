@@ -33,7 +33,7 @@ export default function BankSettings() {
 
       // Check if Plaid Link is loaded
       if (!window.Plaid) {
-        alert('Plaid Link script not loaded. Add the Plaid script to your HTML or configure PLAID_CLIENT_ID in environment variables.');
+        toast.success('Plaid Link script not loaded. Add the Plaid script to your HTML or configure PLAID_CLIENT_ID in environment variables.');
         return;
       }
 
@@ -48,7 +48,7 @@ export default function BankSettings() {
             });
             loadConnections();
           } catch (err) {
-            alert('Failed to connect account');
+            toast.error('Failed to connect account');
           }
         },
         onExit: (err) => {
@@ -57,7 +57,7 @@ export default function BankSettings() {
       });
       handler.open();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to start bank connection');
+      toast.error(err.response?.data?.error?.message || 'Failed to start bank connection');
     }
   };
 
@@ -69,7 +69,7 @@ export default function BankSettings() {
       setSyncResult(res.data.data);
       loadConnections();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Sync failed');
+      toast.error(err.response?.data?.error?.message || 'Sync failed');
     } finally {
       setSyncing(false);
     }
@@ -81,7 +81,7 @@ export default function BankSettings() {
       await axios.delete(`/api/v1/bank/connections/${id}`);
       loadConnections();
     } catch (err) {
-      alert('Failed to remove connection');
+      toast.error('Failed to remove connection');
     }
   };
 
@@ -158,6 +158,7 @@ export default function BankSettings() {
       <div className="gc-card p-6">
         <h3 className="font-semibold text-gray-900 mb-2">Import from CSV</h3>
         <p className="text-sm text-gray-500 mb-4">Upload a bank or credit card statement export (CSV format) to import transactions for review.</p>
+import toast from 'react-hot-toast';
 
         <div className="space-y-3">
           <div>

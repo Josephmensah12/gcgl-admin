@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { SkeletonPage } from '../components/Skeleton';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import toast from 'react-hot-toast';
 
 /* Deterministic customer avatar gradient */
 const AVATAR_GRADIENTS = [
@@ -178,7 +180,7 @@ export default function Pickups() {
       setAssignShipmentId('');
       loadPickups();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Assignment failed');
+      toast.error(err.response?.data?.error?.message || 'Assignment failed');
     }
   };
 
@@ -189,7 +191,7 @@ export default function Pickups() {
       setSelected(new Set());
       loadPickups();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Unassign failed');
+      toast.error(err.response?.data?.error?.message || 'Unassign failed');
     }
   };
 
@@ -200,7 +202,7 @@ export default function Pickups() {
     return { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
   };
 
-  if (loading) return <LoadingSpinner text="Loading invoices..." />;
+  if (loading) return <><PageHeader title="Invoices" subtitle="Loading..." onMenuClick={onMenuClick} hideSearch /><SkeletonPage kpiCards={4} tableRows={10} tableCols={8} /></>;
 
   return (
     <>

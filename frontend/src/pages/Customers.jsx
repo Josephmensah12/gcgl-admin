@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { SkeletonPage } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import { exportCSV } from '../utils/csvExport';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 
@@ -52,7 +55,7 @@ export default function Customers() {
 
   const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  if (loading) return <LoadingSpinner text="Loading customers..." />;
+  if (loading) return <><PageHeader title="Customers" subtitle="Loading..." onMenuClick={onMenuClick} hideSearch /><SkeletonPage kpiCards={0} tableRows={8} tableCols={6} /></>;
 
   return (
     <>
@@ -63,9 +66,10 @@ export default function Customers() {
         hideSearch
       />
 
-      {/* Search */}
+      {/* Search + Export */}
       <div className="gc-card p-5 mb-[18px]">
-        <div className="relative max-w-md">
+        <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1 min-w-[200px]">
           <svg className="w-4 h-4 absolute left-3 top-3 text-[#9CA3C0] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -76,6 +80,23 @@ export default function Customers() {
             placeholder="Search customers by name, email, phone..."
             className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
           />
+        </div>
+        <button
+          onClick={() => exportCSV(customers, [
+            { key: r => r.fullName || r.name, label: 'Customer' },
+            { key: 'phone', label: 'Phone' },
+            { key: 'email', label: 'Email' },
+            { key: r => r._recipientCount ?? '', label: 'Recipients' },
+            { key: r => r._totalValue ?? '', label: 'Total Value' },
+            { key: r => r._unpaid ?? '', label: 'Unpaid' },
+          ], 'customers')}
+          className="h-10 px-4 rounded-[10px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-semibold hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1.5"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
         </div>
       </div>
 
@@ -130,7 +151,7 @@ export default function Customers() {
             </tbody>
           </table>
           {customers.length === 0 && (
-            <p className="text-center py-12 text-[#9CA3C0]">No customers found</p>
+            <EmptyState title="No customers found" description={search ? 'Try a different search term' : 'Customers appear here when invoices are created in the pickup app'} />
           )}
         </div>
 

@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import toast from 'react-hot-toast';
 
 function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -36,7 +37,7 @@ function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) 
     try {
       await axios.delete(`/api/v1/expenses/${expense.id}`);
       onSaved();
-    } catch (err) { alert('Delete failed'); }
+    } catch (err) { toast.error('Delete failed'); }
   };
 
   const handleRevertPersonal = async () => {
@@ -44,7 +45,7 @@ function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) 
     try {
       await axios.post(`/api/v1/expenses/${expense.id}/revert-personal`);
       onSaved();
-    } catch (err) { alert(err.response?.data?.error?.message || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed'); }
   };
 
   return (
@@ -221,7 +222,7 @@ export default function ShipmentDetail() {
       const res = await axios.put(`/api/v1/shipments/${id}`, { status: newStatus });
       setShipment((prev) => ({ ...prev, ...res.data.data }));
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Update failed');
+      toast.error(err.response?.data?.error?.message || 'Update failed');
     } finally {
       setUpdating(false);
     }
@@ -294,7 +295,7 @@ export default function ShipmentDetail() {
                   const res = await axios.get(`/api/v1/shipments/${id}/notify/preview`);
                   setNotifyPreview(res.data.data);
                   setNotifyMessage(res.data.data.defaultMessage);
-                } catch (err) { alert(err.response?.data?.error?.message || 'Failed to load preview'); setNotifyOpen(false); }
+                } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed to load preview'); setNotifyOpen(false); }
                 finally { setNotifyLoading(false); }
               }}
               className="px-4 py-2 rounded-[10px] bg-[#F4F6FA] text-[#1A1D2B] text-[13px] font-semibold hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-2"
@@ -512,7 +513,7 @@ export default function ShipmentDetail() {
                           });
                           setNotifyResult(res.data.data);
                         } catch (err) {
-                          alert(err.response?.data?.error?.message || 'Send failed');
+                          toast.error(err.response?.data?.error?.message || 'Send failed');
                         } finally { setNotifySending(false); }
                       }}
                       className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50"

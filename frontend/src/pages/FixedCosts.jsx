@@ -4,6 +4,7 @@ import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
+import toast from 'react-hot-toast';
 
 function OverrideModal({ shipment, onClose, onSaved }) {
   const [startDate, setStartDate] = useState(shipment.admin_start_date_override || shipment.start_date || '');
@@ -16,7 +17,7 @@ function OverrideModal({ shipment, onClose, onSaved }) {
     try {
       await axios.post(`/api/v1/fixed-costs/shipments/${shipment.id}/override-dates`, { startDate: startDate || null, endDate: endDate || null, notes });
       onSaved();
-    } catch (err) { alert(err.response?.data?.error?.message || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed'); }
     finally { setLoading(false); }
   };
 
@@ -71,7 +72,7 @@ function ManualAllocationModal({ shipment, onClose, onSaved }) {
     try {
       await axios.post(`/api/v1/fixed-costs/shipments/${shipment.id}/manual-allocation`, { amount: parseFloat(amount), date });
       onSaved();
-    } catch (err) { alert(err.response?.data?.error?.message || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed'); }
     finally { setLoading(false); }
   };
 
@@ -125,9 +126,9 @@ export default function FixedCosts() {
     setTriggering(true);
     try {
       const res = await axios.post('/api/v1/fixed-costs/trigger-allocation');
-      alert(`Allocation complete: $${res.data.data.dailyRate}/day allocated to ${res.data.data.shipments?.length || 0} shipment(s)`);
+      toast.success(`Allocation complete: $${res.data.data.dailyRate}/day allocated to ${res.data.data.shipments?.length || 0} shipment(s)`);
       loadData();
-    } catch (err) { alert(err.response?.data?.error?.message || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed'); }
     finally { setTriggering(false); }
   };
 
@@ -135,7 +136,7 @@ export default function FixedCosts() {
     try {
       await axios.post(`/api/v1/fixed-costs/categories/${catId}/toggle-fixed`);
       loadData();
-    } catch (err) { alert('Failed to toggle'); }
+    } catch (err) { toast.error('Failed to toggle'); }
   };
 
   const handleSaved = () => { setOverrideShipment(null); setManualShipment(null); loadData(); if (detailShipmentId) loadDetail(detailShipmentId); };

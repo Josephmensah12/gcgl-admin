@@ -26,6 +26,7 @@ import CatalogManager from './pages/admin/CatalogManager';
 import PaymentSettings from './pages/admin/PaymentSettings';
 import PublicTracking from './pages/PublicTracking';
 import LoadingSpinner from './components/LoadingSpinner';
+import { Toaster } from 'react-hot-toast';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -77,6 +78,15 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: { borderRadius: '10px', background: '#1A1D2B', color: '#fff', fontSize: '13px' },
+            success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
+            error: { iconTheme: { primary: '#EF4444', secondary: '#fff' }, duration: 5000 },
+          }}
+        />
       </AuthProvider>
     </BrowserRouter>
   );

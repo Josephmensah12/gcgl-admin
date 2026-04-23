@@ -4,6 +4,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import toast from 'react-hot-toast';
 
 function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }) {
   const [category, setCategory] = useState(transaction.trainingData?.suggested_category || '');
@@ -229,7 +230,7 @@ export default function TransactionReview() {
         useSuggestions: !bulkCategory, // flag to use AI suggestions
       });
       setSelected(new Set()); setBulkCategory(''); setBulkShipment(''); loadData();
-    } catch (err) { alert(err.response?.data?.error?.message || 'Bulk review failed'); }
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Bulk review failed'); }
   };
 
   const handleBulkReject = async () => {
@@ -237,7 +238,7 @@ export default function TransactionReview() {
     try {
       await axios.post('/api/v1/bank/transactions/bulk-review', { transactionIds: [...selected], action: 'reject' });
       setSelected(new Set()); loadData();
-    } catch (err) { alert('Bulk reject failed'); }
+    } catch (err) { toast.error('Bulk reject failed'); }
   };
 
   const toggleSelect = (id) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -314,10 +315,10 @@ export default function TransactionReview() {
                 try {
                   const text = await file.text();
                   const res = await axios.post('/api/v1/bank/import-csv', { csvData: text, accountLabel: 'Bank of America' });
-                  alert(`${res.data.data.imported} transactions loaded, ${res.data.data.skipped} duplicates skipped`);
+                  toast.success(`${res.data.data.imported} transactions loaded, ${res.data.data.skipped} duplicates skipped`);
                   loadData();
                 } catch (err) {
-                  alert(err.response?.data?.error?.message || 'Import failed');
+                  toast.error(err.response?.data?.error?.message || 'Import failed');
                 } finally {
                   setCsvUploading(false);
                   e.target.value = '';
@@ -332,9 +333,9 @@ export default function TransactionReview() {
               const clearExpenses = confirm('Also clear linked expenses?\n\nOK = clear both transactions and expenses\nCancel = keep expenses, only clear bank transactions');
               try {
                 const res = await axios.post('/api/v1/bank/clear-transactions', { status: statusFilter, clearExpenses });
-                alert(`${res.data.data.deleted} transactions cleared${clearExpenses ? `, ${res.data.data.expensesDeleted} expenses removed` : ''}`);
+                toast.success(`${res.data.data.deleted} transactions cleared${clearExpenses ? `, ${res.data.data.expensesDeleted} expenses removed` : ''}`);
                 loadData();
-              } catch (err) { alert('Failed to clear'); }
+              } catch (err) { toast.error('Failed to clear'); }
             }} className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-xs font-medium hover:bg-red-200">
               Clear {statusFilter === 'pending_review' ? 'Pending' : statusFilter}
             </button>
@@ -343,9 +344,9 @@ export default function TransactionReview() {
               const clearExpenses = confirm('Also clear linked expenses?\n\nOK = clear both transactions and expenses\nCancel = keep expenses, only clear bank transactions');
               try {
                 const res = await axios.post('/api/v1/bank/clear-transactions', { clearExpenses });
-                alert(`${res.data.data.deleted} transactions cleared${clearExpenses ? `, ${res.data.data.expensesDeleted} expenses removed` : ''}`);
+                toast.success(`${res.data.data.deleted} transactions cleared${clearExpenses ? `, ${res.data.data.expensesDeleted} expenses removed` : ''}`);
                 loadData();
-              } catch (err) { alert('Failed to clear'); }
+              } catch (err) { toast.error('Failed to clear'); }
             }} className="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700">
               Clear All
             </button>

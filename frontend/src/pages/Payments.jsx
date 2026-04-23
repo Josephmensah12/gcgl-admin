@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { SkeletonPage } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
+import { exportCSV } from '../utils/csvExport';
 
 const METHODS = ['Cash', 'Check', 'Zelle', 'Square', 'Other'];
 
@@ -12,8 +15,27 @@ export default function Payments() {
   const [transactions, setTransactions] = useState([]);
   const [aggregates, setAggregates] = useState({ totalPayments: 0, totalRefunds: 0, netCollected: 0, paymentCount: 0, refundCount: 0 });
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
-  const [filters, setFilters] = useState({ search: '', transactionType: '', paymentMethod: '', includeVoided: false });
+  const [filters, setFilters] = useState({ search: '', transactionType: '', paymentMethod: '', includeVoided: false, dateFrom: '', dateTo: '', datePreset: 'all' });
   const [loading, setLoading] = useState(true);
+
+  const applyDatePreset = (preset) => {
+    const now = new Date();
+    let dateFrom = '', dateTo = '';
+    if (preset === 'today') {
+      dateFrom = dateTo = now.toISOString().split('T')[0];
+    } else if (preset === 'week') {
+      const d = new Date(now); d.setDate(d.getDate() - 7);
+      dateFrom = d.toISOString().split('T')[0]; dateTo = now.toISOString().split('T')[0];
+    } else if (preset === 'month') {
+      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      dateTo = now.toISOString().split('T')[0];
+    } else if (preset === 'year') {
+      dateFrom = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      dateTo = now.toISOString().split('T')[0];
+    }
+    setFilters(f => ({ ...f, dateFrom, dateTo, datePreset: preset }));
+    setPagination(p => ({ ...p, page: 1 }));
+  };
 
   const loadTransactions = useCallback(async () => {
     try {
@@ -22,6 +44,8 @@ export default function Payments() {
       if (filters.transactionType) params.transactionType = filters.transactionType;
       if (filters.paymentMethod) params.paymentMethod = filters.paymentMethod;
       if (filters.includeVoided) params.includeVoided = 'true';
+      if (filters.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters.dateTo) params.dateTo = filters.dateTo;
 
       const res = await axios.get('/api/v1/transactions', { params });
       setTransactions(res.data.data.transactions);
@@ -38,7 +62,7 @@ export default function Payments() {
 
   const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  if (loading) return <LoadingSpinner text="Loading payments..." />;
+  if (loading) return <><PageHeader title="Payments" subtitle="Loading..." onMenuClick={onMenuClick} hideSearch /><SkeletonPage kpiCards={3} tableRows={8} tableCols={7} /></>;
 
   return (
     <>
@@ -53,6 +77,46 @@ export default function Payments() {
 
       {/* Filters */}
       <div className="gc-card p-5 mb-[18px]">
+        {/* Date presets */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {[
+            { key: 'all', label: 'All Time' },
+            { key: 'today', label: 'Today' },
+            { key: 'week', label: 'Last 7 Days' },
+            { key: 'month', label: 'This Month' },
+            { key: 'year', label: 'This Year' },
+            { key: 'custom', label: 'Custom' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => key === 'custom' ? setFilters(f => ({ ...f, datePreset: 'custom' })) : applyDatePreset(key)}
+              className={`h-8 px-3 rounded-lg text-[12px] font-semibold transition-colors ${
+                filters.datePreset === key
+                  ? 'bg-[#6366F1] text-white'
+                  : 'bg-[#F4F6FA] text-[#6B7194] hover:bg-[#E9EBF2]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {filters.datePreset === 'custom' && (
+            <div className="flex items-center gap-2 ml-2">
+              <input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => { setFilters(f => ({ ...f, dateFrom: e.target.value })); setPagination(p => ({ ...p, page: 1 })); }}
+                className="h-8 px-2 rounded-lg border border-black/[0.06] bg-white text-[12px] focus:border-[#6366F1] outline-none"
+              />
+              <span className="text-[11px] text-[#9CA3C0]">to</span>
+              <input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => { setFilters(f => ({ ...f, dateTo: e.target.value })); setPagination(p => ({ ...p, page: 1 })); }}
+                className="h-8 px-2 rounded-lg border border-black/[0.06] bg-white text-[12px] focus:border-[#6366F1] outline-none"
+              />
+            </div>
+          )}
+        </div>
         <div className="flex flex-col lg:flex-row gap-3">
           <div className="relative flex-1 max-w-md">
             <svg className="w-4 h-4 absolute left-3 top-3 text-[#9CA3C0] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -92,6 +156,21 @@ export default function Payments() {
             />
             Show voided
           </label>
+          <button
+            onClick={() => exportCSV(transactions, [
+              { key: r => new Date(r.paymentDate).toLocaleDateString(), label: 'Date' },
+              { key: r => r.invoice?.invoiceNumber || '', label: 'Invoice #' },
+              { key: r => r.invoice?.customerName || '', label: 'Customer' },
+              { key: 'transactionType', label: 'Type' },
+              { key: 'paymentMethod', label: 'Method' },
+              { key: 'amount', label: 'Amount' },
+              { key: 'comment', label: 'Comment' },
+            ], 'payments')}
+            className="h-10 px-4 rounded-[10px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-semibold hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Export CSV
+          </button>
         </div>
       </div>
 
@@ -161,7 +240,7 @@ export default function Payments() {
             </tbody>
           </table>
           {transactions.length === 0 && (
-            <p className="text-center py-12 text-[#9CA3C0]">No transactions found</p>
+            <EmptyState title="No transactions found" description="Payment transactions will appear here when payments are recorded against invoices" />
           )}
         </div>
 

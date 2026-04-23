@@ -4,6 +4,7 @@ import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
+import toast from 'react-hot-toast';
 
 function initialsOf(name) {
   return (name || '').split(' ').filter(Boolean).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || '?';
@@ -33,7 +34,7 @@ export default function CustomerDetail() {
       setCustomer((prev) => ({ ...prev, ...res.data.data }));
       setEditing(false);
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Update failed');
+      toast.error(err.response?.data?.error?.message || 'Update failed');
     }
   };
 

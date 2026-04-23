@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { SkeletonPage } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import toast from 'react-hot-toast';
+import { exportCSV } from '../utils/csvExport';
 
 function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
   const isEdit = !!expense;
@@ -211,7 +215,7 @@ export default function Expenses() {
       setNewCatFixed(false);
       loadCategories();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to create category');
+      toast.error(err.response?.data?.error?.message || 'Failed to create category');
     }
   };
 
@@ -229,7 +233,7 @@ export default function Expenses() {
       setEditCatFixed(false);
       loadCategories();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to update category');
+      toast.error(err.response?.data?.error?.message || 'Failed to update category');
     }
   };
 
@@ -239,18 +243,18 @@ export default function Expenses() {
       await axios.delete(`/api/v1/expenses/categories/${id}`);
       loadCategories();
     } catch (err) {
-      alert(err.response?.data?.error?.message || 'Failed to delete category');
+      toast.error(err.response?.data?.error?.message || 'Failed to delete category');
     }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this expense?')) return;
-    try { await axios.delete(`/api/v1/expenses/${id}`); loadExpenses(); } catch (err) { alert('Delete failed'); }
+    try { await axios.delete(`/api/v1/expenses/${id}`); loadExpenses(); } catch (err) { toast.error('Delete failed'); }
   };
 
   const fmt = (n) => `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  if (loading) return <LoadingSpinner text="Loading expenses..." />;
+  if (loading) return <><PageHeader title="Expenses" subtitle="Loading..." onMenuClick={onMenuClick} hideSearch /><SkeletonPage kpiCards={3} tableRows={8} tableCols={7} /></>;
 
   return (
     <>
@@ -330,6 +334,20 @@ export default function Expenses() {
                 <option value="">All Shipments</option>
                 {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
               </select>
+              <button
+                onClick={() => exportCSV(expenses, [
+                  { key: 'expense_date', label: 'Date' },
+                  { key: r => r.category?.name || '', label: 'Category' },
+                  { key: 'description', label: 'Description' },
+                  { key: 'vendor_or_payee', label: 'Vendor' },
+                  { key: r => r.is_fixed_cost ? 'Fixed' : 'Variable', label: 'Type' },
+                  { key: 'amount', label: 'Amount' },
+                ], 'expenses')}
+                className="h-10 px-4 rounded-[10px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-semibold hover:bg-[#E9EBF2] transition-colors inline-flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Export CSV
+              </button>
             </div>
           </div>
 
@@ -373,7 +391,7 @@ export default function Expenses() {
                             try {
                               await axios.put(`/api/v1/expenses/${exp.id}`, { shipment_id: e.target.value || null });
                               loadExpenses();
-                            } catch (err) { alert('Failed to reassign'); }
+                            } catch (err) { toast.error('Failed to reassign'); }
                           }}
                           className="px-1.5 py-1 border border-gray-200 rounded text-xs bg-transparent hover:border-primary-400 cursor-pointer max-w-[140px]"
                         >
@@ -392,7 +410,7 @@ export default function Expenses() {
                   ))}
                 </tbody>
               </table>
-              {expenses.length === 0 && <p className="text-center py-12 text-gray-400">No expenses found</p>}
+              {expenses.length === 0 && <EmptyState title="No expenses found" description="Add expenses manually or import from bank transactions" actionLabel="Add Expense" onAction={() => setShowModal(true)} />}
             </div>
 
             {pagination.totalPages > 1 && (

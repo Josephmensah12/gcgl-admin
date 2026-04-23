@@ -671,7 +671,7 @@ export default function Dashboard() {
       />
 
       {/* Shipment tracker + KPI row — matched heights */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]" style={{ alignItems: 'stretch' }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px] mb-[18px]" style={{ alignItems: 'stretch' }}>
         <ShipmentTrackerTile shipments={trackedShipments} />
         <div className="flex flex-col gap-[10px] justify-between">
         <KpiCard
@@ -701,7 +701,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px] mb-[18px]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px] mb-[18px]">
         <ContainerProgress shipment={activeShipment} />
         <RevenueTrend data={chart} />
       </div>
