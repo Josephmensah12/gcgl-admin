@@ -79,14 +79,16 @@ const FixedCostAllocationService = {
   },
 
   async calculateMonthlyFixedCosts(monthYear) {
+    const [year, month] = monthYear.split('-').map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
+    const startOfMonth = `${monthYear}-01`;
+    const endOfMonth = `${monthYear}-${String(lastDay).padStart(2, '0')}`;
+
     // From approved bank transactions marked as fixed cost
     const bankFixed = await db.ImportedTransaction.sum('amount', {
       where: {
         status: 'approved', is_business_expense: true, is_fixed_cost: true,
-        transaction_date: {
-          [Op.gte]: `${monthYear}-01`,
-          [Op.lte]: `${monthYear}-31`,
-        },
+        transaction_date: { [Op.gte]: startOfMonth, [Op.lte]: endOfMonth },
       },
     });
 
@@ -98,7 +100,7 @@ const FixedCostAllocationService = {
       WHERE ec.is_fixed_cost = true
         AND e.expense_date >= :start AND e.expense_date <= :end
     `, {
-      replacements: { start: `${monthYear}-01`, end: `${monthYear}-31` },
+      replacements: { start: startOfMonth, end: endOfMonth },
       type: db.sequelize.QueryTypes.SELECT,
     });
 
