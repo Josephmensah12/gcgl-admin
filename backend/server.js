@@ -58,7 +58,7 @@ async function start() {
           const result = await fixedCostService.allocateDaily();
           console.log('Fixed cost allocation complete:', result);
         } catch (err) {
-          console.error('Fixed cost allocation failed:', err.message);
+          console.error('Fixed cost allocation failed:', err);
         }
       }, { timezone: 'America/Chicago' });
       console.log('Fixed cost allocation cron scheduled (daily 1:00 AM CST)');
