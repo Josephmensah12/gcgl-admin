@@ -9,9 +9,17 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 export function PackingListSheet({ invoice, shipmentName, company }) {
   const totalItems = (invoice.lineItems || []).reduce((sum, li) => sum + (parseInt(li.quantity) || 1), 0);
+  const balance = Math.max(
+    0,
+    (parseFloat(invoice.finalTotal) || 0) - (parseFloat(invoice.amountPaid) || 0)
+  );
+  const isUnpaid = balance > 0.01;
 
   return (
     <div className="packing-sheet">
+      {isUnpaid && (
+        <div className="ps-unpaid-banner">DO NOT DELIVER — BALANCE PENDING</div>
+      )}
       {/* Header */}
       <div className="ps-header">
         <div className="ps-brand">

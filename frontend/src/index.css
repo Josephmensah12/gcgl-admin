@@ -333,6 +333,20 @@ textarea:focus-visible {
   break-inside: avoid;
 }
 
+.ps-unpaid-banner {
+  background: #DC2626;
+  color: #FFFFFF;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 12px 16px;
+  margin: -18mm -16mm 16px -16mm; /* bleed to the sheet edges, then re-pad above the header */
+  font-size: 13pt;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 .ps-header {
   display: flex;
   align-items: center;
