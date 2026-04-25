@@ -20,14 +20,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
  */
 
 // Real port coordinates [lng, lat]
-const HOUSTON  = [-95.0, 29.7];   // Port of Houston
-const FREEPORT = [-78.7, 26.5];   // Freeport, Bahamas
-const TEMA     = [-0.02, 5.62];   // Port of Tema, Ghana
+const HOUSTON = [-95.0, 29.7];   // Port of Houston
+const TEMA    = [-0.02, 5.62];   // Port of Tema, Ghana
 
 const PORTS = [
-  { id: 'houston',  coords: HOUSTON,  label: 'Houston',  sub: 'USA' },
-  { id: 'freeport', coords: FREEPORT, label: 'Freeport', sub: 'Bahamas' },
-  { id: 'tema',     coords: TEMA,     label: 'Tema',     sub: 'Ghana' },
+  { id: 'houston', coords: HOUSTON, label: 'Houston', sub: 'USA' },
+  { id: 'tema',    coords: TEMA,    label: 'Tema',    sub: 'Ghana' },
 ];
 
 // Map styles — both no-key, free, vector tiles via OpenFreeMap.
@@ -64,34 +62,12 @@ function greatCirclePoints(a, b, segments = 64) {
   return points;
 }
 
-// Position along the full Houston→Freeport→Tema route at fraction f (0..1).
-// Distributes f proportionally across the two segments by their great-circle
-// distance so the vessel speed is roughly uniform across both legs.
+// Single great-circle Houston → Tema. We pre-densify once at module scope
+// so position lookups are O(1) interpolation along the dense polyline.
+const ROUTE = greatCirclePoints(HOUSTON, TEMA, 96);
+
 function positionAt(f) {
-  const seg1 = greatCirclePoints(HOUSTON, FREEPORT, 32);
-  const seg2 = greatCirclePoints(FREEPORT, TEMA, 64);
-
-  // Approximate segment "lengths" by cumulative haversine on the densified line
-  const length = (pts) => {
-    let s = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const dx = pts[i][0] - pts[i - 1][0];
-      const dy = pts[i][1] - pts[i - 1][1];
-      s += Math.sqrt(dx * dx + dy * dy);
-    }
-    return s;
-  };
-  const l1 = length(seg1);
-  const l2 = length(seg2);
-  const total = l1 + l2;
-  const split = l1 / total;
-
-  if (f <= split) {
-    const local = split === 0 ? 0 : f / split;
-    return interpolateAlong(seg1, local);
-  }
-  const local = (f - split) / (1 - split);
-  return interpolateAlong(seg2, local);
+  return interpolateAlong(ROUTE, f);
 }
 
 function escapeHtml(s) {
@@ -169,14 +145,10 @@ export default function VesselMap({
     });
 
     map.on('load', () => {
-      // Route — full great-circle Houston → Freeport → Tema
-      const seg1 = greatCirclePoints(HOUSTON, FREEPORT, 32);
-      const seg2 = greatCirclePoints(FREEPORT, TEMA, 64);
-      const fullRoute = [...seg1, ...seg2.slice(1)];
-
+      // Single great-circle Houston → Tema
       map.addSource('route', {
         type: 'geojson',
-        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: fullRoute } },
+        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: ROUTE } },
       });
 
       // Soft glow under the route
@@ -345,13 +317,10 @@ export default function VesselMap({
       ) {
         // Re-apply route + markers after style swap
         map.once('style.load', () => {
-          const seg1 = greatCirclePoints(HOUSTON, FREEPORT, 32);
-          const seg2 = greatCirclePoints(FREEPORT, TEMA, 64);
-          const fullRoute = [...seg1, ...seg2.slice(1)];
           if (!map.getSource('route')) {
             map.addSource('route', {
               type: 'geojson',
-              data: { type: 'Feature', geometry: { type: 'LineString', coordinates: fullRoute } },
+              data: { type: 'Feature', geometry: { type: 'LineString', coordinates: ROUTE } },
             });
           }
           if (!map.getLayer('route-glow')) {
