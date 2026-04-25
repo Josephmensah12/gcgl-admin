@@ -346,11 +346,10 @@ textarea:focus-visible {
   letter-spacing: -0.01em;
 }
 .font-display-tabular {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: 'tnum', 'lnum', 'kern';
-  font-optical-sizing: auto;
-  letter-spacing: -0.015em;
+  font-feature-settings: 'tnum', 'lnum', 'cv11', 'ss01';
+  letter-spacing: -0.01em;
 }
 
 /* ── Packing list (screen + print) ────────────────────────── */
