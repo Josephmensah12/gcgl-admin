@@ -109,7 +109,9 @@ function ShipmentTrackerTile({ shipments }) {
     <div
       className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col"
     >
-      {/* Vector map (MapLibre) — real-geography vessel tracker */}
+      {/* Vector map (MapLibre) — real-geography vessel tracker.
+          The vessel dot is the only interactive element — click navigates,
+          hover shows shipment name / shipping line / transit %. */}
       <div className="relative flex-1 min-h-[200px]">
         <Suspense fallback={
           <div className="absolute inset-0 rounded-t-[16px] bg-gradient-to-br from-[#E8F4FD] to-[#D4EAFC] dark:from-[#16162a] dark:to-[#1a1a2e] flex items-center justify-center">
@@ -119,41 +121,26 @@ function ShipmentTrackerTile({ shipments }) {
           <VesselMap
             transitPercent={pct}
             arrived={arrived}
-            onClick={() => navigate(`/shipments/${primary.id}`)}
+            vesselInfo={{
+              name: primary.name,
+              carrier: primary.carrier || primary.vesselName,
+              transitPercent: pct,
+            }}
+            onVesselClick={() => navigate(`/shipments/${primary.id}`)}
             className="absolute inset-0"
           />
         </Suspense>
 
-        {/* Overlay: vessel name + status (top-left) — clickable */}
-        <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-          <div
-            onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${primary.id}`); }}
-            className="px-3 py-1.5 rounded-[10px] bg-white/95 dark:bg-[#1a1a2e]/95 backdrop-blur-sm shadow-sm border border-black/[0.04] dark:border-white/10 flex items-center gap-2 cursor-pointer hover:bg-white dark:hover:bg-[#1a1a2e] transition-colors"
-          >
-            <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#6366F1] animate-pulse-dot'}`} />
-            <span className="text-[12px] font-bold text-[#1A1D2B] dark:text-white">{primary.vesselName || primary.name}</span>
-            {primary.voyageNumber && <span className="text-[10px] text-[#9CA3C0]">· {primary.voyageNumber}</span>}
-          </div>
-        </div>
-
-        {/* Overlay: ETA (top-right) */}
-        <div className="absolute top-3 right-3 z-10">
+        {/* ETA pill (top-right) — passive info, distinct from the dot tooltip */}
+        <div className="absolute top-3 right-3 z-10 pointer-events-none">
           <div className={`px-3 py-1.5 rounded-[10px] backdrop-blur-sm shadow-sm text-[11px] font-bold ${arrived ? 'bg-[#10B981]/90 text-white' : 'bg-white/95 dark:bg-[#1a1a2e]/95 border border-black/[0.04] dark:border-white/10 text-[#6366F1]'}`}>
             {etaText || (primary.eta ? `ETA ${new Date(primary.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Tracking')}
           </div>
         </div>
 
-        {/* Overlay: status label + transit % (bottom-left over the map) */}
-        <div className="absolute bottom-3 left-3 z-10">
-          <div className="px-3 py-1.5 rounded-[10px] bg-white/95 dark:bg-[#1a1a2e]/95 backdrop-blur-sm shadow-sm border border-black/[0.04] dark:border-white/10">
-            <p className="text-[10px] uppercase tracking-[0.08em] font-semibold text-[#9CA3C0]">{shipLabel}</p>
-            <p className="text-[12px] font-bold text-[#1A1D2B] dark:text-white tabular-nums">{pct}% transit</p>
-          </div>
-        </div>
-
-        {/* Collecting indicator (top-right of footer area, only if any) */}
+        {/* "N loading" — separate semantic from the active vessel */}
         {collecting.length > 0 && (
-          <div className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F59E0B]/95 text-white text-[10px] font-bold shadow-sm">
+          <div className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F59E0B]/95 text-white text-[10px] font-bold shadow-sm pointer-events-none">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
