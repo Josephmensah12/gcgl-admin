@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import StatusPill from '../components/StatusPill';
 import StatCard from '../components/StatCard';
 import PageHeader from '../components/layout/PageHeader';
+
+// MapLibre is large (~400 kB gzipped) — lazy-load so the rest of the app stays fast.
+const VesselMap = lazy(() => import('../components/VesselMap'));
 import { useLayout } from '../components/layout/Layout';
 
 /* ─────────────────────────────────────────────────────────── */
@@ -84,18 +87,6 @@ function ShipmentTrackerTile({ shipments }) {
   const arrived = pct >= 97 || lastEvtType === 'EMRT' || lastEvtType === 'GTOT' ||
     (lastEvtType === 'DISC' && (lastEvtLoc.includes('tema') || lastEvtLoc.includes('ghana')));
 
-  // Points aligned to where USA and Ghana appear on the globe image
-  // Globe shows USA upper-left (~25%, ~28%), Ghana center-right (~60%, ~48%)
-  const houston  = { x: 200, y: 110, label: 'Houston',  sub: 'USA' };
-  const freeport = { x: 310, y: 165, label: 'Freeport', sub: 'Bahamas' };
-  const tema     = { x: 500, y: 200, label: 'Tema',     sub: 'Ghana' };
-
-  // Ship position along the quadratic bezier: Houston → Freeport → Tema
-  // t parameter based on transit percentage
-  const t = Math.min(Math.max(pct / 100, 0), 1);
-  const shipX = (1-t)*(1-t)*houston.x + 2*(1-t)*t*freeport.x + t*t*tema.x;
-  const shipY = (1-t)*(1-t)*houston.y + 2*(1-t)*t*freeport.y + t*t*tema.y;
-
   // Status label based on last confirmed event
   const lastLoc = (primary.lastEvent?.location || '').toLowerCase();
   const lastType = primary.lastEvent?.type || '';
@@ -118,139 +109,57 @@ function ShipmentTrackerTile({ shipments }) {
     <div
       className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col"
     >
-      {/* Globe background with SVG overlay */}
-      <div className="relative flex-1 min-h-0">
-        <img src="/globe-bg.png" alt="" className="absolute inset-0 w-full h-full object-cover rounded-t-[16px] globe-light" />
-        <img src="/globe-dark.png" alt="" className="absolute inset-0 w-full h-full object-cover rounded-t-[16px] globe-dark" />
-        <svg viewBox="0 0 800 400" className="w-full block rounded-t-[16px] relative" style={{ maxHeight: '144px' }} preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#D4EAFC" />
-              <stop offset="100%" stopColor="#E8F4FD" />
-            </linearGradient>
-            <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#6366F1" />
-              <stop offset="100%" stopColor="#3B82F6" />
-            </linearGradient>
-            <filter id="shipShadow">
-              <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#3B82F6" floodOpacity="0.3" />
-            </filter>
-            <filter id="labelShadow">
-              <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="rgba(0,0,0,0.1)" />
-            </filter>
-          </defs>
-
-          {/* Transparent background — globe image is behind */}
-          <rect x="0" y="0" width="800" height="400" fill="transparent" />
-
-          {/* Route: dashed background */}
-          <path
-            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
-            fill="none" stroke="#A8C4E0" strokeWidth="2.5" strokeDasharray="8 6" opacity="0.5"
+      {/* Vector map (MapLibre) — real-geography vessel tracker */}
+      <div className="relative flex-1 min-h-[200px]">
+        <Suspense fallback={
+          <div className="absolute inset-0 rounded-t-[16px] bg-gradient-to-br from-[#E8F4FD] to-[#D4EAFC] dark:from-[#16162a] dark:to-[#1a1a2e] flex items-center justify-center">
+            <span className="text-[11px] text-[#9CA3C0] font-semibold tracking-wide uppercase">Loading map…</span>
+          </div>
+        }>
+          <VesselMap
+            transitPercent={pct}
+            arrived={arrived}
+            onClick={() => navigate(`/shipments/${primary.id}`)}
+            className="absolute inset-0"
           />
-          {/* Route: solid progress */}
-          <path
-            d={`M ${houston.x} ${houston.y} Q ${freeport.x} ${freeport.y} ${tema.x} ${tema.y}`}
-            fill="none"
-            stroke={arrived ? '#10B981' : 'url(#routeGrad)'}
-            strokeWidth="3.5"
-            strokeLinecap="round"
-            strokeDasharray="1200"
-            strokeDashoffset={1200 - (pct / 100) * 1200}
-            style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
-          />
-
-          {/* Port dots only — labels removed, info in ship tooltip */}
-          {[houston, freeport, tema].map((p, i) => {
-            const isDestination = i === 2;
-            const dotColor = isDestination && arrived ? '#10B981' : isDestination ? '#F59E0B' : '#6366F1';
-            return (
-              <circle key={i} cx={p.x} cy={p.y} r="5" fill="white" stroke={dotColor} strokeWidth="2.5" />
-            );
-          })}
-
-          {/* Ship */}
-          <g
-            transform={`translate(${shipX}, ${shipY})`}
-            filter="url(#shipShadow)"
-            style={{ transition: 'transform 1.5s ease-out' }}
-          >
-            <title>{`${primary.vesselName || primary.name} · ${primary.voyageNumber || ''}\nHouston (USA) → Freeport (Bahamas) → Tema (Ghana)\n${shipLabel} · ${pct}% transit${primary.eta ? '\nETA: ' + primary.eta : ''}`}</title>
-            {/* Glow ring */}
-            <circle cx="0" cy="0" r="22" fill={arrived ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)'} />
-            <circle cx="0" cy="0" r="16" fill="white" />
-            {/* Ship SVG centered */}
-            <g transform="translate(-10, -10)">
-              <path d="M2 14L5 7H15L18 14H2Z" fill={arrived ? '#10B981' : '#3B82F6'} opacity="0.25" />
-              <path d="M2 14L5 7H15L18 14" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M10 7V2" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M7 2H13" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.2" strokeLinecap="round" />
-              <path d="M0 17C2 15.5 4.5 15.5 6.5 17C8.5 15.5 11 15.5 13 17C15 15.5 17.5 15.5 20 17" stroke={arrived ? '#10B981' : '#3B82F6'} strokeWidth="1.2" strokeLinecap="round" />
-            </g>
-          </g>
-
-          {/* Ship label pill — shows shipment name */}
-          {primary.trackingNumber && (() => {
-            const label = primary.name || shipLabel;
-            const lw = label.length * 6.8 + 20;
-            const lx = Math.min(Math.max(shipX + 28, 10), 800 - lw - 10);
-            const ly = shipY - 12;
-            return (
-              <g
-                onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${primary.id}`); }}
-                className="cursor-pointer"
-                style={{ cursor: 'pointer' }}
-              >
-                <rect x={lx} y={ly} width={lw} height="22" rx="11"
-                  fill={arrived ? '#10B981' : '#3B82F6'} />
-                <rect x={lx} y={ly} width={lw} height="22" rx="11"
-                  fill="transparent" className="hover:fill-[rgba(255,255,255,0.15)]" />
-                <text x={lx + 10} y={ly + 15} fontSize="11" fontWeight="700" fill="white" fontFamily="Inter, sans-serif"
-                  style={{ pointerEvents: 'none' }}>
-                  {label}
-                </text>
-              </g>
-            );
-          })()}
-
-          {/* Collecting shipments — loading indicators at origin (clickable) */}
-          {collecting.map((cs, idx) => (
-            <g key={cs.id}
-              transform={`translate(${houston.x - 30}, ${houston.y + 30 + idx * 26})`}
-              onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${cs.id}`); }}
-              className="cursor-pointer"
-              style={{ cursor: 'pointer' }}
-            >
-              <rect x="0" y="-10" width={cs.name.length * 6 + 40} height="22" rx="11"
-                fill="#F59E0B" opacity="0.9" />
-              <rect x="0" y="-10" width={cs.name.length * 6 + 40} height="22" rx="11"
-                fill="transparent" className="hover:fill-[rgba(255,255,255,0.15)]" />
-              <text x="10" y="4" fontSize="10" fontWeight="700" fill="white" fontFamily="Inter, sans-serif"
-                style={{ pointerEvents: 'none' }}>
-                📦 {cs.name}
-              </text>
-            </g>
-          ))}
-        </svg>
+        </Suspense>
 
         {/* Overlay: vessel name + status (top-left) — clickable */}
-        <div className="absolute top-3 left-3 flex items-center gap-2">
+        <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
           <div
-            onClick={() => navigate(`/shipments/${primary.id}`)}
-            className="px-3 py-1.5 rounded-[10px] bg-white/90 backdrop-blur-sm shadow-sm flex items-center gap-2 cursor-pointer hover:bg-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); navigate(`/shipments/${primary.id}`); }}
+            className="px-3 py-1.5 rounded-[10px] bg-white/95 dark:bg-[#1a1a2e]/95 backdrop-blur-sm shadow-sm border border-black/[0.04] dark:border-white/10 flex items-center gap-2 cursor-pointer hover:bg-white dark:hover:bg-[#1a1a2e] transition-colors"
           >
-            <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#3B82F6] animate-pulse-dot'}`} />
-            <span className="text-[12px] font-bold text-[#1A1D2B]">{primary.vesselName || primary.name}</span>
+            <div className={`w-2 h-2 rounded-full ${arrived ? 'bg-[#10B981]' : 'bg-[#6366F1] animate-pulse-dot'}`} />
+            <span className="text-[12px] font-bold text-[#1A1D2B] dark:text-white">{primary.vesselName || primary.name}</span>
             {primary.voyageNumber && <span className="text-[10px] text-[#9CA3C0]">· {primary.voyageNumber}</span>}
           </div>
         </div>
 
         {/* Overlay: ETA (top-right) */}
-        <div className="absolute top-3 right-3">
-          <div className={`px-3 py-1.5 rounded-[10px] backdrop-blur-sm shadow-sm text-[11px] font-bold ${arrived ? 'bg-[#10B981]/90 text-white' : 'bg-white/90 text-[#3B82F6]'}`}>
+        <div className="absolute top-3 right-3 z-10">
+          <div className={`px-3 py-1.5 rounded-[10px] backdrop-blur-sm shadow-sm text-[11px] font-bold ${arrived ? 'bg-[#10B981]/90 text-white' : 'bg-white/95 dark:bg-[#1a1a2e]/95 border border-black/[0.04] dark:border-white/10 text-[#6366F1]'}`}>
             {etaText || (primary.eta ? `ETA ${new Date(primary.eta + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Tracking')}
           </div>
         </div>
+
+        {/* Overlay: status label + transit % (bottom-left over the map) */}
+        <div className="absolute bottom-3 left-3 z-10">
+          <div className="px-3 py-1.5 rounded-[10px] bg-white/95 dark:bg-[#1a1a2e]/95 backdrop-blur-sm shadow-sm border border-black/[0.04] dark:border-white/10">
+            <p className="text-[10px] uppercase tracking-[0.08em] font-semibold text-[#9CA3C0]">{shipLabel}</p>
+            <p className="text-[12px] font-bold text-[#1A1D2B] dark:text-white tabular-nums">{pct}% transit</p>
+          </div>
+        </div>
+
+        {/* Collecting indicator (top-right of footer area, only if any) */}
+        {collecting.length > 0 && (
+          <div className="absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F59E0B]/95 text-white text-[10px] font-bold shadow-sm">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            {collecting.length} loading
+          </div>
+        )}
       </div>
 
       {/* Compact footer */}
