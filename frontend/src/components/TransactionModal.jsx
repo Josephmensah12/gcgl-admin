@@ -42,8 +42,8 @@ export default function TransactionModal({ invoice, transactionType = 'PAYMENT',
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 gc-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className={`px-6 py-4 border-b rounded-t-xl ${isRefund ? 'bg-orange-50' : 'bg-green-50'}`}>
           <h2 className="text-lg font-semibold">{isRefund ? 'Record Refund' : 'Receive Payment'}</h2>
           <p className="text-sm text-gray-500">

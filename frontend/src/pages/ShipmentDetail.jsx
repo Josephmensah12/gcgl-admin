@@ -49,8 +49,8 @@ function EditExpenseModal({ expense, categories, shipments, onClose, onSaved }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto gc-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Edit Expense</h2>
@@ -407,8 +407,8 @@ export default function ShipmentDetail() {
 
       {/* Notify Customers Modal */}
       {notifyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => !notifySending && setNotifyOpen(false)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={() => !notifySending && setNotifyOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto gc-scale-in" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b">
               <h2 className="text-lg font-semibold">Notify Customers</h2>
               <p className="text-sm text-gray-500 mt-0.5">Send shipment update emails to all customers in this shipment</p>

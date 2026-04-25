@@ -4,6 +4,8 @@ import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { SkeletonPage } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
+import SearchInput from '../components/SearchInput';
+import { PeopleArt } from '../components/illustrations/LogisticsArt';
 import { exportCSV } from '../utils/csvExport';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
@@ -69,18 +71,12 @@ export default function Customers() {
       {/* Search + Export */}
       <div className="gc-card p-5 mb-[18px]">
         <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative max-w-md flex-1 min-w-[200px]">
-          <svg className="w-4 h-4 absolute left-3 top-3 text-[#9CA3C0] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
-            placeholder="Search customers by name, email, phone..."
-            className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
-          />
-        </div>
+        <SearchInput
+          className="max-w-md flex-1 min-w-[200px]"
+          value={search}
+          onChange={(v) => { setSearch(v); setPagination((p) => ({ ...p, page: 1 })); }}
+          placeholder="Search customers by name, email, phone..."
+        />
         <button
           onClick={() => exportCSV(customers, [
             { key: r => r.fullName || r.name, label: 'Customer' },
@@ -105,7 +101,7 @@ export default function Customers() {
         <div className="overflow-x-auto">
           <table className="w-full text-[13.5px]">
             <thead>
-              <tr className="bg-[#F4F6FA]">
+              <tr className="gc-thead-accent">
                 <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Customer</th>
                 <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Contact</th>
                 <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Recipients</th>
@@ -151,7 +147,11 @@ export default function Customers() {
             </tbody>
           </table>
           {customers.length === 0 && (
-            <EmptyState title="No customers found" description={search ? 'Try a different search term' : 'Customers appear here when invoices are created in the pickup app'} />
+            <EmptyState
+              illustration={<PeopleArt />}
+              title="No customers found"
+              description={search ? 'Try a different search term.' : 'Customers appear here automatically when their first invoice is created in the pickup app.'}
+            />
           )}
         </div>
 

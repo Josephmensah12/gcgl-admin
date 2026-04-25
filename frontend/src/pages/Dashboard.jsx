@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import StatusPill from '../components/StatusPill';
+import StatCard from '../components/StatCard';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 
@@ -18,9 +20,9 @@ function SplitCurrency({ value }) {
     .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     .split('.');
   return (
-    <span className="tabular-nums">
+    <span className="font-display-tabular">
       <span>${whole}</span>
-      <span className="text-[18px] text-[#9CA3C0]">.{dec}</span>
+      <span className="text-[0.7em] text-[#9CA3C0] font-semibold">.{dec}</span>
     </span>
   );
 }
@@ -49,61 +51,7 @@ function gradientFor(name) {
   return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
 }
 
-/* ─────────────────────────────────────────────────────────── */
-/*  KPI Card                                                   */
-/* ─────────────────────────────────────────────────────────── */
-
-function KpiCard({ label, value, subtext, trend, accent, icon }) {
-  const accents = {
-    gold:  { gradient: 'linear-gradient(135deg, #F59E0B, #D97706)', iconBg: 'rgba(245,158,11,0.08)', iconColor: '#F59E0B' },
-    blue:  { gradient: 'linear-gradient(135deg, #6366F1, #3B82F6)', iconBg: 'rgba(59,130,246,0.08)', iconColor: '#3B82F6' },
-    green: { gradient: 'linear-gradient(135deg, #10B981, #059669)', iconBg: 'rgba(16,185,129,0.08)', iconColor: '#10B981' },
-    red:   { gradient: 'linear-gradient(135deg, #EF4444, #DC2626)', iconBg: 'rgba(239,68,68,0.07)',  iconColor: '#EF4444' },
-  };
-  const a = accents[accent] || accents.blue;
-
-  return (
-    <div className="relative overflow-hidden bg-white rounded-[14px] px-4 py-3 border border-black/[0.04] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300">
-      <div
-        className="absolute top-0 left-0 bottom-0 w-[3px] rounded-l-[14px]"
-        style={{ background: a.gradient }}
-      />
-      <div className="flex items-center gap-3">
-        <div
-          className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center shrink-0"
-          style={{ background: a.iconBg, color: a.iconColor }}
-        >
-          <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-          </svg>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium text-[#6B7194] leading-tight">{label}</p>
-          <div className="text-[20px] font-extrabold text-[#1A1D2B] tracking-[-0.6px] leading-tight">
-            {value}
-          </div>
-        </div>
-        <div className="text-right shrink-0">
-          {subtext && <p className="text-[10px] text-[#9CA3C0] leading-tight">{subtext}</p>}
-          {trend && (
-            <span
-              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-semibold mt-0.5 ${
-                trend.variant === 'positive'
-                  ? 'bg-[rgba(16,185,129,0.08)] text-[#10B981]'
-                  : trend.variant === 'negative'
-                  ? 'bg-[rgba(239,68,68,0.07)] text-[#EF4444]'
-                  : 'bg-[rgba(99,102,241,0.08)] text-[#6366F1]'
-              }`}
-            >
-              {trend.arrow && <span>{trend.arrow}</span>}
-              {trend.label}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+const KpiCard = StatCard;
 
 /* ─────────────────────────────────────────────────────────── */
 /*  Shipment Tracker Tile                                      */
@@ -532,7 +480,7 @@ function RecentInvoicesTable({ pickups, totalCount }) {
       <div className="overflow-x-auto">
         <table className="w-full text-[13.5px]">
           <thead>
-            <tr className="bg-[#F4F6FA]">
+            <tr className="gc-thead-accent">
               <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Invoice #</th>
               <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Customer</th>
               <th className="px-6 py-3 text-left text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px]">Total</th>
@@ -541,14 +489,7 @@ function RecentInvoicesTable({ pickups, totalCount }) {
             </tr>
           </thead>
           <tbody>
-            {pickups.map((p) => {
-              const statusColors =
-                p.paymentStatus === 'paid'
-                  ? { bg: 'rgba(16,185,129,0.08)', color: '#10B981' }
-                  : p.paymentStatus === 'partial'
-                  ? { bg: 'rgba(245,158,11,0.08)', color: '#F59E0B' }
-                  : { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
-              return (
+            {pickups.map((p) => (
                 <tr
                   key={p.id}
                   className="border-b border-black/[0.03] last:border-0 hover:bg-[rgba(99,102,241,0.02)] transition-colors"
@@ -572,27 +513,17 @@ function RecentInvoicesTable({ pickups, totalCount }) {
                       <span className="font-medium text-[#1A1D2B] truncate">{p.customerName}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-3.5 font-bold text-[#1A1D2B] tabular-nums">
+                  <td className="px-6 py-3.5 font-display-tabular font-bold text-[15px] text-[#1A1D2B]">
                     ${fmtCurrency(p.finalTotal)}
                   </td>
                   <td className="px-6 py-3.5">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold capitalize"
-                      style={{ background: statusColors.bg, color: statusColors.color }}
-                    >
-                      <span
-                        className="w-[5px] h-[5px] rounded-full"
-                        style={{ background: 'currentColor' }}
-                      />
-                      {p.paymentStatus}
-                    </span>
+                    <StatusPill status={p.paymentStatus} kind="payment" />
                   </td>
                   <td className="px-6 py-3.5 text-[#6B7194]">
                     {new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </td>
                 </tr>
-              );
-            })}
+            ))}
           </tbody>
         </table>
         {pickups.length === 0 && (
@@ -615,7 +546,6 @@ function RecentInvoicesTable({ pickups, totalCount }) {
 /* ─────────────────────────────────────────────────────────── */
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const { onMenuClick } = useLayout();
   const [metrics, setMetrics] = useState(null);
   const [chart, setChart] = useState([]);
@@ -673,7 +603,7 @@ export default function Dashboard() {
       {/* Shipment tracker + KPI row — matched heights */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-[18px] mb-[18px]" style={{ alignItems: 'stretch' }}>
         <ShipmentTrackerTile shipments={trackedShipments} />
-        <div className="flex flex-col gap-[10px] justify-between">
+        <div className="flex flex-col gap-[10px] justify-between gc-stagger">
         <KpiCard
           label="Active Shipments"
           value={metrics?.activeShipments ?? 0}

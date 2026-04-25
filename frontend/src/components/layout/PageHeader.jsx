@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SearchInput from '../SearchInput';
 
 /**
  * Reusable page header.
@@ -47,7 +48,7 @@ export default function PageHeader({
         )}
 
         <div className="min-w-0">
-          <h1 className="text-[26px] font-extrabold text-[#1A1D2B] tracking-[-0.5px] leading-tight truncate">
+          <h1 className="font-display text-[24px] sm:text-[30px] font-bold text-[#1A1D2B] tracking-[-0.02em] leading-[1.05] truncate">
             {title}
           </h1>
           {subtitle && (
@@ -69,23 +70,14 @@ export default function PageHeader({
         {!hideSearch && (
           <form
             onSubmit={handleSearchSubmit}
-            className="hidden md:flex items-center relative"
+            className="hidden md:flex items-center"
           >
-            <svg
-              className="w-4 h-4 absolute left-3 text-[#9CA3C0] pointer-events-none"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="search"
+            <SearchInput
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
+              onChange={setSearchText}
               placeholder="Search invoices, customers..."
-              className="h-10 min-w-[220px] pl-9 pr-4 rounded-[10px] bg-white border border-black/[0.04] text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
+              className="min-w-[220px]"
+              inputClassName="w-full h-10 pl-9 pr-9 rounded-[10px] bg-white border border-black/[0.04] text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
             />
           </form>
         )}

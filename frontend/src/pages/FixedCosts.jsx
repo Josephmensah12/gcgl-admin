@@ -22,8 +22,8 @@ function OverrideModal({ shipment, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="gc-card shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={onClose}>
+      <div className="gc-card shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-w-md w-full mx-4 gc-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b bg-amber-50">
           <h2 className="text-lg font-semibold">Override Dates — {shipment.name}</h2>
         </div>
@@ -77,8 +77,8 @@ function ManualAllocationModal({ shipment, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="gc-card shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={onClose}>
+      <div className="gc-card shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-w-sm w-full mx-4 gc-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b"><h2 className="text-lg font-semibold">Manual Allocation — {shipment.name}</h2></div>
         <div className="p-6 space-y-4">
           <div>

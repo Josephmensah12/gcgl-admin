@@ -3,6 +3,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { SkeletonPage } from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import StatusPill from '../components/StatusPill';
+import SearchInput from '../components/SearchInput';
+import { ContainerArt } from '../components/illustrations/LogisticsArt';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
@@ -214,19 +218,20 @@ export default function Pickups() {
         actions={
           <button
             onClick={() => navigate('/pickups/new')}
-            className="hidden sm:inline-flex items-center gap-2 px-4 h-10 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] shadow-[0_4px_15px_rgba(99,102,241,0.25)] transition-all"
+            aria-label="New Invoice"
+            className="inline-flex items-center justify-center gap-2 sm:px-4 px-0 w-10 sm:w-auto h-10 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] shadow-[0_4px_15px_rgba(99,102,241,0.25)] transition-all"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            New Invoice
+            <span className="hidden sm:inline">New Invoice</span>
           </button>
         }
       />
 
       {/* Summary strip: Revenue + warehouse aging (0-3 days card replaced with revenue) */}
       {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-[14px] mb-[18px]">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-[14px] mb-[18px] gc-stagger">
           {/* Revenue card (replaces 0-3 days) */}
           <div
             className="relative overflow-hidden bg-white rounded-[16px] border border-black/[0.04] px-4 py-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300"
@@ -235,7 +240,7 @@ export default function Pickups() {
               className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[16px]"
               style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
             />
-            <p className="text-[20px] font-extrabold text-[#10B981] tracking-[-0.5px] tabular-nums">
+            <p className="font-display-tabular text-[24px] font-bold text-[#10B981]">
               ${(totals.totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </p>
             <p className="text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-[0.8px] mt-1">Revenue</p>
@@ -247,7 +252,7 @@ export default function Pickups() {
               key={a.label}
               className="bg-white rounded-[16px] border border-black/[0.04] px-4 py-4 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300"
             >
-              <p className="text-[22px] font-extrabold text-[#1A1D2B] tracking-[-0.5px]">{a.count}</p>
+              <p className="font-display-tabular text-[26px] font-bold text-[#1A1D2B]">{a.count}</p>
               <p className="text-[11px] text-[#6B7194] mt-1">{a.label}</p>
             </div>
           ))}
@@ -257,18 +262,12 @@ export default function Pickups() {
       {/* Controls */}
       <div className="bg-white rounded-[16px] border border-black/[0.04] p-5 mb-[18px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
         <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-          <div className="relative flex-1 max-w-md">
-            <svg className="w-4 h-4 absolute left-3 top-3 text-[#9CA3C0] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
-              placeholder="Search by customer, phone, invoice #..."
-              className="w-full h-10 pl-9 pr-4 rounded-[10px] border border-black/[0.06] bg-white text-[13px] text-[#1A1D2B] placeholder:text-[#9CA3C0] focus:border-[#6366F1] focus:ring-2 focus:ring-[rgba(99,102,241,0.15)] outline-none transition-all"
-            />
-          </div>
+          <SearchInput
+            className="flex-1 max-w-md"
+            value={search}
+            onChange={(v) => { setSearch(v); setPagination((p) => ({ ...p, page: 1 })); }}
+            placeholder="Search by customer, phone, invoice #..."
+          />
           <select
             value={filter}
             onChange={(e) => { setFilter(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
@@ -336,8 +335,8 @@ export default function Pickups() {
 
       {/* Assign modal */}
       {showAssign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowAssign(false)}>
-          <div className="bg-white rounded-[16px] p-6 w-full max-w-md mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.08)]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm gc-backdrop-in" onClick={() => setShowAssign(false)}>
+          <div className="bg-white rounded-[16px] p-6 w-full max-w-md mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.08)] gc-scale-in" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[18px] font-bold text-[#1A1D2B] tracking-[-0.3px] mb-2">Assign to Shipment</h3>
             <p className="text-[13px] text-[#6B7194] mb-4">Assigning {selected.size} invoice{selected.size === 1 ? '' : 's'}</p>
             <select
@@ -376,7 +375,7 @@ export default function Pickups() {
         <div className="overflow-x-auto">
           <table className="w-full text-[13.5px]">
             <thead>
-              <tr className="bg-[#F4F6FA]">
+              <tr className="gc-thead-accent">
                 <th className="px-6 py-3 w-10">
                   <input
                     type="checkbox"
@@ -397,11 +396,6 @@ export default function Pickups() {
             </thead>
             <tbody>
               {pickups.map((p) => {
-                const statusColors = p.paymentStatus === 'paid'
-                  ? { bg: 'rgba(16,185,129,0.08)', color: '#10B981' }
-                  : p.paymentStatus === 'partial'
-                  ? { bg: 'rgba(245,158,11,0.08)', color: '#F59E0B' }
-                  : { bg: 'rgba(239,68,68,0.07)', color: '#EF4444' };
                 const aging = getAgingTint(p.warehouseDays);
                 return (
                   <tr
@@ -437,17 +431,11 @@ export default function Pickups() {
                     </td>
                     <td className="px-6 py-3.5 text-[#6B7194]">{p.recipientName || '—'}</td>
                     <td className="px-6 py-3.5 text-[#6B7194]">{p.itemCount}</td>
-                    <td className="px-6 py-3.5 font-bold text-[#1A1D2B] tabular-nums">
+                    <td className="px-6 py-3.5 font-display-tabular font-bold text-[15px] text-[#1A1D2B]">
                       ${parseFloat(p.finalTotal).toFixed(2)}
                     </td>
                     <td className="px-6 py-3.5">
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold capitalize"
-                        style={{ background: statusColors.bg, color: statusColors.color }}
-                      >
-                        <span className="w-[5px] h-[5px] rounded-full" style={{ background: 'currentColor' }} />
-                        {p.paymentStatus}
-                      </span>
+                      <StatusPill status={p.paymentStatus} kind="payment" />
                     </td>
                     <td className="px-6 py-3.5">
                       {p.Shipment ? (
@@ -472,7 +460,13 @@ export default function Pickups() {
             </tbody>
           </table>
           {pickups.length === 0 && (
-            <p className="text-center py-12 text-[#9CA3C0]">No invoices found</p>
+            <EmptyState
+              illustration={<ContainerArt />}
+              title={search || filter !== 'all' || datePreset !== 'all' ? 'No invoices match your filters' : 'No invoices yet'}
+              description={search || filter !== 'all' || datePreset !== 'all'
+                ? 'Try clearing filters or choosing a wider date range.'
+                : 'Invoices created in the pickup app appear here, ready to be packed and shipped.'}
+            />
           )}
         </div>
 

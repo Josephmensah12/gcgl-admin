@@ -123,8 +123,8 @@ export default function CatalogManager() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={() => setShowForm(false)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 gc-scale-in" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">{editingItem ? 'Edit Item' : 'Add Catalog Item'}</h3>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>

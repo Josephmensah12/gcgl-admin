@@ -46,8 +46,8 @@ function ReviewModal({ transaction, categories, shipments, onClose, onReviewed }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto gc-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b">
           <h2 className="text-lg font-semibold">Review Transaction</h2>
         </div>

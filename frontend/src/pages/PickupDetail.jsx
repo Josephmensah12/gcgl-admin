@@ -294,8 +294,8 @@ export default function PickupDetail() {
 
       {/* Cancel Invoice Confirmation */}
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => !cancelling && setShowCancelConfirm(false)}>
-          <div className="bg-white rounded-[16px] p-6 w-full max-w-sm mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.12)]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm gc-backdrop-in" onClick={() => !cancelling && setShowCancelConfirm(false)}>
+          <div className="bg-white rounded-[16px] p-6 w-full max-w-sm mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.12)] gc-scale-in" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-red-600 mb-2">Cancel Invoice #{pickup.invoiceNumber}?</h3>
             <p className="text-sm text-gray-600 mb-4">
               This will void all active payments, unassign from any shipment, and mark the invoice as cancelled. This cannot be undone.
@@ -324,11 +324,11 @@ export default function PickupDetail() {
 
       {emailModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm gc-backdrop-in"
           onClick={() => !emailModal.sending && setEmailModal(null)}
         >
           <div
-            className="bg-white rounded-[16px] p-6 w-full max-w-md mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.12)]"
+            className="bg-white rounded-[16px] p-6 w-full max-w-md mx-4 shadow-[0_10px_40px_rgba(0,0,0,0.12)] gc-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-[18px] font-bold text-[#1A1D2B] tracking-[-0.3px] mb-1">Email Invoice</h3>

@@ -15,14 +15,14 @@ export default function Layout() {
 
   return (
     <LayoutContext.Provider value={{ onMenuClick: handleMenuClick }}>
-      <div className="min-h-screen bg-[#F4F6FA] dark:bg-[#0B0E18] transition-colors duration-300">
+      <div className="min-h-screen transition-colors duration-300">
         <Sidebar
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
         />
 
         <div className="md:ml-[260px]">
-          <main className="px-6 py-7 md:px-8 md:py-7">
+          <main className="px-4 py-5 sm:px-6 sm:py-7 md:px-8 md:py-7">
             <Outlet />
           </main>
         </div>

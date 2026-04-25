@@ -179,7 +179,7 @@ export default function Payments() {
         <div className="overflow-x-auto">
           <table className="w-full text-[13.5px]">
             <thead>
-              <tr className="bg-[#F4F6FA]">
+              <tr className="gc-thead-accent">
                 {['Date', 'Invoice', 'Customer', 'Type', 'Method', 'Amount', 'Comment', 'By'].map((h, i) => (
                   <th
                     key={h}
@@ -226,7 +226,7 @@ export default function Payments() {
                       </span>
                     </td>
                     <td
-                      className={`px-6 py-3.5 text-right font-bold tabular-nums ${
+                      className={`px-6 py-3.5 text-right font-display-tabular font-bold text-[15px] ${
                         isVoided ? 'text-[#9CA3C0] line-through' : isRefund ? 'text-[#F59E0B]' : 'text-[#10B981]'
                       }`}
                     >

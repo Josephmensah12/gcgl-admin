@@ -3,6 +3,9 @@ import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { SkeletonPage } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
+import StatCard from '../components/StatCard';
+import SearchInput from '../components/SearchInput';
+import { ReceiptArt } from '../components/illustrations/LogisticsArt';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
@@ -46,8 +49,8 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 gc-backdrop-in" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto gc-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b">
           <h2 className="text-lg font-semibold">{isEdit ? 'Edit Expense' : 'Add Expense'}</h2>
         </div>
@@ -56,51 +59,51 @@ function ExpenseModal({ expense, categories, shipments, onClose, onSaved }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+              <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Date *</label>
               <input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" required />
+                className="gc-input" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount ($) *</label>
+              <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Amount ($) *</label>
               <input type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" required />
+                className="gc-input" required />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+            <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Category *</label>
             <select value={form.category_id} onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" required>
+              className="gc-input" required>
               <option value="">Select category...</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+            <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Description *</label>
             <input type="text" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="What was this expense for?" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" required />
+              placeholder="What was this expense for?" className="gc-input" required />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Vendor / Payee</label>
+            <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Vendor / Payee</label>
             <input type="text" value={form.vendor_or_payee} onChange={(e) => setForm((f) => ({ ...f, vendor_or_payee: e.target.value }))}
-              placeholder="Who was paid?" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
+              placeholder="Who was paid?" className="gc-input" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Shipment</label>
+            <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Shipment</label>
             <select value={form.shipment_id} onChange={(e) => setForm((f) => ({ ...f, shipment_id: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm">
+              className="gc-input">
               <option value="">-- Auto-assign by date --</option>
               {shipments.map((s) => <option key={s.id} value={s.id} title={shipmentDateRange(s)}>{s.name} ({shipmentDateRange(s)})</option>)}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-[12px] font-semibold text-[#6B7194] mb-1.5 uppercase tracking-[0.04em]">Notes</label>
             <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="Additional details..." />
+              className="gc-input h-auto py-2" rows={2} placeholder="Additional details..." />
           </div>
 
           {form.category_id && (
@@ -261,22 +264,28 @@ export default function Expenses() {
       <PageHeader title="Expenses" subtitle="Manual expense tracking and categories" onMenuClick={onMenuClick} hideSearch />
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="gc-card p-5">
-          <p className="text-sm text-gray-500">Total Expenses</p>
-          <p className="text-2xl font-bold text-red-600">{fmt(totals.total)}</p>
-          <p className="text-xs text-gray-400">{totals.count} entries</p>
-        </div>
-        <div className="gc-card p-5">
-          <p className="text-sm text-gray-500">Fixed Expenses</p>
-          <p className="text-2xl font-bold text-purple-600">{fmt(expenses.filter((e) => e.is_fixed_cost).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0))}</p>
-          <p className="text-xs text-gray-400">{expenses.filter((e) => e.is_fixed_cost).length} fixed entries</p>
-        </div>
-        <div className="gc-card p-5">
-          <p className="text-sm text-gray-500">Largest</p>
-          <p className="text-2xl font-bold text-amber-600">{fmt(analytics?.summary?.max)}</p>
-          <p className="text-xs text-gray-400">single expense</p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 gc-stagger">
+        <StatCard
+          label="Total Expenses"
+          value={fmt(totals.total)}
+          subtext={`${totals.count} entries`}
+          accent="red"
+          icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+        />
+        <StatCard
+          label="Fixed Expenses"
+          value={fmt(expenses.filter((e) => e.is_fixed_cost).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0))}
+          subtext={`${expenses.filter((e) => e.is_fixed_cost).length} fixed entries`}
+          accent="purple"
+          icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+        <StatCard
+          label="Largest"
+          value={fmt(analytics?.summary?.max)}
+          subtext="single expense"
+          accent="gold"
+          icon="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+        />
       </div>
 
       {/* Tabs */}
@@ -318,19 +327,21 @@ export default function Expenses() {
           {/* Filters */}
           <div className="gc-card p-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <input type="text" value={filters.search}
-                onChange={(e) => { setFilters((f) => ({ ...f, search: e.target.value })); setPagination((p) => ({ ...p, page: 1 })); }}
+              <SearchInput
+                className="flex-1 max-w-md"
+                value={filters.search}
+                onChange={(v) => { setFilters((f) => ({ ...f, search: v })); setPagination((p) => ({ ...p, page: 1 })); }}
                 placeholder="Search description or vendor..."
-                className="flex-1 max-w-md px-4 py-2 border border-gray-300 rounded-lg text-sm" />
+              />
               <select value={filters.category_id}
                 onChange={(e) => { setFilters((f) => ({ ...f, category_id: e.target.value })); setPagination((p) => ({ ...p, page: 1 })); }}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                className="gc-input w-auto min-w-[160px]">
                 <option value="">All Categories</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <select value={filters.shipment_id}
                 onChange={(e) => { setFilters((f) => ({ ...f, shipment_id: e.target.value })); setPagination((p) => ({ ...p, page: 1 })); }}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                className="gc-input w-auto min-w-[160px]">
                 <option value="">All Shipments</option>
                 {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
               </select>
@@ -355,8 +366,8 @@ export default function Expenses() {
           <div className="gc-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr className="text-left text-gray-500">
+                <thead>
+                  <tr className="gc-thead-accent text-left text-gray-500">
                     <SortHeader field="expense_date">Date</SortHeader>
                     <SortHeader field="category_id">Category</SortHeader>
                     <SortHeader field="description">Description</SortHeader>
@@ -399,7 +410,7 @@ export default function Expenses() {
                           {shipments.map((s) => <option key={s.id} value={s.id}>{s.name} ({shipmentDateRange(s)})</option>)}
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-red-600">{fmt(exp.amount)}</td>
+                      <td className="px-4 py-3 text-right font-display-tabular font-bold text-[14.5px] text-red-600">{fmt(exp.amount)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button onClick={() => setModal(exp)} className="text-xs text-primary-600 hover:text-primary-700 font-medium">Edit</button>
@@ -410,7 +421,7 @@ export default function Expenses() {
                   ))}
                 </tbody>
               </table>
-              {expenses.length === 0 && <EmptyState title="No expenses found" description="Add expenses manually or import from bank transactions" actionLabel="Add Expense" onAction={() => setShowModal(true)} />}
+              {expenses.length === 0 && <EmptyState illustration={<ReceiptArt />} title="No expenses found" description="Track shipping costs, fuel, customs duties, and other operating expenses against shipments." actionLabel="Add Expense" onAction={() => setModal('new')} />}
             </div>
 
             {pagination.totalPages > 1 && (
@@ -606,7 +617,7 @@ export default function Expenses() {
                 <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
                   placeholder="Enter category name..."
                   onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCategory(); }}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                  className="gc-input" />
                 <div className="flex gap-3 mt-2">
                   <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                     <input type="radio" checked={!newCatFixed} onChange={() => setNewCatFixed(false)} /> Variable
@@ -634,7 +645,7 @@ export default function Expenses() {
                       <div className="flex items-center gap-2">
                         <input type="text" value={editCatName} onChange={(e) => setEditCatName(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateCategory(cat.id); if (e.key === 'Escape') setEditingCat(null); }}
-                          className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" autoFocus />
+                          className="gc-input flex-1" autoFocus />
                         <button onClick={() => handleUpdateCategory(cat.id)} className="text-xs text-green-600 font-medium">Save</button>
                         <button onClick={() => setEditingCat(null)} className="text-xs text-gray-500">Cancel</button>
                       </div>
