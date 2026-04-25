@@ -130,6 +130,20 @@ export default function VesselMap({ transitPercent = 0, shipLabel, arrived = fal
     });
     mapRef.current = map;
 
+    // Resize the canvas whenever the container changes size — fixes the
+    // common flex-layout / lazy-load gotcha where the map's first measurement
+    // is wrong because the parent hadn't laid out yet.
+    const ro = new ResizeObserver(() => {
+      try { map.resize(); } catch { /* map may already be torn down */ }
+    });
+    ro.observe(containerRef.current);
+    map._resizeObserver = ro;
+
+    // Also resize after the next animation frame for good measure.
+    requestAnimationFrame(() => {
+      try { map.resize(); } catch { /* map may already be torn down */ }
+    });
+
     map.on('load', () => {
       // Route — full great-circle Houston → Freeport → Tema
       const seg1 = greatCirclePoints(HOUSTON, FREEPORT, 32);
@@ -221,6 +235,7 @@ export default function VesselMap({ transitPercent = 0, shipLabel, arrived = fal
     });
 
     return () => {
+      try { map._resizeObserver?.disconnect(); } catch { /* noop */ }
       try { map.remove(); } catch { /* already torn down */ }
     };
     // Style only changes when dark-mode toggles — listen at module level (next effect).
@@ -280,11 +295,12 @@ export default function VesselMap({ transitPercent = 0, shipLabel, arrived = fal
   return (
     <div
       onClick={onClick}
-      className={`relative ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`${className} ${onClick ? 'cursor-pointer' : ''}`}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
+      style={{ position: className?.includes('absolute') ? undefined : 'relative' }}
     >
-      <div ref={containerRef} className="absolute inset-0 rounded-t-[16px] overflow-hidden" />
+      <div ref={containerRef} style={{ position: 'absolute', inset: 0, borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' }} />
       {/* Subtle gradient veil at top so the title bar reads cleanly */}
       <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/70 to-transparent dark:from-[#1a1a2e]/70 pointer-events-none rounded-t-[16px]" />
       {shipLabel && (
