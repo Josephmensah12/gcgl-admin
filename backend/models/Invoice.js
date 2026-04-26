@@ -156,6 +156,11 @@ module.exports = (sequelize) => {
     this.totalDiscount = round2(lineDiscountsTotal + invoiceDiscAmt);
     this.finalTotal = finalTotal;
 
+    // Re-derive paymentStatus from the new finalTotal vs current amountPaid.
+    // An edit that drops the total below paid will flip status to 'overpaid'.
+    const { recalculatePaymentStatus } = require('../utils/invoicePaymentStatus');
+    recalculatePaymentStatus(this);
+
     await this.save();
     return this;
   };

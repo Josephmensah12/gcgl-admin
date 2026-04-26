@@ -23,15 +23,10 @@ async function recalculateInvoiceTotals(invoice, transaction = null) {
   const netPaid = Math.max(0, paymentsSum - refundsSum);
   const totalAmount = parseFloat(invoice.finalTotal) || 0;
 
-  invoice.amountPaid = netPaid;
+  const { computePaymentStatus } = require('../utils/invoicePaymentStatus');
 
-  if (netPaid <= 0) {
-    invoice.paymentStatus = 'unpaid';
-  } else if (netPaid >= totalAmount) {
-    invoice.paymentStatus = 'paid';
-  } else {
-    invoice.paymentStatus = 'partial';
-  }
+  invoice.amountPaid = netPaid;
+  invoice.paymentStatus = computePaymentStatus(netPaid, totalAmount);
 
   await invoice.save(opts);
   return { paymentsSum, refundsSum, netPaid, status: invoice.paymentStatus };
