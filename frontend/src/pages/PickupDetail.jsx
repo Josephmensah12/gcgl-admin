@@ -90,18 +90,60 @@ export default function PickupDetail() {
   // where each line includes its effective pre/disc/final values.
   const computePreview = () => {
     const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-    const lines = (pickup.lineItems || []).map((li) => {
-      const draft = draftLineDiscounts[li.id];
-      const dt = draft?.discount_type ?? li.discountType ?? 'none';
-      const dv = parseFloat(draft?.discount_value ?? li.discountValue ?? 0) || 0;
-      const qty = parseInt(li.quantity) || 0;
-      const unit = parseFloat(li.basePrice) || 0;
+
+    // Existing items, with edits applied and deletes skipped
+    const baseLines = (pickup.lineItems || [])
+      .filter((li) => !draftLineDeletes.has(li.id))
+      .map((li) => {
+        const edit = draftLineEdits[li.id] || {};
+        const merged = {
+          ...li,
+          quantity: edit.quantity !== undefined ? edit.quantity : li.quantity,
+          basePrice: edit.basePrice !== undefined ? edit.basePrice : li.basePrice,
+          description: edit.description !== undefined ? edit.description : li.description,
+          dimensionsL: edit.dimensionsL !== undefined ? edit.dimensionsL : li.dimensionsL,
+          dimensionsW: edit.dimensionsW !== undefined ? edit.dimensionsW : li.dimensionsW,
+          dimensionsH: edit.dimensionsH !== undefined ? edit.dimensionsH : li.dimensionsH,
+        };
+        const draft = draftLineDiscounts[li.id];
+        const dt = draft?.discount_type ?? merged.discountType ?? 'none';
+        const dv = parseFloat(draft?.discount_value ?? merged.discountValue ?? 0) || 0;
+        const qty = parseInt(merged.quantity) || 0;
+        const unit = parseFloat(merged.basePrice) || 0;
+        const pre = round2(qty * unit);
+        let da = 0;
+        if (dt === 'percentage' && dv > 0) da = round2(pre * (dv / 100));
+        else if (dt === 'fixed' && dv > 0) da = round2(Math.min(dv, pre));
+        return { ...merged, _pre: pre, _da: da, _final: round2(pre - da), _dt: dt, _dv: dv, _isNew: false };
+      });
+
+    // Pending new items — synthesize fake line objects matching the preview shape
+    const newLines = draftLineAdds.map((it) => {
+      const qty = parseInt(it.quantity) || 0;
+      const unit = parseFloat(it.base_price) || 0;
       const pre = round2(qty * unit);
-      let da = 0;
-      if (dt === 'percentage' && dv > 0) da = round2(pre * (dv / 100));
-      else if (dt === 'fixed' && dv > 0) da = round2(Math.min(dv, pre));
-      return { ...li, _pre: pre, _da: da, _final: round2(pre - da), _dt: dt, _dv: dv };
+      return {
+        id: it._draftId,
+        type: it.type,
+        catalogName: it.catalogName,
+        description: it.description,
+        quantity: qty,
+        basePrice: unit,
+        dimensionsL: it.dimensions?.length ?? null,
+        dimensionsW: it.dimensions?.width ?? null,
+        dimensionsH: it.dimensions?.height ?? null,
+        photos: (it.photos || []).map((data, i) => ({ id: `draft-${i}`, data })),
+        _pre: pre,
+        _da: 0,
+        _final: pre,
+        _dt: 'none',
+        _dv: 0,
+        _isNew: true,
+      };
     });
+
+    const lines = [...baseLines, ...newLines];
+
     const subtotal = round2(lines.reduce((s, l) => s + l._final, 0));
     const lineDiscSum = round2(lines.reduce((s, l) => s + l._da, 0));
     const invDisc = draftInvoiceDiscount ?? { discount_type: pickup.discountType, discount_value: pickup.discountValue };
@@ -233,6 +275,11 @@ export default function PickupDetail() {
 
   if (loading) return <LoadingSpinner />;
   if (!pickup) return <p className="text-center py-12 text-gray-500">Invoice not found</p>;
+
+  // Mirrors backend assertEditable: locked iff cancelled or paid ≈ total
+  const isLocked =
+    pickup.status === 'cancelled' ||
+    Math.abs((parseFloat(pickup.amountPaid) || 0) - (parseFloat(pickup.finalTotal) || 0)) < 0.01;
 
   const preview = computePreview();
   const displaySubtotal = preview.subtotal;
@@ -499,7 +546,7 @@ export default function PickupDetail() {
                 <LineItemRow
                   key={item.id}
                   item={item}
-                  locked={pickup.paymentStatus === 'paid'}
+                  locked={isLocked}
                   onStage={(payload) => {
                     setDraftLineDiscounts((prev) => ({ ...prev, [item.id]: payload }));
                   }}
@@ -511,7 +558,7 @@ export default function PickupDetail() {
                     });
                   }}
                   hasDraft={Boolean(draftLineDiscounts[item.id])}
-                  onRemove={pickup.paymentStatus !== 'paid' ? async () => {
+                  onRemove={!isLocked ? async () => {
                     if (!confirm('Remove this item?')) return;
                     try {
                       const res = await axios.delete(`/api/v1/pickups/${id}/items/${item.id}`);
@@ -570,7 +617,7 @@ export default function PickupDetail() {
               pickup={pickup}
               preview={preview}
               draft={draftInvoiceDiscount}
-              locked={pickup.paymentStatus === 'paid'}
+              locked={isLocked}
               onStage={(payload) => setDraftInvoiceDiscount(payload)}
               onClearDraft={() => setDraftInvoiceDiscount(null)}
             />
