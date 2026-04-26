@@ -302,41 +302,110 @@ exports.getWarehouseSummary = asyncHandler(async (req, res) => {
 
 /**
  * POST /api/v1/pickups/:id/items
- * Add a service/custom item to an existing invoice.
+ * Add a line item to an existing invoice. Accepts service / catalog / custom /
+ * manual types — full parity with the creation flow.
+ *
+ * Body:
+ *   type:           'service' | 'fixed' | 'custom' | 'manual' (default 'service')
+ *   description:    string (required for service/custom/manual; optional for fixed)
+ *   quantity:       int (default 1)
+ *   base_price:     number (required unless type='fixed' with catalogItemId — then derived)
+ *   catalogItemId:  uuid (required when type='fixed')
+ *   catalogName:    string (auto-filled from catalog item if omitted)
+ *   dimensions:     { length, width, height } (required when type='custom')
+ *   photos:         array of base64 dataURLs (max 3)
  */
 exports.addLineItem = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id);
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
   assertEditable(invoice);
 
-  const { description, quantity, base_price, type } = req.body;
-  if (!description) throw new AppError('description is required', 400, 'MISSING_FIELD');
-  if (!base_price && base_price !== 0) throw new AppError('base_price is required', 400, 'MISSING_FIELD');
+  const { type = 'service', description, quantity, base_price, catalogItemId, catalogName, dimensions, photos } = req.body;
+
+  if (!['service', 'fixed', 'custom', 'manual'].includes(type)) {
+    throw new AppError("type must be one of 'service', 'fixed', 'custom', 'manual'", 400, 'INVALID_TYPE');
+  }
 
   const qty = parseInt(quantity) || 1;
-  const price = parseFloat(base_price) || 0;
-  const crypto = require('crypto');
+  if (qty < 1) throw new AppError('quantity must be >= 1', 400, 'VALIDATION_ERROR');
 
-  const item = await db.LineItem.create({
-    id: crypto.randomUUID(),
-    invoiceId: invoice.id,
-    type: type || 'service',
-    description,
-    quantity: qty,
-    basePrice: price,
-    discountType: 'none',
-    discountValue: 0,
-    preDiscountTotal: Math.round(qty * price * 100) / 100,
-    discountAmount: 0,
-    finalPrice: Math.round(qty * price * 100) / 100,
-    sortOrder: 999,
+  // Resolve price + catalog name + capacity weight + final description per type
+  let price = parseFloat(base_price) || 0;
+  let resolvedCatalogName = catalogName || null;
+  let capacityWeight = 1.0;
+  let resolvedDescription = description ? String(description).trim() : null;
+  let dimsL = null, dimsW = null, dimsH = null;
+
+  if (type === 'fixed') {
+    if (!catalogItemId) throw new AppError('catalogItemId is required for type=fixed', 400, 'MISSING_FIELD');
+    const cat = await db.CatalogItem.findByPk(catalogItemId);
+    if (!cat) throw new AppError('Catalog item not found', 404, 'NOT_FOUND');
+    if (!base_price && base_price !== 0) price = parseFloat(cat.price) || 0;
+    if (!resolvedCatalogName) resolvedCatalogName = cat.name;
+    capacityWeight = parseFloat(cat.capacityWeight) || 1.0;
+    if (!resolvedDescription) resolvedDescription = cat.description || null;
+  } else if (type === 'custom') {
+    if (!dimensions || !dimensions.length || !dimensions.width || !dimensions.height) {
+      throw new AppError('dimensions { length, width, height } required for type=custom', 400, 'MISSING_FIELD');
+    }
+    dimsL = parseFloat(dimensions.length);
+    dimsW = parseFloat(dimensions.width);
+    dimsH = parseFloat(dimensions.height);
+    if (!(dimsL > 0 && dimsW > 0 && dimsH > 0)) {
+      throw new AppError('dimensions must be positive numbers', 400, 'VALIDATION_ERROR');
+    }
+    // Frontend sends the computed price; trust it but require it > 0
+    if (!(price > 0)) throw new AppError('base_price required for custom item', 400, 'MISSING_FIELD');
+    if (!resolvedDescription) resolvedDescription = `${dimsL}×${dimsW}×${dimsH}"`;
+  } else {
+    // service or manual: description + price required
+    if (!resolvedDescription) throw new AppError('description is required', 400, 'MISSING_FIELD');
+    if (!(price > 0)) throw new AppError('base_price must be > 0', 400, 'MISSING_FIELD');
+  }
+
+  const crypto = require('crypto');
+  const result = await db.sequelize.transaction(async (t) => {
+    const item = await db.LineItem.create({
+      id: crypto.randomUUID(),
+      invoiceId: invoice.id,
+      type,
+      catalogItemId: type === 'fixed' ? catalogItemId : null,
+      catalogName: resolvedCatalogName,
+      description: resolvedDescription,
+      quantity: qty,
+      basePrice: price,
+      discountType: 'none',
+      discountValue: 0,
+      preDiscountTotal: Math.round(qty * price * 100) / 100,
+      discountAmount: 0,
+      finalPrice: Math.round(qty * price * 100) / 100,
+      dimensionsL: dimsL,
+      dimensionsW: dimsW,
+      dimensionsH: dimsH,
+      capacityWeight,
+      sortOrder: 999,
+    }, { transaction: t });
+
+    if (Array.isArray(photos) && photos.length > 0) {
+      const trimmed = photos.slice(0, 3);
+      await db.Photo.bulkCreate(
+        trimmed.map((data, i) => ({ lineItemId: item.id, data, sortOrder: i })),
+        { transaction: t }
+      );
+    }
+
+    return item;
   });
 
-  await invoice.update({ addedItemCount: (invoice.addedItemCount || 0) + 1 });
-  await invoice.recalculateTotals();
+  invoice.addedItemCount = (invoice.addedItemCount || 0) + 1;
+  invoice.lastEditedAt = new Date();
+  await invoice.recalculateTotals(); // implicitly saves the dirty fields above
 
   const fresh = await db.Invoice.findByPk(invoice.id, {
-    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+    include: [
+      { model: db.LineItem, as: 'lineItems', include: [{ model: db.Photo, as: 'photos', attributes: ['id', 'data', 'sortOrder'] }] },
+      { model: db.Shipment },
+    ],
   });
   res.status(201).json({ success: true, data: fresh });
 });
