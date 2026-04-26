@@ -6,8 +6,7 @@ import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
 import toast from 'react-hot-toast';
-
-const CUBIC_RATE = 0.0105;
+import LineItemPicker from '../components/LineItemPicker';
 
 export default function CreateInvoice() {
   const { onMenuClick } = useLayout();
@@ -28,12 +27,7 @@ export default function CreateInvoice() {
   const [newRecipient, setNewRecipient] = useState({ firstName: '', lastName: '', phone: '', city: '', country: 'Ghana', address: '' });
 
   // Items
-  const [catalog, setCatalog] = useState([]);
   const [lineItems, setLineItems] = useState([]);
-  const [itemType, setItemType] = useState('fixed');
-  const [customForm, setCustomForm] = useState({ length: '', width: '', height: '', quantity: '1', description: '' });
-  const [manualForm, setManualForm] = useState({ description: '', price: '', quantity: '1' });
-  const [catFilter, setCatFilter] = useState('');
 
   // Shipment
   const [shipments, setShipments] = useState([]);
@@ -47,9 +41,8 @@ export default function CreateInvoice() {
     setTimeout(() => setToast(''), 2000);
   };
 
-  // Load catalog and shipments
+  // Load shipments
   useEffect(() => {
-    axios.get('/api/v1/create-invoice/catalog').then((res) => setCatalog(res.data.data)).catch(() => {});
     axios.get('/api/v1/shipments/active').then((res) => {
       setShipments(res.data.data);
       // Auto-select only if there's exactly one collecting shipment
@@ -115,82 +108,6 @@ export default function CreateInvoice() {
     }
   };
 
-  // Item logic
-  const addCatalogItem = (catItem) => {
-    const existing = lineItems.findIndex((li) => li.catalogItemId === catItem.id);
-    let newTotal;
-    if (existing !== -1) {
-      newTotal = lineItems[existing].quantity + 1;
-      setLineItems((prev) => prev.map((li, i) => i === existing ? { ...li, quantity: newTotal } : li));
-    } else {
-      newTotal = 1;
-      setLineItems((prev) => [...prev, {
-        id: crypto.randomUUID(), type: 'fixed', catalogItemId: catItem.id,
-        catalogName: catItem.name, quantity: 1, basePrice: parseFloat(catItem.price),
-        finalPrice: parseFloat(catItem.price), description: catItem.description, photos: [],
-      }]);
-    }
-    showToast(`${catItem.name} added (${newTotal} total)`);
-  };
-
-  const addCustomItem = () => {
-    const l = parseFloat(customForm.length) || 0;
-    const w = parseFloat(customForm.width) || 0;
-    const h = parseFloat(customForm.height) || 0;
-    const qty = parseInt(customForm.quantity) || 1;
-    if (l <= 0 || w <= 0 || h <= 0) return;
-    const price = Math.round(l * w * h * CUBIC_RATE * 100) / 100;
-    setLineItems((prev) => [...prev, {
-      id: crypto.randomUUID(), type: 'custom', quantity: qty,
-      basePrice: price, finalPrice: price,
-      dimensions: { length: l, width: w, height: h },
-      description: customForm.description || `${l}×${w}×${h}"`, photos: [],
-    }]);
-    showToast('Custom item added');
-    setCustomForm({ length: '', width: '', height: '', quantity: '1', description: '' });
-  };
-
-  const addManualItem = () => {
-    const price = parseFloat(manualForm.price) || 0;
-    const qty = parseInt(manualForm.quantity) || 1;
-    if (price <= 0 || !manualForm.description.trim()) return;
-    setLineItems((prev) => [...prev, {
-      id: crypto.randomUUID(), type: 'manual', quantity: qty,
-      basePrice: price, finalPrice: price,
-      description: manualForm.description.trim(), photos: [],
-    }]);
-    showToast('Item added');
-    setManualForm({ description: '', price: '', quantity: '1' });
-  };
-
-  const addPhotoToItem = (itemId, file) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      // Compress via canvas
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxW = 600;
-        const scale = Math.min(1, maxW / img.width);
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        const compressed = canvas.toDataURL('image/jpeg', 0.7);
-        setLineItems((prev) => prev.map((li) =>
-          li.id === itemId ? { ...li, photos: [...(li.photos || []), compressed].slice(0, 3) } : li
-        ));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removePhoto = (itemId, photoIndex) => {
-    setLineItems((prev) => prev.map((li) =>
-      li.id === itemId ? { ...li, photos: li.photos.filter((_, i) => i !== photoIndex) } : li
-    ));
-  };
-
   const updateQty = (id, qty) => {
     const q = Math.max(1, parseInt(qty) || 1);
     setLineItems((prev) => prev.map((li) => li.id === id ? { ...li, quantity: q } : li));
@@ -237,7 +154,6 @@ export default function CreateInvoice() {
   };
 
   const fmt = (n) => `$${(n || 0).toFixed(2)}`;
-  const categories = [...new Set(catalog.map((c) => c.category))];
 
   return (
     <>
@@ -380,144 +296,32 @@ export default function CreateInvoice() {
         <div className="space-y-4">
           <div className="gc-card p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Add Items</h2>
-
-            {/* Type toggle */}
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4">
-              <button onClick={() => setItemType('fixed')}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${itemType === 'fixed' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
-                Catalog
-              </button>
-              <button onClick={() => setItemType('custom')}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${itemType === 'custom' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
-                Dimensions
-              </button>
-              <button onClick={() => setItemType('manual')}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium ${itemType === 'manual' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>
-                Manual Price
-              </button>
-            </div>
-
-            {itemType === 'fixed' && (
-              <>
-                {/* Category filter */}
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-3">
-                  <button onClick={() => setCatFilter('')}
-                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${!catFilter ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                    All
-                  </button>
-                  {categories.map((c) => (
-                    <button key={c} onClick={() => setCatFilter(c)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${catFilter === c ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                      {c}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Catalog grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {catalog.filter((c) => !catFilter || c.category === catFilter).map((item) => (
-                    <button key={item.id} onClick={() => addCatalogItem(item)}
-                      className="text-left rounded-lg border border-gray-200 hover:border-primary-400 hover:bg-primary-50 transition-colors overflow-hidden">
-                      {item.image ? (
-                        <div className="w-full h-24 bg-gray-100">
-                          <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />
-                        </div>
-                      ) : (
-                        <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-300">
-                          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className="p-2">
-                        <p className="font-medium text-sm text-gray-900 leading-tight">{item.name}</p>
-                        <p className="text-xs text-gray-500">{item.category}</p>
-                        <p className="font-bold text-green-600 mt-0.5">{fmt(parseFloat(item.price))}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {itemType === 'custom' && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Length (in)</label>
-                    <input type="number" value={customForm.length} onChange={(e) => setCustomForm((p) => ({ ...p, length: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Width (in)</label>
-                    <input type="number" value={customForm.width} onChange={(e) => setCustomForm((p) => ({ ...p, width: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Height (in)</label>
-                    <input type="number" value={customForm.height} onChange={(e) => setCustomForm((p) => ({ ...p, height: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Quantity</label>
-                    <input type="number" min="1" value={customForm.quantity} onChange={(e) => setCustomForm((p) => ({ ...p, quantity: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Description (optional)</label>
-                    <input type="text" value={customForm.description} onChange={(e) => setCustomForm((p) => ({ ...p, description: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                </div>
-                {customForm.length && customForm.width && customForm.height && (
-                  <p className="text-sm text-gray-600">
-                    Price: <span className="font-bold text-green-600">{fmt((parseFloat(customForm.length) || 0) * (parseFloat(customForm.width) || 0) * (parseFloat(customForm.height) || 0) * CUBIC_RATE)}</span> per unit
-                  </p>
-                )}
-                <button onClick={addCustomItem}
-                  className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">
-                  + Add Custom Item
-                </button>
-              </div>
-            )}
-
-            {itemType === 'manual' && (
-              <div className="space-y-3">
-                <p className="text-sm text-gray-500">For items that don't fit a catalog or standard dimensions — describe it and set your price.</p>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Description</label>
-                  <input type="text" placeholder="e.g. Oversized barrel, Assorted goods" value={manualForm.description}
-                    onChange={(e) => setManualForm((p) => ({ ...p, description: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Price ($)</label>
-                    <input type="number" min="0" step="0.01" placeholder="0.00" value={manualForm.price}
-                      onChange={(e) => setManualForm((p) => ({ ...p, price: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Quantity</label>
-                    <input type="number" min="1" value={manualForm.quantity}
-                      onChange={(e) => setManualForm((p) => ({ ...p, quantity: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm" />
-                  </div>
-                </div>
-                {manualForm.price && (
-                  <p className="text-sm text-gray-600">
-                    Total: <span className="font-bold text-green-600">{fmt((parseFloat(manualForm.price) || 0) * (parseInt(manualForm.quantity) || 1))}</span>
-                  </p>
-                )}
-                <button onClick={addManualItem}
-                  disabled={!manualForm.description.trim() || !(parseFloat(manualForm.price) > 0)}
-                  className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                  + Add Item
-                </button>
-              </div>
-            )}
+            <LineItemPicker
+              onAdd={(item) => {
+                // Match the existing local lineItems shape used by handleSubmit
+                const local = {
+                  id: crypto.randomUUID(),
+                  type: item.type,
+                  catalogItemId: item.catalogItemId || null,
+                  catalogName: item.catalogName || null,
+                  description: item.description || '',
+                  quantity: item.quantity,
+                  basePrice: item.base_price,
+                  finalPrice: item.base_price,
+                  dimensions: item.dimensions || null,
+                  photos: item.photos || [],
+                };
+                // Catalog items merge by catalogItemId (matches old addCatalogItem behavior)
+                if (local.catalogItemId) {
+                  const idx = lineItems.findIndex((li) => li.catalogItemId === local.catalogItemId);
+                  if (idx !== -1) {
+                    setLineItems((prev) => prev.map((li, i) => i === idx ? { ...li, quantity: li.quantity + 1 } : li));
+                    return;
+                  }
+                }
+                setLineItems((prev) => [...prev, local]);
+              }}
+            />
           </div>
 
           {/* Added items */}
@@ -546,26 +350,6 @@ export default function CreateInvoice() {
                       value={li.notes || ''}
                       onChange={(e) => setLineItems((prev) => prev.map((item) => item.id === li.id ? { ...item, notes: e.target.value } : item))}
                       className="w-full mt-2 px-2.5 py-1.5 border border-gray-200 rounded-md text-xs text-gray-600 placeholder-gray-400 focus:ring-1 focus:ring-primary-400 outline-none" />
-                    {/* Photos */}
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {(li.photos || []).map((photo, pi) => (
-                        <div key={pi} className="relative w-14 h-14">
-                          <img src={photo} alt="" className="w-14 h-14 rounded-md object-cover border border-gray-200" />
-                          <button onClick={() => removePhoto(li.id, pi)}
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none">x</button>
-                        </div>
-                      ))}
-                      {(li.photos || []).length < 3 && (
-                        <label className="w-14 h-14 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary-400 text-gray-400 hover:text-primary-500">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <input type="file" accept="image/*" className="hidden"
-                            onChange={(e) => { if (e.target.files[0]) addPhotoToItem(li.id, e.target.files[0]); e.target.value = ''; }} />
-                        </label>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
