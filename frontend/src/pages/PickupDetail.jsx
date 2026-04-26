@@ -6,6 +6,7 @@ import TransactionModal from '../components/TransactionModal';
 import PageHeader from '../components/layout/PageHeader';
 import { useLayout } from '../components/layout/Layout';
 import { shipmentDateRange } from '../utils/shipmentLabel.jsx';
+import LineItemPicker from '../components/LineItemPicker';
 import toast from 'react-hot-toast';
 
 export default function PickupDetail() {
@@ -57,6 +58,17 @@ export default function PickupDetail() {
     setDraftLineEdits({});
     setDraftLineDeletes(new Set());
     setDraftLineAdds([]);
+  };
+
+  const stageNewItem = (item) => {
+    setDraftLineAdds((prev) => [
+      ...prev,
+      { ...item, _draftId: `draft-add-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` },
+    ]);
+  };
+
+  const removePendingAdd = (draftId) => {
+    setDraftLineAdds((prev) => prev.filter((it) => it._draftId !== draftId));
   };
 
   const saveDrafts = async () => {
@@ -547,7 +559,10 @@ export default function PickupDetail() {
                   key={item.id}
                   item={item}
                   locked={isLocked}
+                  isNew={item._isNew}
+                  onCancelPending={item._isNew ? () => removePendingAdd(item.id) : null}
                   onStage={(payload) => {
+                    if (item._isNew) return; // can't add discounts to a not-yet-saved line
                     setDraftLineDiscounts((prev) => ({ ...prev, [item.id]: payload }));
                   }}
                   onClearDraft={() => {
@@ -558,31 +573,19 @@ export default function PickupDetail() {
                     });
                   }}
                   hasDraft={Boolean(draftLineDiscounts[item.id])}
-                  onRemove={!isLocked ? async () => {
-                    if (!confirm('Remove this item?')) return;
-                    try {
-                      const res = await axios.delete(`/api/v1/pickups/${id}/items/${item.id}`);
-                      setPickup((prev) => ({ ...prev, ...res.data.data }));
-                    } catch (err) {
-                      toast.error(err.response?.data?.error?.message || 'Failed to remove');
-                    }
+                  onRemove={!isLocked && !item._isNew ? () => {
+                    setDraftLineDeletes((prev) => {
+                      const next = new Set(prev);
+                      next.add(item.id);
+                      return next;
+                    });
                   } : null}
                 />
               ))}
             </div>
 
-            {/* Add service item */}
-            <AddServiceItem
-              locked={pickup.paymentStatus === 'paid'}
-              onAdd={async (payload) => {
-                try {
-                  const res = await axios.post(`/api/v1/pickups/${id}/items`, payload);
-                  setPickup((prev) => ({ ...prev, ...res.data.data }));
-                } catch (err) {
-                  toast.error(err.response?.data?.error?.message || 'Failed to add item');
-                }
-              }}
-            />
+            {/* Add item (catalog, dimensions, or manual) */}
+            <AddItemDisclosure locked={isLocked} onAdd={stageNewItem} />
 
             {/* Totals (live preview from drafts) */}
             <div className="border-t border-gray-200 mt-4 pt-4 space-y-1">
@@ -926,31 +929,9 @@ function SquarePayButton({ invoiceId, balanceDue }) {
 /*  Line item row with inline discount editor                  */
 /* ─────────────────────────────────────────────────────────── */
 
-function AddServiceItem({ locked, onAdd }) {
+function AddItemDisclosure({ locked, onAdd }) {
   const [open, setOpen] = useState(false);
-  const [desc, setDesc] = useState('');
-  const [qty, setQty] = useState('1');
-  const [price, setPrice] = useState('');
-  const [saving, setSaving] = useState(false);
-
   if (locked) return null;
-
-  const submit = async () => {
-    if (!desc.trim() || !price) return;
-    setSaving(true);
-    await onAdd({
-      description: desc.trim(),
-      quantity: parseInt(qty) || 1,
-      base_price: parseFloat(price) || 0,
-      type: 'service',
-    });
-    setSaving(false);
-    setOpen(false);
-    setDesc('');
-    setQty('1');
-    setPrice('');
-  };
-
   if (!open) {
     return (
       <button
@@ -961,69 +942,28 @@ function AddServiceItem({ locked, onAdd }) {
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
         </svg>
-        Add service item (packing, handling, etc.)
+        Add item (catalog, dimensions, or manual)
       </button>
     );
   }
-
   return (
     <div className="mt-3 p-4 rounded-[10px] bg-[#F4F6FA] border border-black/[0.04]">
-      <h4 className="text-[13px] font-bold text-[#1A1D2B] mb-3">Add Service Item</h4>
-      <div className="flex flex-wrap gap-2 items-end">
-        <div className="flex-1 min-w-[160px]">
-          <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Description</label>
-          <input
-            type="text"
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            placeholder="e.g. Packing service, Handling fee"
-            className="gc-input"
-            autoFocus
-          />
-        </div>
-        <div className="w-20">
-          <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Qty</label>
-          <input
-            type="number"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            min="1"
-            className="gc-input text-center"
-          />
-        </div>
-        <div className="w-28">
-          <label className="block text-[10.5px] font-semibold text-[#9CA3C0] uppercase tracking-wide mb-1">Price ($)</label>
-          <input
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            className="gc-input"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={saving || !desc.trim() || !price}
-          className="h-10 px-4 rounded-[10px] bg-[#6366F1] text-white text-[13px] font-semibold hover:bg-[#4F46E5] disabled:opacity-50"
-        >
-          {saving ? 'Adding...' : 'Add'}
-        </button>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-[13px] font-bold text-[#1A1D2B]">Add Item</h4>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="h-10 px-3 rounded-[10px] text-[#9CA3C0] text-[13px] font-medium hover:text-[#1A1D2B]"
+          className="h-7 px-2 rounded-md text-[#9CA3C0] text-[12px] hover:text-[#1A1D2B]"
         >
-          Cancel
+          Close
         </button>
       </div>
+      <LineItemPicker onAdd={onAdd} />
     </div>
   );
 }
 
-function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove }) {
+function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove, isNew, onCancelPending }) {
   // `item` here is the preview-augmented line from computePreview(),
   // so it carries _pre/_da/_final/_dt/_dv — these reflect the current
   // draft if any, otherwise the persisted values.
@@ -1090,7 +1030,20 @@ function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove }
         </div>
       </div>
 
-      {!editing ? (
+      {isNew ? (
+        <div className="mt-2 flex items-center gap-3">
+          <span className="text-[10px] font-semibold text-[#10B981] uppercase tracking-wide">· new (unsaved)</span>
+          {onCancelPending && (
+            <button
+              type="button"
+              onClick={onCancelPending}
+              className="text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]"
+            >
+              Cancel add
+            </button>
+          )}
+        </div>
+      ) : !editing ? (
         <div className="mt-2 flex items-center gap-3">
           <button
             type="button"
