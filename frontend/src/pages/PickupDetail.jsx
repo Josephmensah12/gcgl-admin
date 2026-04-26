@@ -562,6 +562,7 @@ export default function PickupDetail() {
                 )}
                 <span className={`px-3 py-1 rounded-full text-xs font-medium
                   ${pickup.status === 'cancelled' ? 'bg-red-100 text-red-700'
+                    : pickup.paymentStatus === 'overpaid' ? 'bg-red-100 text-red-700'
                     : pickup.paymentStatus === 'paid' ? 'bg-green-100 text-green-700'
                     : pickup.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-700'
                     : 'bg-amber-100 text-amber-700'}`}>
@@ -669,6 +670,12 @@ export default function PickupDetail() {
                 className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-xl text-sm font-semibold hover:bg-orange-700 transition-colors">
                 Record Refund
               </button>
+            )}
+            {pickup.paymentStatus === 'overpaid' && (
+              <div className="w-full px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+                <strong>Overpaid by ${(parseFloat(pickup.amountPaid) - parseFloat(pickup.finalTotal)).toFixed(2)}.</strong>{' '}
+                Issue a refund to bring this invoice back to a clean state.
+              </div>
             )}
           </div>
 
