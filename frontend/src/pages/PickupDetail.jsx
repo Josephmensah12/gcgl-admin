@@ -95,26 +95,93 @@ export default function PickupDetail() {
   };
 
   const saveDrafts = async () => {
+    // Overpayment guard: if predicted final total drops below current amountPaid,
+    // require explicit confirmation before saving.
+    const preview = computePreview();
+    const predictedFinal = preview.finalTotal;
+    const paid = parseFloat(pickup.amountPaid) || 0;
+    if (predictedFinal < paid - 0.01) {
+      const overpayBy = paid - predictedFinal;
+      const ok = window.confirm(
+        `This will lower the total to $${predictedFinal.toFixed(2)}, which is ` +
+        `$${overpayBy.toFixed(2)} less than the $${paid.toFixed(2)} already paid. ` +
+        `The invoice will be marked OVERPAID until you record a refund. Continue?`
+      );
+      if (!ok) return;
+    }
+
     setSavingDrafts(true);
     try {
-      // Apply line-item drafts first, then invoice-level. Each response
-      // updates pickup, so the final call leaves us with the freshest state.
       let lastPickup = null;
+
+      // 1. Apply line edits
+      for (const [lineId, delta] of Object.entries(draftLineEdits)) {
+        const payload = {};
+        if (delta.quantity !== undefined) payload.quantity = delta.quantity;
+        if (delta.basePrice !== undefined) payload.base_price = delta.basePrice;
+        if (delta.description !== undefined) payload.description = delta.description;
+        if (delta.dimensionsL !== undefined || delta.dimensionsW !== undefined || delta.dimensionsH !== undefined) {
+          payload.dimensions = {
+            length: delta.dimensionsL,
+            width: delta.dimensionsW,
+            height: delta.dimensionsH,
+          };
+        }
+        const res = await axios.patch(`/api/v1/pickups/${id}/items/${lineId}`, payload);
+        lastPickup = res.data.data;
+      }
+
+      // 2. Apply line deletes
+      for (const lineId of draftLineDeletes) {
+        const res = await axios.delete(`/api/v1/pickups/${id}/items/${lineId}`);
+        lastPickup = res.data.data;
+      }
+
+      // 3. Apply line adds
+      for (const item of draftLineAdds) {
+        const payload = {
+          type: item.type,
+          description: item.description,
+          quantity: item.quantity,
+          base_price: item.base_price,
+          catalogItemId: item.catalogItemId,
+          catalogName: item.catalogName,
+          dimensions: item.dimensions,
+          photos: item.photos,
+        };
+        const res = await axios.post(`/api/v1/pickups/${id}/items`, payload);
+        lastPickup = res.data.data;
+      }
+
+      // 4. Apply line-item discount drafts
       for (const [liId, payload] of Object.entries(draftLineDiscounts)) {
         const res = await axios.patch(`/api/v1/pickups/${id}/items/${liId}/discount`, payload);
         lastPickup = res.data.data;
       }
+
+      // 5. Apply invoice-level discount draft
       if (draftInvoiceDiscount) {
         const res = await axios.patch(`/api/v1/pickups/${id}/discount`, draftInvoiceDiscount);
         lastPickup = res.data.data;
       }
-      if (lastPickup) setPickup((prev) => ({ ...prev, ...lastPickup }));
+
+      if (lastPickup) setPickup(lastPickup);
       discardDrafts();
     } catch (err) {
       console.error('Save drafts error:', err);
       const status = err.response?.status;
+      const code = err.response?.data?.error?.code;
       const msg = err.response?.data?.error?.message || err.message || 'Unknown error';
-      toast.success(`Failed to save changes (HTTP ${status || 'net-err'}): ${msg}`);
+      if (code === 'INVOICE_LOCKED') {
+        toast.error('Invoice was paid in full while you were editing. Refresh to see latest state.');
+      } else if (code === 'INVOICE_CANCELLED') {
+        toast.error('Invoice was cancelled while you were editing. Reloading...');
+        await loadPickup();
+      } else if (code === 'EMPTY_INVOICE') {
+        toast.error('An invoice must keep at least one item. To remove all items, cancel the invoice instead.');
+      } else {
+        toast.error(`Failed to save changes (HTTP ${status || 'net-err'}): ${msg}`);
+      }
     } finally {
       setSavingDrafts(false);
     }
