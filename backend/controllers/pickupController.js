@@ -521,11 +521,26 @@ exports.removeLineItem = asyncHandler(async (req, res) => {
   });
   if (!item) throw new AppError('Line item not found', 404, 'NOT_FOUND');
 
+  // Block removal of the last item — force users through the cancel flow
+  // when they want to fully empty an invoice.
+  const remaining = await db.LineItem.count({ where: { invoiceId: invoice.id } });
+  if (remaining <= 1) {
+    throw new AppError(
+      'An invoice must keep at least one item. To remove all items, cancel the invoice instead.',
+      400,
+      'EMPTY_INVOICE'
+    );
+  }
+
   await item.destroy();
-  await invoice.recalculateTotals();
+  invoice.lastEditedAt = new Date();
+  await invoice.recalculateTotals(); // implicitly saves lastEditedAt
 
   const fresh = await db.Invoice.findByPk(invoice.id, {
-    include: [{ model: db.LineItem, as: 'lineItems' }, { model: db.Shipment }],
+    include: [
+      { model: db.LineItem, as: 'lineItems', include: [{ model: db.Photo, as: 'photos', attributes: ['id', 'data', 'sortOrder'] }] },
+      { model: db.Shipment },
+    ],
   });
   res.json({ success: true, data: fresh });
 });
