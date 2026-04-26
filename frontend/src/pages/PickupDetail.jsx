@@ -879,6 +879,9 @@ export default function PickupDetail() {
             <h3 className="font-semibold text-gray-900 mb-3">Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-gray-500">Date</span><span>{new Date(pickup.createdAt).toLocaleDateString()}</span></div>
+              {pickup.lastEditedAt && new Date(pickup.lastEditedAt) > new Date(pickup.createdAt) && (
+                <div className="flex justify-between"><span className="text-gray-500">Last edited</span><span>{new Date(pickup.lastEditedAt).toLocaleDateString()}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-gray-500">Items</span><span>{pickup.originalItemCount}{pickup.addedItemCount > 0 ? `+${pickup.addedItemCount}` : ''}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Last Method</span><span>{pickup.paymentMethod || 'N/A'}</span></div>
             </div>
