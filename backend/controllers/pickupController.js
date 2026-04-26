@@ -4,6 +4,7 @@ const db = require('../models');
 const { AppError } = require('../middleware/errorHandler');
 const { sendInvoiceEmail, isConfigured: isEmailConfigured } = require('../services/emailService');
 const { createPaymentLink, isConfigured: isSquareConfigured, verifyWebhookSignature } = require('../services/squareService');
+const { assertEditable } = require('../utils/invoiceLock');
 
 exports.list = asyncHandler(async (req, res) => {
   const {
@@ -306,6 +307,7 @@ exports.getWarehouseSummary = asyncHandler(async (req, res) => {
 exports.addLineItem = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id);
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+  assertEditable(invoice);
 
   const { description, quantity, base_price, type } = req.body;
   if (!description) throw new AppError('description is required', 400, 'MISSING_FIELD');
@@ -384,6 +386,7 @@ exports.cancelInvoice = asyncHandler(async (req, res) => {
 exports.removeLineItem = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id);
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+  assertEditable(invoice);
 
   const item = await db.LineItem.findOne({
     where: { id: req.params.itemId, invoiceId: invoice.id },
@@ -407,6 +410,7 @@ exports.removeLineItem = asyncHandler(async (req, res) => {
 exports.updateInvoiceDiscount = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id);
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+  assertEditable(invoice);
 
   const discountType = req.body.discount_type ?? req.body.discountType ?? invoice.discountType;
   let discountValue = req.body.discount_value ?? req.body.discountValue;
@@ -442,6 +446,7 @@ exports.updateInvoiceDiscount = asyncHandler(async (req, res) => {
 exports.updateLineItemDiscount = asyncHandler(async (req, res) => {
   const invoice = await db.Invoice.findByPk(req.params.id);
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+  assertEditable(invoice);
 
   const item = await db.LineItem.findOne({
     where: { id: req.params.itemId, invoiceId: invoice.id },
