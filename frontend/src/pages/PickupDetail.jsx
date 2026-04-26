@@ -71,6 +71,29 @@ export default function PickupDetail() {
     setDraftLineAdds((prev) => prev.filter((it) => it._draftId !== draftId));
   };
 
+  const stageLineEdit = (lineId, fieldDelta) => {
+    setDraftLineEdits((prev) => {
+      const merged = { ...(prev[lineId] || {}), ...fieldDelta };
+      return { ...prev, [lineId]: merged };
+    });
+  };
+
+  const clearLineEdit = (lineId) => {
+    setDraftLineEdits((prev) => {
+      const next = { ...prev };
+      delete next[lineId];
+      return next;
+    });
+  };
+
+  const undoDelete = (lineId) => {
+    setDraftLineDeletes((prev) => {
+      const next = new Set(prev);
+      next.delete(lineId);
+      return next;
+    });
+  };
+
   const saveDrafts = async () => {
     setSavingDrafts(true);
     try {
@@ -103,9 +126,8 @@ export default function PickupDetail() {
   const computePreview = () => {
     const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-    // Existing items, with edits applied and deletes skipped
+    // Existing items, with edits applied; pending-deletes are kept but flagged
     const baseLines = (pickup.lineItems || [])
-      .filter((li) => !draftLineDeletes.has(li.id))
       .map((li) => {
         const edit = draftLineEdits[li.id] || {};
         const merged = {
@@ -126,7 +148,7 @@ export default function PickupDetail() {
         let da = 0;
         if (dt === 'percentage' && dv > 0) da = round2(pre * (dv / 100));
         else if (dt === 'fixed' && dv > 0) da = round2(Math.min(dv, pre));
-        return { ...merged, _pre: pre, _da: da, _final: round2(pre - da), _dt: dt, _dv: dv, _isNew: false };
+        return { ...merged, _pre: pre, _da: da, _final: round2(pre - da), _dt: dt, _dv: dv, _isNew: false, _isPendingDelete: draftLineDeletes.has(li.id) };
       });
 
     // Pending new items — synthesize fake line objects matching the preview shape
@@ -156,8 +178,8 @@ export default function PickupDetail() {
 
     const lines = [...baseLines, ...newLines];
 
-    const subtotal = round2(lines.reduce((s, l) => s + l._final, 0));
-    const lineDiscSum = round2(lines.reduce((s, l) => s + l._da, 0));
+    const subtotal = round2(lines.reduce((s, l) => s + (l._isPendingDelete ? 0 : l._final), 0));
+    const lineDiscSum = round2(lines.reduce((s, l) => s + (l._isPendingDelete ? 0 : l._da), 0));
     const invDisc = draftInvoiceDiscount ?? { discount_type: pickup.discountType, discount_value: pickup.discountValue };
     const idt = invDisc?.discount_type || 'none';
     const idv = parseFloat(invDisc?.discount_value || 0) || 0;
@@ -560,7 +582,12 @@ export default function PickupDetail() {
                   item={item}
                   locked={isLocked}
                   isNew={item._isNew}
+                  isPendingDelete={item._isPendingDelete}
+                  onUndoDelete={item._isPendingDelete ? () => undoDelete(item.id) : null}
                   onCancelPending={item._isNew ? () => removePendingAdd(item.id) : null}
+                  onStageEdit={(delta) => stageLineEdit(item.id, delta)}
+                  hasEditDraft={Boolean(draftLineEdits[item.id])}
+                  onClearEdit={() => clearLineEdit(item.id)}
                   onStage={(payload) => {
                     if (item._isNew) return; // can't add discounts to a not-yet-saved line
                     setDraftLineDiscounts((prev) => ({ ...prev, [item.id]: payload }));
@@ -573,7 +600,7 @@ export default function PickupDetail() {
                     });
                   }}
                   hasDraft={Boolean(draftLineDiscounts[item.id])}
-                  onRemove={!isLocked && !item._isNew ? () => {
+                  onRemove={!isLocked && !item._isNew && !item._isPendingDelete ? () => {
                     setDraftLineDeletes((prev) => {
                       const next = new Set(prev);
                       next.add(item.id);
@@ -963,55 +990,98 @@ function AddItemDisclosure({ locked, onAdd }) {
   );
 }
 
-function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove, isNew, onCancelPending }) {
-  // `item` here is the preview-augmented line from computePreview(),
-  // so it carries _pre/_da/_final/_dt/_dv — these reflect the current
-  // draft if any, otherwise the persisted values.
-  const [editing, setEditing] = useState(false);
+function LineItemRow({
+  item, onStage, onClearDraft, locked, hasDraft, onRemove,
+  isNew, onCancelPending,
+  isPendingDelete, onUndoDelete,
+  onStageEdit, hasEditDraft, onClearEdit,
+}) {
+  const [discEditing, setDiscEditing] = useState(false);
+  const [fieldEditing, setFieldEditing] = useState(false);
   const [type, setType] = useState(item._dt || 'none');
   const [value, setValue] = useState(item._dv != null ? String(item._dv) : '0');
 
-  // Keep local editor state in sync when the underlying item changes
-  // (e.g., drafts cleared by the parent Discard button)
+  // Inline-edit local state for qty / price / description / dimensions
+  const [editQty, setEditQty] = useState(String(item.quantity ?? 1));
+  const [editPrice, setEditPrice] = useState(String(item.basePrice ?? 0));
+  const [editDesc, setEditDesc] = useState(item.description ?? '');
+  const [editDimL, setEditDimL] = useState(item.dimensionsL != null ? String(item.dimensionsL) : '');
+  const [editDimW, setEditDimW] = useState(item.dimensionsW != null ? String(item.dimensionsW) : '');
+  const [editDimH, setEditDimH] = useState(item.dimensionsH != null ? String(item.dimensionsH) : '');
+
   useEffect(() => {
     setType(item._dt || 'none');
     setValue(item._dv != null ? String(item._dv) : '0');
   }, [item._dt, item._dv]);
+
+  useEffect(() => {
+    setEditQty(String(item.quantity ?? 1));
+    setEditPrice(String(item.basePrice ?? 0));
+    setEditDesc(item.description ?? '');
+    setEditDimL(item.dimensionsL != null ? String(item.dimensionsL) : '');
+    setEditDimW(item.dimensionsW != null ? String(item.dimensionsW) : '');
+    setEditDimH(item.dimensionsH != null ? String(item.dimensionsH) : '');
+  }, [item.quantity, item.basePrice, item.description, item.dimensionsL, item.dimensionsW, item.dimensionsH]);
 
   const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
   const preDiscount = item._pre || 0;
   const discountAmt = item._da || 0;
   const finalPrice = item._final || 0;
   const hasDiscount = discountAmt > 0.01;
+  const isCustom = item.type === 'custom';
 
-  const stage = () => {
+  const stageDisc = () => {
     onStage({ discount_type: type, discount_value: parseFloat(value) || 0 });
-    setEditing(false);
+    setDiscEditing(false);
   };
 
-  const clear = () => {
+  const clearDisc = () => {
     setType('none');
     setValue('0');
     onStage({ discount_type: 'none', discount_value: 0 });
-    setEditing(false);
+    setDiscEditing(false);
   };
 
-  const revert = () => {
+  const revertDisc = () => {
     onClearDraft();
-    setEditing(false);
+    setDiscEditing(false);
+  };
+
+  const applyFieldEdit = () => {
+    const delta = {};
+    const qtyN = parseInt(editQty);
+    const priceN = parseFloat(editPrice);
+    if (qtyN >= 1 && qtyN !== item.quantity) delta.quantity = qtyN;
+    if (priceN >= 0 && priceN !== parseFloat(item.basePrice)) delta.basePrice = priceN;
+    if (editDesc !== (item.description ?? '')) delta.description = editDesc;
+    if (isCustom) {
+      const lN = parseFloat(editDimL);
+      const wN = parseFloat(editDimW);
+      const hN = parseFloat(editDimH);
+      if (lN > 0 && lN !== parseFloat(item.dimensionsL)) delta.dimensionsL = lN;
+      if (wN > 0 && wN !== parseFloat(item.dimensionsW)) delta.dimensionsW = wN;
+      if (hN > 0 && hN !== parseFloat(item.dimensionsH)) delta.dimensionsH = hN;
+    }
+    if (Object.keys(delta).length > 0) onStageEdit(delta);
+    setFieldEditing(false);
+  };
+
+  const revertFieldEdit = () => {
+    onClearEdit();
+    setFieldEditing(false);
   };
 
   return (
-    <div className="p-3 rounded-lg bg-gray-50">
+    <div className={`p-3 rounded-lg ${isPendingDelete ? 'bg-red-50' : 'bg-gray-50'}`}>
       <div className="flex items-start gap-4">
         {item.photos?.length > 0 && (
-          <img src={item.photos[0].data} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+          <img src={item.photos[0].data} alt="" className={`w-16 h-16 rounded-lg object-cover shrink-0 ${isPendingDelete ? 'opacity-50' : ''}`} />
         )}
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900">
+          <p className={`font-medium text-gray-900 ${isPendingDelete ? 'line-through opacity-60' : ''}`}>
             {item.catalogName || item.description || 'Custom Item'}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className={`text-xs text-gray-500 ${isPendingDelete ? 'line-through opacity-60' : ''}`}>
             {item.type === 'custom' && item.dimensionsL
               ? `${item.dimensionsL}" × ${item.dimensionsW}" × ${item.dimensionsH}"`
               : item.type}
@@ -1019,7 +1089,7 @@ function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove, 
             {' · '}@ {fmt(item.basePrice)}
           </p>
         </div>
-        <div className="text-right shrink-0">
+        <div className={`text-right shrink-0 ${isPendingDelete ? 'line-through opacity-60' : ''}`}>
           {hasDiscount && (
             <p className="text-[11px] text-gray-400 line-through tabular-nums">{fmt(preDiscount)}</p>
           )}
@@ -1030,98 +1100,140 @@ function LineItemRow({ item, onStage, onClearDraft, locked, hasDraft, onRemove, 
         </div>
       </div>
 
+      {/* New (unsaved) item: simplified action row */}
       {isNew ? (
         <div className="mt-2 flex items-center gap-3">
           <span className="text-[10px] font-semibold text-[#10B981] uppercase tracking-wide">· new (unsaved)</span>
           {onCancelPending && (
-            <button
-              type="button"
-              onClick={onCancelPending}
-              className="text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]"
-            >
+            <button type="button" onClick={onCancelPending} className="text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]">
               Cancel add
             </button>
           )}
         </div>
-      ) : !editing ? (
+      ) : isPendingDelete ? (
         <div className="mt-2 flex items-center gap-3">
+          <span className="text-[10px] font-semibold text-[#EF4444] uppercase tracking-wide">· will be removed</span>
+          {onUndoDelete && (
+            <button type="button" onClick={onUndoDelete} className="text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5]">
+              Undo
+            </button>
+          )}
+        </div>
+      ) : !discEditing && !fieldEditing ? (
+        <div className="mt-2 flex items-center gap-3 flex-wrap">
           <button
             type="button"
             disabled={locked}
-            onClick={() => setEditing(true)}
+            onClick={() => setFieldEditing(true)}
+            className="text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Edit item
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => setDiscEditing(true)}
             className="text-[11px] font-semibold text-[#6366F1] hover:text-[#4F46E5] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {hasDiscount ? 'Edit discount' : 'Add discount'}
           </button>
           {onRemove && (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]"
-            >
+            <button type="button" onClick={onRemove} className="text-[11px] font-semibold text-[#EF4444] hover:text-[#DC2626]">
               Remove
             </button>
           )}
+          {hasEditDraft && (
+            <>
+              <span className="text-[10px] font-semibold text-[#F59E0B] uppercase tracking-wide">· edited (unsaved)</span>
+              <button type="button" onClick={revertFieldEdit} className="text-[11px] text-[#9CA3C0] hover:text-[#1A1D2B]">
+                Revert
+              </button>
+            </>
+          )}
           {hasDraft && (
             <>
-              <span className="text-[10px] font-semibold text-[#F59E0B] uppercase tracking-wide">· unsaved</span>
-              <button
-                type="button"
-                onClick={revert}
-                className="text-[11px] text-[#9CA3C0] hover:text-[#1A1D2B]"
-              >
+              <span className="text-[10px] font-semibold text-[#F59E0B] uppercase tracking-wide">· discount unsaved</span>
+              <button type="button" onClick={revertDisc} className="text-[11px] text-[#9CA3C0] hover:text-[#1A1D2B]">
                 Revert
               </button>
             </>
           )}
         </div>
+      ) : fieldEditing ? (
+        <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+              Quantity
+              <input type="number" min="1" value={editQty} onChange={(e) => setEditQty(e.target.value)}
+                className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none tabular-nums normal-case font-normal text-gray-900" />
+            </label>
+            <label className="text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+              Unit price ($)
+              <input type="number" min="0" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+                className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none tabular-nums normal-case font-normal text-gray-900" />
+            </label>
+          </div>
+          <label className="block text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+            Description
+            <input type="text" value={editDesc} onChange={(e) => setEditDesc(e.target.value)}
+              className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none normal-case font-normal text-gray-900" />
+          </label>
+          {isCustom && (
+            <div className="grid grid-cols-3 gap-2">
+              <label className="text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+                Length (in)
+                <input type="number" min="0" step="0.01" value={editDimL} onChange={(e) => setEditDimL(e.target.value)}
+                  className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] tabular-nums normal-case font-normal text-gray-900" />
+              </label>
+              <label className="text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+                Width (in)
+                <input type="number" min="0" step="0.01" value={editDimW} onChange={(e) => setEditDimW(e.target.value)}
+                  className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] tabular-nums normal-case font-normal text-gray-900" />
+              </label>
+              <label className="text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+                Height (in)
+                <input type="number" min="0" step="0.01" value={editDimH} onChange={(e) => setEditDimH(e.target.value)}
+                  className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] tabular-nums normal-case font-normal text-gray-900" />
+              </label>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button type="button" onClick={applyFieldEdit}
+              className="h-8 px-3 rounded-[8px] bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5]">
+              Apply
+            </button>
+            <button type="button" onClick={() => setFieldEditing(false)}
+              className="h-8 px-3 rounded-[8px] text-[#9CA3C0] text-[12px] font-medium hover:text-[#1A1D2B]">
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none"
-          >
+          <select value={type} onChange={(e) => setType(e.target.value)}
+            className="h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none">
             <option value="none">No discount</option>
             <option value="percentage">% off</option>
             <option value="fixed">$ off</option>
           </select>
           {type !== 'none' && (
-            <input
-              type="number"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              min="0"
-              step="0.01"
+            <input type="number" value={value} onChange={(e) => setValue(e.target.value)} min="0" step="0.01"
               className="h-8 w-24 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none tabular-nums"
-              placeholder={type === 'percentage' ? '%' : '$'}
-            />
+              placeholder={type === 'percentage' ? '%' : '$'} />
           )}
-          <button
-            type="button"
-            onClick={stage}
-            className="h-8 px-3 rounded-[8px] bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5]"
-          >
+          <button type="button" onClick={stageDisc}
+            className="h-8 px-3 rounded-[8px] bg-[#6366F1] text-white text-[12px] font-semibold hover:bg-[#4F46E5]">
             Apply
           </button>
           {hasDiscount && (
-            <button
-              type="button"
-              onClick={clear}
-              className="h-8 px-3 rounded-[8px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-medium hover:bg-[#E9EBF2]"
-            >
+            <button type="button" onClick={clearDisc}
+              className="h-8 px-3 rounded-[8px] bg-[#F4F6FA] text-[#6B7194] text-[12px] font-medium hover:bg-[#E9EBF2]">
               Clear
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(false);
-              setType(item._dt || 'none');
-              setValue(item._dv != null ? String(item._dv) : '0');
-            }}
-            className="h-8 px-3 rounded-[8px] text-[#9CA3C0] text-[12px] font-medium hover:text-[#1A1D2B]"
-          >
+          <button type="button"
+            onClick={() => { setDiscEditing(false); setType(item._dt || 'none'); setValue(item._dv != null ? String(item._dv) : '0'); }}
+            className="h-8 px-3 rounded-[8px] text-[#9CA3C0] text-[12px] font-medium hover:text-[#1A1D2B]">
             Cancel
           </button>
         </div>
