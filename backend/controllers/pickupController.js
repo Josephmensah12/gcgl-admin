@@ -411,6 +411,65 @@ exports.addLineItem = asyncHandler(async (req, res) => {
 });
 
 /**
+ * PATCH /api/v1/pickups/:id/items/:itemId
+ * Update an existing line item's quantity / unit price / description / dimensions.
+ * Discount fields are NOT updated here — use the dedicated discount endpoint.
+ */
+exports.updateLineItem = asyncHandler(async (req, res) => {
+  const invoice = await db.Invoice.findByPk(req.params.id);
+  if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
+  assertEditable(invoice);
+
+  const item = await db.LineItem.findOne({
+    where: { id: req.params.itemId, invoiceId: invoice.id },
+  });
+  if (!item) throw new AppError('Line item not found on this invoice', 404, 'NOT_FOUND');
+
+  const { quantity, base_price, description, dimensions } = req.body;
+
+  if (quantity !== undefined) {
+    const qty = parseInt(quantity);
+    if (!(qty >= 1)) throw new AppError('quantity must be >= 1', 400, 'VALIDATION_ERROR');
+    item.quantity = qty;
+  }
+
+  if (base_price !== undefined) {
+    const price = parseFloat(base_price);
+    if (!(price >= 0)) throw new AppError('base_price must be >= 0', 400, 'VALIDATION_ERROR');
+    item.basePrice = price;
+  }
+
+  if (description !== undefined) {
+    item.description = description ? String(description).trim() : null;
+  }
+
+  if (dimensions !== undefined) {
+    if (item.type !== 'custom') {
+      throw new AppError('dimensions can only be set on custom items', 400, 'INVALID_FIELD');
+    }
+    const l = parseFloat(dimensions.length);
+    const w = parseFloat(dimensions.width);
+    const h = parseFloat(dimensions.height);
+    if (!(l > 0 && w > 0 && h > 0)) throw new AppError('dimensions must be positive numbers', 400, 'VALIDATION_ERROR');
+    item.dimensionsL = l;
+    item.dimensionsW = w;
+    item.dimensionsH = h;
+  }
+
+  await item.save(); // beforeSave hook recomputes finalPrice from qty * basePrice
+  invoice.lastEditedAt = new Date();
+  await invoice.recalculateTotals(); // implicitly saves lastEditedAt
+
+  const fresh = await db.Invoice.findByPk(invoice.id, {
+    include: [
+      { model: db.LineItem, as: 'lineItems', include: [{ model: db.Photo, as: 'photos', attributes: ['id', 'data', 'sortOrder'] }] },
+      { model: db.Shipment },
+    ],
+  });
+  res.json({ success: true, data: fresh });
+});
+
+/**
  * POST /api/v1/pickups/:id/cancel
  * Cancel an invoice. Voids all active payments, unassigns from shipment,
  * and sets status to 'cancelled'.
