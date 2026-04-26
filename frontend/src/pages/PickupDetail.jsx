@@ -39,13 +39,24 @@ export default function PickupDetail() {
   // draftLineDiscounts: { [lineItemId]: { discount_type, discount_value } }
   const [draftInvoiceDiscount, setDraftInvoiceDiscount] = useState(null);
   const [draftLineDiscounts, setDraftLineDiscounts] = useState({});
+  const [draftLineEdits, setDraftLineEdits] = useState({});      // { [lineId]: { quantity?, basePrice?, description?, dimensionsL?, dimensionsW?, dimensionsH? } }
+  const [draftLineDeletes, setDraftLineDeletes] = useState(new Set());
+  const [draftLineAdds, setDraftLineAdds] = useState([]);         // array of items shaped like LineItemPicker output
   const [savingDrafts, setSavingDrafts] = useState(false);
 
-  const isDirty = draftInvoiceDiscount !== null || Object.keys(draftLineDiscounts).length > 0;
+  const isDirty =
+    draftInvoiceDiscount !== null ||
+    Object.keys(draftLineDiscounts).length > 0 ||
+    Object.keys(draftLineEdits).length > 0 ||
+    draftLineDeletes.size > 0 ||
+    draftLineAdds.length > 0;
 
   const discardDrafts = () => {
     setDraftInvoiceDiscount(null);
     setDraftLineDiscounts({});
+    setDraftLineEdits({});
+    setDraftLineDeletes(new Set());
+    setDraftLineAdds([]);
   };
 
   const saveDrafts = async () => {
@@ -255,9 +266,15 @@ export default function PickupDetail() {
             <div className="min-w-0">
               <p className="text-[13.5px] font-semibold">Unsaved changes</p>
               <p className="text-[11.5px] text-white/75">
-                {Object.keys(draftLineDiscounts).length > 0 && `${Object.keys(draftLineDiscounts).length} line discount${Object.keys(draftLineDiscounts).length === 1 ? '' : 's'}`}
-                {Object.keys(draftLineDiscounts).length > 0 && draftInvoiceDiscount && ' · '}
-                {draftInvoiceDiscount && 'invoice discount'}
+                {(() => {
+                  const parts = [];
+                  if (Object.keys(draftLineEdits).length > 0) parts.push(`${Object.keys(draftLineEdits).length} edit${Object.keys(draftLineEdits).length === 1 ? '' : 's'}`);
+                  if (draftLineDeletes.size > 0) parts.push(`${draftLineDeletes.size} removal${draftLineDeletes.size === 1 ? '' : 's'}`);
+                  if (draftLineAdds.length > 0) parts.push(`${draftLineAdds.length} new item${draftLineAdds.length === 1 ? '' : 's'}`);
+                  if (Object.keys(draftLineDiscounts).length > 0) parts.push(`${Object.keys(draftLineDiscounts).length} line discount${Object.keys(draftLineDiscounts).length === 1 ? '' : 's'}`);
+                  if (draftInvoiceDiscount) parts.push('invoice discount');
+                  return parts.join(' · ');
+                })()}
               </p>
             </div>
           </div>
