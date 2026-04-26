@@ -572,6 +572,7 @@ exports.updateInvoiceDiscount = asyncHandler(async (req, res) => {
 
   invoice.discountType = discountType;
   invoice.discountValue = discountType === 'none' ? 0 : discountValue;
+  invoice.lastEditedAt = new Date();
   await invoice.recalculateTotals();
 
   // Return the invoice with its lineItems so the UI can refresh totals
@@ -615,6 +616,7 @@ exports.updateLineItemDiscount = asyncHandler(async (req, res) => {
   item.discountValue = discountType === 'none' ? 0 : discountValue;
   await item.save(); // triggers calculateTotals via beforeSave
 
+  invoice.lastEditedAt = new Date();
   await invoice.recalculateTotals();
 
   const fresh = await db.Invoice.findByPk(invoice.id, {
