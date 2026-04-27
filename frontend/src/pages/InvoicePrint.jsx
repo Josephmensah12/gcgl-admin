@@ -179,6 +179,30 @@ export default function InvoicePrint() {
   const [invoice, setInvoice] = useState(null);
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const downloadPdf = async () => {
+    if (downloadingPdf) return;
+    setDownloadingPdf(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const sheet = document.querySelector('.packing-sheet');
+      if (!sheet) return;
+      await html2pdf()
+        .from(sheet)
+        .set({
+          filename: `Invoice-${invoice.invoiceNumber}.pdf`,
+          margin: [10, 10, 10, 10],
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'] },
+        })
+        .save();
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -214,9 +238,11 @@ export default function InvoicePrint() {
         <Link to={`/pickups/${id}`} className="packing-toolbar-back">← Back to invoice</Link>
         <div className="packing-toolbar-meta">
           <span className="packing-toolbar-title">Invoice #{invoice.invoiceNumber}</span>
-          <span className="packing-toolbar-count">Browser print dialog → destination "Save as PDF" for download</span>
         </div>
-        <button onClick={() => window.print()} className="packing-toolbar-print">Print / PDF</button>
+        <button onClick={downloadPdf} disabled={downloadingPdf} className="packing-toolbar-print" style={{ marginRight: 8 }}>
+          {downloadingPdf ? 'Generating…' : 'Download PDF'}
+        </button>
+        <button onClick={() => window.print()} className="packing-toolbar-print">Print</button>
       </div>
       <InvoiceSheet invoice={invoice} company={company} />
     </div>
