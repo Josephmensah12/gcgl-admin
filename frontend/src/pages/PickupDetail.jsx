@@ -120,6 +120,7 @@ export default function PickupDetail() {
         if (delta.quantity !== undefined) payload.quantity = delta.quantity;
         if (delta.basePrice !== undefined) payload.base_price = delta.basePrice;
         if (delta.description !== undefined) payload.description = delta.description;
+        if (delta.notes !== undefined) payload.notes = delta.notes;
         if (delta.dimensionsL !== undefined || delta.dimensionsW !== undefined || delta.dimensionsH !== undefined) {
           payload.dimensions = {
             length: delta.dimensionsL,
@@ -142,6 +143,7 @@ export default function PickupDetail() {
         const payload = {
           type: item.type,
           description: item.description,
+          notes: item.notes,
           quantity: item.quantity,
           base_price: item.base_price,
           catalogItemId: item.catalogItemId,
@@ -202,6 +204,7 @@ export default function PickupDetail() {
           quantity: edit.quantity !== undefined ? edit.quantity : li.quantity,
           basePrice: edit.basePrice !== undefined ? edit.basePrice : li.basePrice,
           description: edit.description !== undefined ? edit.description : li.description,
+          notes: edit.notes !== undefined ? edit.notes : li.notes,
           dimensionsL: edit.dimensionsL !== undefined ? edit.dimensionsL : li.dimensionsL,
           dimensionsW: edit.dimensionsW !== undefined ? edit.dimensionsW : li.dimensionsW,
           dimensionsH: edit.dimensionsH !== undefined ? edit.dimensionsH : li.dimensionsH,
@@ -228,6 +231,7 @@ export default function PickupDetail() {
         type: it.type,
         catalogName: it.catalogName,
         description: it.description,
+        notes: it.notes,
         quantity: qty,
         basePrice: unit,
         dimensionsL: it.dimensions?.length ?? null,
@@ -1078,10 +1082,11 @@ function LineItemRow({
   const [type, setType] = useState(item._dt || 'none');
   const [value, setValue] = useState(item._dv != null ? String(item._dv) : '0');
 
-  // Inline-edit local state for qty / price / description / dimensions
+  // Inline-edit local state for qty / price / description / notes / dimensions
   const [editQty, setEditQty] = useState(String(item.quantity ?? 1));
   const [editPrice, setEditPrice] = useState(String(item.basePrice ?? 0));
   const [editDesc, setEditDesc] = useState(item.description ?? '');
+  const [editNotes, setEditNotes] = useState(item.notes ?? '');
   const [editDimL, setEditDimL] = useState(item.dimensionsL != null ? String(item.dimensionsL) : '');
   const [editDimW, setEditDimW] = useState(item.dimensionsW != null ? String(item.dimensionsW) : '');
   const [editDimH, setEditDimH] = useState(item.dimensionsH != null ? String(item.dimensionsH) : '');
@@ -1095,10 +1100,11 @@ function LineItemRow({
     setEditQty(String(item.quantity ?? 1));
     setEditPrice(String(item.basePrice ?? 0));
     setEditDesc(item.description ?? '');
+    setEditNotes(item.notes ?? '');
     setEditDimL(item.dimensionsL != null ? String(item.dimensionsL) : '');
     setEditDimW(item.dimensionsW != null ? String(item.dimensionsW) : '');
     setEditDimH(item.dimensionsH != null ? String(item.dimensionsH) : '');
-  }, [item.quantity, item.basePrice, item.description, item.dimensionsL, item.dimensionsW, item.dimensionsH]);
+  }, [item.quantity, item.basePrice, item.description, item.notes, item.dimensionsL, item.dimensionsW, item.dimensionsH]);
 
   const fmt = (n) => `$${(parseFloat(n) || 0).toFixed(2)}`;
   const preDiscount = item._pre || 0;
@@ -1131,6 +1137,7 @@ function LineItemRow({
     if (qtyN >= 1 && qtyN !== item.quantity) delta.quantity = qtyN;
     if (priceN >= 0 && priceN !== parseFloat(item.basePrice)) delta.basePrice = priceN;
     if (editDesc !== (item.description ?? '')) delta.description = editDesc;
+    if (editNotes !== (item.notes ?? '')) delta.notes = editNotes;
     if (isCustom) {
       const lN = parseFloat(editDimL);
       const wN = parseFloat(editDimW);
@@ -1165,6 +1172,11 @@ function LineItemRow({
             {' · '}Qty: {item.quantity}
             {' · '}@ {fmt(item.basePrice)}
           </p>
+          {item.notes && (
+            <p className={`text-xs italic text-gray-600 mt-1 ${isPendingDelete ? 'line-through opacity-60' : ''}`}>
+              {item.notes}
+            </p>
+          )}
         </div>
         <div className={`text-right shrink-0 ${isPendingDelete ? 'line-through opacity-60' : ''}`}>
           {hasDiscount && (
@@ -1254,6 +1266,12 @@ function LineItemRow({
             Description
             <input type="text" value={editDesc} onChange={(e) => setEditDesc(e.target.value)}
               className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none normal-case font-normal text-gray-900" />
+          </label>
+          <label className="block text-[11px] font-semibold text-[#9CA3C0] uppercase tracking-wide">
+            Comment <span className="text-[#9CA3C0] normal-case font-normal">(optional)</span>
+            <input type="text" value={editNotes} onChange={(e) => setEditNotes(e.target.value)}
+              placeholder="e.g. Barbie doll, fragile, blue model"
+              className="w-full mt-1 h-8 px-2 rounded-[8px] border border-black/[0.06] bg-white text-[12px] text-[#1A1D2B] focus:border-[#6366F1] outline-none normal-case font-normal text-gray-900 placeholder:text-[#9CA3C0]" />
           </label>
           {isCustom && (
             <div className="grid grid-cols-3 gap-2">

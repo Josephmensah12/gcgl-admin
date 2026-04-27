@@ -90,7 +90,14 @@ export function PackingListSheet({ invoice, shipmentName, company }) {
             return (
               <tr key={li.id || idx}>
                 <td>{idx + 1}</td>
-                <td>{li.catalogName || li.description || 'Custom Item'}</td>
+                <td>
+                  {li.catalogName || li.description || 'Custom Item'}
+                  {li.notes && (
+                    <div style={{ fontSize: '0.85em', fontStyle: 'italic', color: '#6B7194', marginTop: 2 }}>
+                      {li.notes}
+                    </div>
+                  )}
+                </td>
                 <td>{dims}</td>
                 <td style={{ textAlign: 'center', fontWeight: 700 }}>{li.quantity}</td>
                 <td className="ps-check-cell">&nbsp;</td>

@@ -139,7 +139,8 @@ export default function CreateInvoice() {
         lineItems: lineItems.map((li) => ({
           id: li.id, type: li.type, catalogItemId: li.catalogItemId,
           catalogName: li.catalogName,
-          description: [li.description, li.notes].filter(Boolean).join(' — '),
+          description: li.description || null,
+          notes: li.notes || null,
           quantity: li.quantity, basePrice: li.basePrice, finalPrice: li.finalPrice,
           dimensions: li.dimensions, discount: null,
           photos: li.photos || [],
@@ -305,6 +306,7 @@ export default function CreateInvoice() {
                   catalogItemId: item.catalogItemId || null,
                   catalogName: item.catalogName || null,
                   description: item.description || '',
+                  notes: item.notes || '',
                   quantity: item.quantity,
                   basePrice: item.base_price,
                   finalPrice: item.base_price,

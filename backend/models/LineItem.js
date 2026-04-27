@@ -8,6 +8,7 @@ module.exports = (sequelize) => {
     catalogItemId: DataTypes.STRING,
     catalogName: DataTypes.STRING,
     description: DataTypes.TEXT,
+    notes: DataTypes.TEXT, // optional per-item comment ("blue model", "fragile", etc.)
     quantity: { type: DataTypes.INTEGER, defaultValue: 1 },
     basePrice: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
     // Discount inputs

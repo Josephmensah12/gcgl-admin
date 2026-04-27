@@ -30,6 +30,7 @@ async function start() {
     await safeAlter('ALTER TABLE shipments ADD COLUMN fixed_cost_notes TEXT');
     await safeAlter('ALTER TABLE expense_categories ADD COLUMN is_fixed_cost BOOLEAN DEFAULT false');
     await safeAlter('ALTER TABLE imported_transactions ADD COLUMN is_fixed_cost BOOLEAN DEFAULT false');
+    await safeAlter('ALTER TABLE line_items ADD COLUMN notes TEXT');
 
     await seedAdmin();
     await seedExpenseCategories();

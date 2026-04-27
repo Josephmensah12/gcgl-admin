@@ -106,6 +106,7 @@ exports.createInvoice = asyncHandler(async (req, res) => {
         catalogItemId: itemData.catalogItemId || null,
         catalogName: itemData.catalogName || null,
         description: itemData.description || null,
+        notes: itemData.notes ? String(itemData.notes).trim() || null : null,
         quantity: itemData.quantity || 1,
         basePrice: itemData.basePrice,
         discountType: discount?.type || null,

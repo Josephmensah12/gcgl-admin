@@ -320,7 +320,7 @@ exports.addLineItem = asyncHandler(async (req, res) => {
   if (!invoice) throw new AppError('Invoice not found', 404, 'NOT_FOUND');
   assertEditable(invoice);
 
-  const { type = 'service', description, quantity, base_price, catalogItemId, catalogName, dimensions, photos } = req.body;
+  const { type = 'service', description, notes, quantity, base_price, catalogItemId, catalogName, dimensions, photos } = req.body;
 
   if (!['service', 'fixed', 'custom', 'manual'].includes(type)) {
     throw new AppError("type must be one of 'service', 'fixed', 'custom', 'manual'", 400, 'INVALID_TYPE');
@@ -372,6 +372,7 @@ exports.addLineItem = asyncHandler(async (req, res) => {
       catalogItemId: type === 'fixed' ? catalogItemId : null,
       catalogName: resolvedCatalogName,
       description: resolvedDescription,
+      notes: notes ? String(notes).trim() || null : null,
       quantity: qty,
       basePrice: price,
       discountType: 'none',
@@ -425,7 +426,7 @@ exports.updateLineItem = asyncHandler(async (req, res) => {
   });
   if (!item) throw new AppError('Line item not found on this invoice', 404, 'NOT_FOUND');
 
-  const { quantity, base_price, description, dimensions } = req.body;
+  const { quantity, base_price, description, notes, dimensions } = req.body;
 
   if (quantity !== undefined) {
     const qty = parseInt(quantity);
@@ -441,6 +442,10 @@ exports.updateLineItem = asyncHandler(async (req, res) => {
 
   if (description !== undefined) {
     item.description = description ? String(description).trim() : null;
+  }
+
+  if (notes !== undefined) {
+    item.notes = notes ? String(notes).trim() || null : null;
   }
 
   if (dimensions !== undefined) {

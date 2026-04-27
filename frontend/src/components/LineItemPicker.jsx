@@ -27,6 +27,7 @@ export default function LineItemPicker({ onAdd }) {
   const [customForm, setCustomForm] = useState({ length: '', width: '', height: '', quantity: '1', description: '' });
   const [manualForm, setManualForm] = useState({ description: '', price: '', quantity: '1' });
   const [photos, setPhotos] = useState([]); // staged photos for the next add
+  const [notesDraft, setNotesDraft] = useState(''); // optional comment applied to the next add
   const [flash, setFlash] = useState('');
 
   useEffect(() => {
@@ -59,12 +60,19 @@ export default function LineItemPicker({ onAdd }) {
 
   const removePhoto = (idx) => setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
+  const consumeNotes = () => {
+    const n = notesDraft.trim();
+    setNotesDraft('');
+    return n || null;
+  };
+
   const handleAddCatalog = (catItem) => {
     onAdd({
       type: 'fixed',
       catalogItemId: catItem.id,
       catalogName: catItem.name,
       description: catItem.description || null,
+      notes: consumeNotes(),
       quantity: 1,
       base_price: parseFloat(catItem.price),
       photos: [...photos],
@@ -83,6 +91,7 @@ export default function LineItemPicker({ onAdd }) {
     onAdd({
       type: 'custom',
       description: customForm.description || `${l}×${w}×${h}"`,
+      notes: consumeNotes(),
       quantity: qty,
       base_price: price,
       dimensions: { length: l, width: w, height: h },
@@ -100,6 +109,7 @@ export default function LineItemPicker({ onAdd }) {
     onAdd({
       type: 'manual',
       description: manualForm.description.trim(),
+      notes: consumeNotes(),
       quantity: qty,
       base_price: price,
       photos: [...photos],
@@ -159,6 +169,20 @@ export default function LineItemPicker({ onAdd }) {
             />
           </label>
         )}
+      </div>
+
+      {/* Optional comment — describes contents inside the box, etc. */}
+      <div>
+        <label className="block text-[11px] text-gray-500 font-medium mb-1">
+          Comment for next item <span className="text-gray-400">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={notesDraft}
+          onChange={(e) => setNotesDraft(e.target.value)}
+          placeholder="e.g. Barbie doll, fragile, blue model"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400"
+        />
       </div>
 
       {itemType === 'fixed' && (
