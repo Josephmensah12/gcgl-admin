@@ -6,17 +6,18 @@ import 'maplibre-gl/dist/maplibre-gl.css';
  * Real-geography vessel tracker for the Dashboard.
  *
  * Uses MapLibre GL with the OpenFreeMap "Positron" (light) / "Dark" vector
- * styles — free, no API key. Plots Houston, Freeport, Tema as fixed port
- * markers, draws a 3-segment great-circle route, and places the vessel along
- * that route at `transitPercent`. The vessel dot is the only interactive
- * element — click navigates, hover shows a popup with shipment name,
- * shipping line, and transit %.
+ * styles — free, no API key. Plots Houston and Tema as fixed port markers,
+ * draws a great-circle route, and places the vessel along that route at
+ * `transitPercent`. Two clickable elements: the vessel dot (en-route shipment)
+ * and the Houston dot (loading shipment, when `onCollectingClick` is set).
  *
  * Props:
- *   transitPercent  — 0..100, derived from ETA / departure
- *   arrived         — boolean, render destination as green
- *   vesselInfo      — { name, carrier } shown in the hover popup
- *   onVesselClick   — fires when the user clicks the vessel dot
+ *   transitPercent     — 0..100, derived from ETA / departure
+ *   arrived            — boolean, render destination as green
+ *   vesselInfo         — { name, carrier } shown in the vessel hover popup
+ *   onVesselClick      — fires when the user clicks the vessel dot
+ *   onCollectingClick  — fires when the user clicks the Houston dot. When null,
+ *                        the dot stays static (no cursor, no click handler).
  */
 
 // Real port coordinates [lng, lat]
@@ -98,6 +99,7 @@ export default function VesselMap({
   arrived = false,
   vesselInfo,
   onVesselClick,
+  onCollectingClick,
   className = '',
 }) {
   const containerRef = useRef(null);
@@ -105,9 +107,11 @@ export default function VesselMap({
   const vesselElRef = useRef(null);
   const popupRef = useRef(null);
   const onVesselClickRef = useRef(onVesselClick);
+  const onCollectingClickRef = useRef(onCollectingClick);
   const vesselInfoRef = useRef(vesselInfo);
   // Keep refs current so the marker's event listeners always see the latest props
   onVesselClickRef.current = onVesselClick;
+  onCollectingClickRef.current = onCollectingClick;
   vesselInfoRef.current = vesselInfo;
 
   const f = arrived ? 1 : Math.min(Math.max(transitPercent / 100, 0), 1);
@@ -176,19 +180,29 @@ export default function VesselMap({
         },
       });
 
-      // Port markers (DOM-based for crisp typography)
+      // Port markers (DOM-based for crisp typography). The Houston dot is
+      // clickable when onCollectingClick is provided — it represents the
+      // shipment currently loading at Houston.
       PORTS.forEach((p, i) => {
         const isStart = i === 0;
         const isEnd = i === PORTS.length - 1;
+        const isClickable = isStart && !!onCollectingClickRef.current;
         const el = document.createElement('div');
-        el.className = 'gc-port-marker';
+        el.className = isClickable ? 'gc-port-marker gc-port-clickable' : 'gc-port-marker';
+        if (isClickable) {
+          el.setAttribute('role', 'button');
+          el.setAttribute('aria-label', 'View loading shipment');
+          el.tabIndex = 0;
+          el.style.cursor = 'pointer';
+        }
         el.innerHTML = `
-          <div style="
+          <div class="gc-port-dot" style="
             width: 11px; height: 11px; border-radius: 50%;
             background: ${isStart ? '#F59E0B' : isEnd ? '#10B981' : '#6366F1'};
             border: 2px solid #fff;
             box-shadow: 0 0 0 2px ${isStart ? '#F59E0B' : isEnd ? '#10B981' : '#6366F1'}33,
                         0 1px 4px rgba(15, 22, 41, 0.3);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
           "></div>
           <div style="
             position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
@@ -201,6 +215,18 @@ export default function VesselMap({
             letter-spacing: 0.02em;
           ">${p.label}</div>
         `;
+        if (isClickable) {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onCollectingClickRef.current?.();
+          });
+          el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onCollectingClickRef.current?.();
+            }
+          });
+        }
         new maplibregl.Marker({ element: el, anchor: 'center' })
           .setLngLat(p.coords)
           .addTo(map);
@@ -372,11 +398,18 @@ export default function VesselMap({
         }
         html.dark .gc-vessel-popup .maplibregl-popup-content > div > div { color: #c8ccd4; }
         html.dark .gc-vessel-popup .maplibregl-popup-tip { border-top-color: #1a1a2e; }
-        /* Hover state on the dot */
+        /* Hover state on the vessel dot */
         [role="button"][aria-label="View shipment"]:hover .gc-vessel-core,
         [role="button"][aria-label="View shipment"]:focus-visible .gc-vessel-core {
           transform: scale(1.18);
           box-shadow: 0 4px 14px rgba(99, 102, 241, 0.65);
+        }
+        /* Hover state on the clickable Houston port dot */
+        .gc-port-clickable:hover .gc-port-dot,
+        .gc-port-clickable:focus-visible .gc-port-dot {
+          transform: scale(1.25);
+          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35),
+                      0 4px 12px rgba(245, 158, 11, 0.55);
         }
       `}</style>
     </div>

@@ -127,6 +127,7 @@ function ShipmentTrackerTile({ shipments }) {
               transitPercent: pct,
             }}
             onVesselClick={() => navigate(`/shipments/${primary.id}`)}
+            onCollectingClick={collecting[0] ? () => navigate(`/shipments/${collecting[0].id}`) : null}
             className="absolute inset-0"
           />
         </Suspense>
