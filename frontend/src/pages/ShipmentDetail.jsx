@@ -1251,6 +1251,21 @@ function TrackingCard({ shipment, onUpdated }) {
     return '📍';
   };
 
+  // Carriers (Shipsgo) keep stale future-dated ETA rows in their event stream
+  // even after the actual events land. Hide an estimated event if a confirmed
+  // event with the same (eventType, location) pair already exists.
+  const now = Date.now();
+  const confirmedKeys = new Set(
+    events
+      .filter((e) => new Date(e.eventDate).getTime() <= now)
+      .map((e) => `${e.eventType}|${(e.location || '').toLowerCase()}`)
+  );
+  const visibleEvents = events.filter((e) => {
+    const isFuture = new Date(e.eventDate).getTime() > now;
+    if (!isFuture) return true;
+    return !confirmedKeys.has(`${e.eventType}|${(e.location || '').toLowerCase()}`);
+  });
+
   return (
     <div className="gc-card p-6">
       <div className="flex items-center justify-between mb-4">
@@ -1463,12 +1478,12 @@ function TrackingCard({ shipment, onUpdated }) {
                   Tracking Events
                 </span>
                 <span className="text-[10.5px] font-medium text-[#9CA3C0]">
-                  ({events.filter(e => new Date(e.eventDate) <= new Date()).length} confirmed, {events.filter(e => new Date(e.eventDate) > new Date()).length} estimated)
+                  ({visibleEvents.filter(e => new Date(e.eventDate) <= new Date()).length} confirmed, {visibleEvents.filter(e => new Date(e.eventDate) > new Date()).length} estimated)
                 </span>
               </button>
               {timelineOpen && (
                 <div className="relative pl-6 border-l-2 border-[#EEF0F6] space-y-4">
-                  {events.map((ev) => {
+                  {visibleEvents.map((ev) => {
                     const isFuture = new Date(ev.eventDate) > new Date();
                     return (
                       <div key={ev.id} className={`relative ${isFuture ? 'opacity-40' : ''}`}>
