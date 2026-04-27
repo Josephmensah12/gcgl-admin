@@ -24,6 +24,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 const HOUSTON = [-95.0, 29.7];   // Port of Houston
 const TEMA    = [-0.02, 5.62];   // Port of Tema, Ghana
 
+// Mid-Atlantic waypoint — keeps the rendered route in the Gulf/Caribbean/Atlantic
+// instead of cutting through West African landmass (Senegal/Liberia). Not a
+// real shipping waypoint, just a visual control point so the path looks like a
+// realistic ocean crossing.
+const MID_ATLANTIC = [-25.0, 5.0];
+
 const PORTS = [
   { id: 'houston', coords: HOUSTON, label: 'Houston', sub: 'USA' },
   { id: 'tema',    coords: TEMA,    label: 'Tema',    sub: 'Ghana' },
@@ -63,9 +69,14 @@ function greatCirclePoints(a, b, segments = 64) {
   return points;
 }
 
-// Single great-circle Houston → Tema. We pre-densify once at module scope
-// so position lookups are O(1) interpolation along the dense polyline.
-const ROUTE = greatCirclePoints(HOUSTON, TEMA, 96);
+// Two-segment route: Houston → mid-Atlantic → Tema. The mid-Atlantic
+// waypoint pulls the second leg south of West Africa so the polyline doesn't
+// cross land. We pre-densify once at module scope so position lookups are O(1)
+// interpolation along the dense polyline.
+const ROUTE = [
+  ...greatCirclePoints(HOUSTON, MID_ATLANTIC, 64),
+  ...greatCirclePoints(MID_ATLANTIC, TEMA, 32).slice(1), // dedupe shared waypoint
+];
 
 function positionAt(f) {
   return interpolateAlong(ROUTE, f);
