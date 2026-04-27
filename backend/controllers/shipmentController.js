@@ -34,7 +34,7 @@ async function computeShipmentValues(shipmentIds) {
 }
 
 exports.list = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, status = '', search = '', sortBy = 'start_date', sortOrder = 'ASC' } = req.query;
+  const { page = 1, limit = 20, status = '', search = '', sortBy = 'start_date', sortOrder = 'DESC' } = req.query;
 
   const where = {};
   if (status) {
